@@ -1558,27 +1558,18 @@ export default function Dashboard({ onGoToLanding }) {
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-[#FBFBFA] dark:bg-[#191919] text-neutral-800 dark:text-neutral-200 transition-colors duration-200">
       {/* Mobile Top Header (Hanya di Layar Kecil / HP) */}
-      <div className="md:hidden flex items-center justify-between px-4 py-3 bg-[#F7F6F3] dark:bg-[#202020] border-b border-neutral-200/80 dark:border-neutral-800 sticky top-0 z-30 shadow-2xs">
+      <div className="md:hidden flex items-center justify-between px-3 py-2.5 bg-[#F7F6F3] dark:bg-[#202020] border-b border-neutral-200/80 dark:border-neutral-800 sticky top-0 z-30 shadow-2xs">
         <div className="flex items-center space-x-2 min-w-0">
-          <span className="text-lg">🪐</span>
-          <span className="font-bold text-sm text-neutral-800 dark:text-neutral-100 truncate">
+          <span className="text-base">🪐</span>
+          <span className="font-semibold text-sm text-neutral-800 dark:text-neutral-100 truncate max-w-[110px]">
             {user?.email?.split('@')[0]}
           </span>
-          <span className="text-[10px] bg-neutral-200/70 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 px-1.5 py-0.5 rounded font-medium shrink-0">
+          <span className="text-[10px] bg-neutral-200/70 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400 px-1.5 py-0.5 rounded font-medium shrink-0">
             {activeTab === 'reminders' ? labels.remindersTab : activeTab === 'todos' ? labels.todosTab : activeTab === 'notes' ? labels.notesTab : activeTab === 'trash' ? labels.trashTab : t('dashboard.allTab')}
           </span>
         </div>
 
         <div className="flex items-center space-x-1.5 shrink-0">
-          {/* Mobile Language Switcher */}
-          <button
-            onClick={toggleLanguage}
-            className="px-2 py-1 text-xs font-bold rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-[#282828] text-neutral-700 dark:text-neutral-200 cursor-pointer transition"
-            title="Ganti Bahasa / Switch Language"
-          >
-            {language.toUpperCase()}
-          </button>
-
           {/* Mobile Theme Toggle */}
           <button
             onClick={toggleTheme}
@@ -1589,15 +1580,8 @@ export default function Dashboard({ onGoToLanding }) {
           </button>
 
           <button
-            onClick={() => setIsSettingsOpen(true)}
-            className="p-1.5 text-neutral-500 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white bg-white dark:bg-[#282828] border border-neutral-200 dark:border-neutral-700 rounded-lg transition cursor-pointer"
-            title={t('settings.title')}
-          >
-            <Settings className="w-4 h-4" />
-          </button>
-          <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="p-1.5 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-[#282828] text-neutral-800 dark:text-neutral-200 flex items-center space-x-1 text-xs font-medium cursor-pointer shadow-2xs"
+            className="p-1.5 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-[#282828] text-neutral-800 dark:text-neutral-200 flex items-center space-x-1.5 text-xs font-medium cursor-pointer shadow-2xs"
           >
             {isMobileMenuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
             <span className="text-xs">{isMobileMenuOpen ? t('common.close') : 'Menu'}</span>
@@ -1796,10 +1780,10 @@ export default function Dashboard({ onGoToLanding }) {
       </aside>
 
       {/* Konten Utama */}
-      <main className="flex-1 max-w-4xl mx-auto w-full p-3.5 sm:p-6 md:p-10 space-y-5 sm:space-y-6 overflow-y-auto">
+      <main className="flex-1 max-w-4xl mx-auto w-full p-3 sm:p-6 md:p-10 space-y-4 sm:space-y-6 overflow-y-auto">
         {/* Search & Header Bar */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="hidden md:block">
             <h1 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100 flex items-center space-x-2">
               <span>{t('dashboard.workspaceTitle')}</span>
               <span className="text-xs bg-neutral-200 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 px-2 py-0.5 rounded-full font-normal">v1.7</span>
@@ -1815,32 +1799,44 @@ export default function Dashboard({ onGoToLanding }) {
                 placeholder={t('dashboard.searchPlaceholder')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-1.5 text-xs bg-white dark:bg-[#232323] border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-800 dark:focus:ring-neutral-400"
+                className="w-full pl-9 pr-3 py-2 sm:py-1.5 text-xs bg-white dark:bg-[#232323] border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-800 dark:focus:ring-neutral-400"
               />
             </div>
 
-            {/* Language Switcher */}
-            <button
-              onClick={toggleLanguage}
-              className="px-2.5 py-1.5 text-xs font-bold rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-[#232323] text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-[#2c2c2c] transition cursor-pointer shrink-0"
-              title="Ganti Bahasa / Switch Language"
-            >
-              {language.toUpperCase()}
-            </button>
+            {/* Desktop Only: Language + Theme + Settings */}
+            <div className="hidden sm:flex items-center space-x-2">
+              {/* Language Switcher */}
+              <button
+                onClick={toggleLanguage}
+                className="px-2.5 py-1.5 text-xs font-bold rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-[#232323] text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-[#2c2c2c] transition cursor-pointer shrink-0"
+                title="Ganti Bahasa / Switch Language"
+              >
+                {language.toUpperCase()}
+              </button>
 
-            {/* Dark Mode Toggle */}
-            <button
-              onClick={toggleTheme}
-              className="p-1.5 text-neutral-500 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-[#2c2c2c] border border-neutral-200 dark:border-neutral-700 rounded-lg transition cursor-pointer shrink-0 bg-white dark:bg-[#232323]"
-              title={isDark ? t('common.lightMode') : t('common.darkMode')}
-            >
-              {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-neutral-600 dark:text-neutral-300" />}
-            </button>
+              {/* Dark Mode Toggle */}
+              <button
+                onClick={toggleTheme}
+                className="p-1.5 text-neutral-500 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-[#2c2c2c] border border-neutral-200 dark:border-neutral-700 rounded-lg transition cursor-pointer shrink-0 bg-white dark:bg-[#232323]"
+                title={isDark ? t('common.lightMode') : t('common.darkMode')}
+              >
+                {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-neutral-600 dark:text-neutral-300" />}
+              </button>
 
+              <button
+                onClick={() => setIsSettingsOpen(true)}
+                title={t('settings.title')}
+                className="p-1.5 text-neutral-500 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-[#2c2c2c] border border-neutral-200 dark:border-neutral-700 rounded-lg transition cursor-pointer shrink-0 bg-white dark:bg-[#232323]"
+              >
+                <Settings className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Mobile Only: Settings button */}
             <button
               onClick={() => setIsSettingsOpen(true)}
               title={t('settings.title')}
-              className="p-1.5 text-neutral-500 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-[#2c2c2c] border border-neutral-200 dark:border-neutral-700 rounded-lg transition cursor-pointer shrink-0 bg-white dark:bg-[#232323]"
+              className="sm:hidden p-2 text-neutral-500 dark:text-neutral-300 bg-white dark:bg-[#232323] border border-neutral-200 dark:border-neutral-700 rounded-lg transition cursor-pointer shrink-0"
             >
               <Settings className="w-4 h-4" />
             </button>
@@ -2019,58 +2015,58 @@ export default function Dashboard({ onGoToLanding }) {
 
             {/* SECTION 1: TO-DO LIST AKTIF */}
             {(activeTab === 'all' || activeTab === 'todos' || activeTab === 'reminders') && (
-              <section className="space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-neutral-200 dark:border-neutral-800">
-                  {/* Kiri: Judul Tab + Pill Jumlah + Notion-style View Tabs (Baris & Kolom) */}
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center space-x-2 shrink-0">
-                      <h2 className="text-sm font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-300 flex items-center space-x-1.5 whitespace-nowrap">
-                        <CheckSquare className="w-4 h-4 text-neutral-500" />
-                        <span>{activeTab === 'reminders' ? (isEn ? `${labels.remindersTab} List` : `Daftar ${labels.remindersTab}`) : (isEn ? `${labels.todosTab} & Schedule` : `${labels.todosTab} & Jadwal`)}</span>
+              <section className="space-y-3">
+                {/* One-line compact header: title + count + view switcher + controls */}
+                <div className="flex items-center justify-between gap-2 pb-2 border-b border-neutral-200 dark:border-neutral-800">
+                  {/* Kiri: Title + Jumlah + View Switcher */}
+                  <div className="flex items-center gap-2 min-w-0 overflow-x-auto no-scrollbar">
+                    <div className="flex items-center space-x-1.5 shrink-0">
+                      <CheckSquare className="w-3.5 h-3.5 text-neutral-500" />
+                      <h2 className="text-xs font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-300 whitespace-nowrap">
+                        {activeTab === 'reminders' ? labels.remindersTab : labels.todosTab}
                       </h2>
-                      <span className="text-xs bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 px-2 py-0.5 rounded-full font-mono font-medium">
+                      <span className="text-xs bg-neutral-100 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400 px-1.5 py-0.5 rounded-full font-mono font-medium">
                         {filteredActiveTodos.length}
                       </span>
                     </div>
 
-                    {/* 1-Click View Switcher (Baris vs Kolom) */}
+                    {/* View Switcher */}
                     <div className="flex items-center bg-neutral-100 dark:bg-neutral-800/80 p-0.5 rounded-lg border border-neutral-200/80 dark:border-neutral-700 text-xs shrink-0">
                       <button
                         type="button"
                         onClick={() => toggleViewMode('list')}
-                        className={`flex items-center space-x-1 px-2.5 py-1 rounded-md font-medium transition cursor-pointer ${
+                        className={`flex items-center space-x-1 px-2 py-1 rounded-md font-medium transition cursor-pointer ${
                           taskViewMode === 'list'
                             ? 'bg-white dark:bg-[#282828] text-neutral-900 dark:text-neutral-100 shadow-2xs'
                             : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200'
                         }`}
-                        title="Tampilan Baris (List)"
+                        title="List View"
                       >
                         <List className="w-3.5 h-3.5" />
-                        <span>{t('dashboard.viewList')}</span>
+                        <span className="hidden sm:inline">{t('dashboard.viewList')}</span>
                       </button>
                       <button
                         type="button"
                         onClick={() => toggleViewMode('board')}
-                        className={`flex items-center space-x-1 px-2.5 py-1 rounded-md font-medium transition cursor-pointer ${
+                        className={`flex items-center space-x-1 px-2 py-1 rounded-md font-medium transition cursor-pointer ${
                           taskViewMode === 'board'
                             ? 'bg-white dark:bg-[#282828] text-neutral-900 dark:text-neutral-100 shadow-2xs'
                             : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200'
                         }`}
-                        title="Tampilan Kolom Bersih (Kanban Board)"
+                        title="Board View"
                       >
                         <Columns3 className="w-3.5 h-3.5" />
-                        <span>{t('dashboard.viewBoard')}</span>
+                        <span className="hidden sm:inline">{t('dashboard.viewBoard')}</span>
                       </button>
                     </div>
 
-                    {/* Tombol Geser Kolom Cepat (Scroll Kiri/Kanan di Mode Kolom) */}
+                    {/* Tombol Geser Kolom Cepat */}
                     {taskViewMode === 'board' && (
                       <div className="flex items-center bg-neutral-100 dark:bg-neutral-800/80 p-0.5 rounded-lg border border-neutral-200/80 dark:border-neutral-700 text-xs shrink-0 space-x-0.5">
                         <button
                           type="button"
                           onClick={() => boardRef.current?.scrollBy({ left: -320, behavior: 'smooth' })}
                           className="p-1 rounded-md text-neutral-600 dark:text-neutral-300 hover:bg-white dark:hover:bg-[#282828] hover:text-neutral-900 dark:hover:text-white transition cursor-pointer shadow-2xs"
-                          title="Geser status ke kiri"
                         >
                           <ChevronLeft className="w-3.5 h-3.5" />
                         </button>
@@ -2078,7 +2074,6 @@ export default function Dashboard({ onGoToLanding }) {
                           type="button"
                           onClick={() => boardRef.current?.scrollBy({ left: 320, behavior: 'smooth' })}
                           className="p-1 rounded-md text-neutral-600 dark:text-neutral-300 hover:bg-white dark:hover:bg-[#282828] hover:text-neutral-900 dark:hover:text-white transition cursor-pointer shadow-2xs"
-                          title="Geser status ke kanan"
                         >
                           <ChevronRight className="w-3.5 h-3.5" />
                         </button>
@@ -2086,43 +2081,43 @@ export default function Dashboard({ onGoToLanding }) {
                     )}
                   </div>
 
-                  {/* Kanan: Alat Kontrol (Kelompokkan, Status, Urutkan) */}
-                  <div className="flex items-center flex-wrap sm:flex-nowrap gap-2">
-                    {/* Toggle Kelompokkan Status (Aktif di mode Baris) */}
+                  {/* Kanan: Group + Statuses + Sort — compact, icon-only on mobile */}
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {/* Group Toggle */}
                     {taskViewMode === 'list' && (
                       <button
                         type="button"
                         onClick={toggleGroupByStatus}
-                        className={`flex items-center space-x-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border transition cursor-pointer ${
+                        className={`flex items-center space-x-1 px-2 py-1 rounded-lg text-xs font-medium border transition cursor-pointer ${
                           isGroupedByStatus
                             ? 'bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 border-neutral-900 dark:border-neutral-100 shadow-2xs'
                             : 'bg-white dark:bg-[#232323] text-neutral-600 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-800'
                         }`}
-                        title="Kelompokkan tugas berdasarkan status"
+                        title={t('dashboard.groupByStatus')}
                       >
                         <Layers className="w-3.5 h-3.5" />
-                        <span>{t('dashboard.groupByStatus')}</span>
+                        <span className="hidden sm:inline">{t('dashboard.groupByStatus')}</span>
                       </button>
                     )}
 
-                    {/* Kelola Kustom Status */}
+                    {/* Status Manager */}
                     <button
                       type="button"
                       onClick={() => setIsStatusManagerOpen(true)}
-                      className="flex items-center space-x-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-white dark:bg-[#232323] text-neutral-600 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition cursor-pointer"
-                      title="Kustomisasi Status Tugas"
+                      className="flex items-center space-x-1 px-2 py-1 rounded-lg text-xs font-medium bg-white dark:bg-[#232323] text-neutral-600 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition cursor-pointer"
+                      title={t('dashboard.statusBtn')}
                     >
                       <Settings2 className="w-3.5 h-3.5 text-neutral-500" />
-                      <span>{t('dashboard.statusBtn')}</span>
+                      <span className="hidden sm:inline">{t('dashboard.statusBtn')}</span>
                     </button>
 
-                    {/* DROP DOWN SORTING TO-DO */}
+                    {/* Sort Dropdown */}
                     <div className="flex items-center space-x-1 text-xs text-neutral-600 dark:text-neutral-300 bg-white dark:bg-[#232323] border border-neutral-200 dark:border-neutral-700 rounded-lg px-2 py-1">
-                      <ArrowUpDown className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
+                      <ArrowUpDown className="w-3 h-3 text-neutral-400 shrink-0" />
                       <select
                         value={todoSortBy}
                         onChange={(e) => setTodoSortBy(e.target.value)}
-                        className="bg-transparent focus:outline-none cursor-pointer text-xs font-medium text-neutral-700 dark:text-neutral-200 pr-1"
+                        className="bg-transparent focus:outline-none cursor-pointer text-xs font-medium text-neutral-700 dark:text-neutral-200 max-w-[80px] sm:max-w-none"
                       >
                         <option value="created_desc" className="dark:bg-[#232323]">{t('dashboard.sortLatest')}</option>
                         <option value="created_asc" className="dark:bg-[#232323]">{t('dashboard.sortOldest')}</option>
@@ -2134,9 +2129,9 @@ export default function Dashboard({ onGoToLanding }) {
                   </div>
                 </div>
 
-                {/* Quick Add Bar - Rapi, Lega & 2-Baris */}
+                {/* Quick Add Bar - Compact on mobile */}
                 {activeTab !== 'reminders' && (
-                  <form onSubmit={handleAddTodo} className="bg-white dark:bg-[#202020] p-3.5 rounded-2xl border border-neutral-200/90 dark:border-neutral-800 shadow-2xs space-y-3">
+                  <form onSubmit={handleAddTodo} className="bg-white dark:bg-[#202020] p-3 rounded-xl border border-neutral-200/90 dark:border-neutral-800 shadow-2xs space-y-2.5">
                     {/* Baris 1: Input Judul Tugas Full-Width */}
                     <div className="w-full">
                       <input
@@ -2150,15 +2145,15 @@ export default function Dashboard({ onGoToLanding }) {
                     </div>
 
                     {/* Baris 2: Toolbar Chip Opsi (Prioritas, Status, Jatuh Tempo, Foto) & Tombol Simpan */}
-                    <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-neutral-100 dark:border-neutral-800">
-                      <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex items-center justify-between gap-2 pt-2 border-t border-neutral-100 dark:border-neutral-800">
+                      <div className="flex flex-wrap items-center gap-1.5">
                         {/* Prioritas Chip */}
-                        <div className="flex items-center space-x-1.5 bg-neutral-50 dark:bg-[#282828] hover:bg-neutral-100 dark:hover:bg-[#323232] border border-neutral-200/80 dark:border-neutral-700 rounded-lg px-2.5 py-1 text-xs transition">
-                          <Flag className="w-3 h-3 text-neutral-400" />
+                        <div className="flex items-center space-x-1 bg-neutral-50 dark:bg-[#282828] hover:bg-neutral-100 dark:hover:bg-[#323232] border border-neutral-200/80 dark:border-neutral-700 rounded-lg px-2 py-1 text-xs transition">
+                          <Flag className="w-3 h-3 text-neutral-400 shrink-0" />
                           <select
                             value={newTaskPriority}
                             onChange={(e) => setNewTaskPriority(e.target.value)}
-                            className="bg-transparent focus:outline-none text-xs font-medium text-neutral-700 dark:text-neutral-200 cursor-pointer"
+                            className="bg-transparent focus:outline-none text-xs font-medium text-neutral-700 dark:text-neutral-200 cursor-pointer max-w-[80px] sm:max-w-none"
                             title={t('dashboard.priorityChip')}
                           >
                             <option value="urgent" className="dark:bg-[#282828]">{t('dashboard.priorityUrgent')}</option>
@@ -2168,16 +2163,15 @@ export default function Dashboard({ onGoToLanding }) {
                           </select>
                         </div>
 
-
                         {/* Jatuh Tempo Chip */}
-                        <div className="flex items-center space-x-1.5 bg-neutral-50 dark:bg-[#282828] hover:bg-neutral-100 dark:hover:bg-[#323232] border border-neutral-200/80 dark:border-neutral-700 rounded-lg px-2.5 py-1 text-xs transition">
-                          <Calendar className="w-3 h-3 text-neutral-400" />
+                        <div className="flex items-center space-x-1 bg-neutral-50 dark:bg-[#282828] hover:bg-neutral-100 dark:hover:bg-[#323232] border border-neutral-200/80 dark:border-neutral-700 rounded-lg px-2 py-1 text-xs transition">
+                          <Calendar className="w-3 h-3 text-neutral-400 shrink-0" />
                           <input
                             type="date"
                             value={newTaskDate}
                             title={t('dashboard.dueDateChip')}
                             onChange={(e) => setNewTaskDate(e.target.value)}
-                            className="bg-transparent focus:outline-none text-xs text-neutral-700 dark:text-neutral-200 cursor-pointer"
+                            className="bg-transparent focus:outline-none text-xs text-neutral-700 dark:text-neutral-200 cursor-pointer w-[100px] sm:w-auto"
                           />
                         </div>
 
@@ -2185,15 +2179,15 @@ export default function Dashboard({ onGoToLanding }) {
                         <button
                           type="button"
                           onClick={() => setShowTodoAdvanced(!showTodoAdvanced)}
-                          className={`text-xs px-2.5 py-1 rounded-lg border transition cursor-pointer flex items-center space-x-1.5 ${
+                          className={`text-xs px-2 py-1 rounded-lg border transition cursor-pointer flex items-center space-x-1 ${
                             showTodoAdvanced || newTaskDesc || newTaskReminderDate || todoFile
                               ? 'bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 border-neutral-900 dark:border-neutral-100'
                               : 'bg-neutral-50 dark:bg-[#282828] hover:bg-neutral-100 dark:hover:bg-[#323232] text-neutral-600 dark:text-neutral-300 border-neutral-200/80 dark:border-neutral-700'
                           }`}
-                          title="Buka opsi catatan bantuan, pengingat, dan foto"
+                          title={t('dashboard.advancedOptions')}
                         >
-                          <Paperclip className="w-3 h-3" />
-                          <span>{showTodoAdvanced ? t('dashboard.closeDetails') : t('dashboard.advancedOptions')}</span>
+                          <Paperclip className="w-3 h-3 shrink-0" />
+                          <span className="hidden sm:inline">{showTodoAdvanced ? t('dashboard.closeDetails') : t('dashboard.advancedOptions')}</span>
                         </button>
                       </div>
 
@@ -2201,14 +2195,15 @@ export default function Dashboard({ onGoToLanding }) {
                       <button
                         type="submit"
                         disabled={isSubmittingTask || !newTaskTitle.trim()}
-                        className="bg-neutral-900 hover:bg-neutral-800 dark:bg-white dark:hover:bg-neutral-100 dark:text-neutral-900 text-white text-xs font-medium px-4 py-1.5 rounded-lg transition flex items-center space-x-1.5 disabled:opacity-50 cursor-pointer shadow-xs ml-auto"
+                        className="bg-neutral-900 hover:bg-neutral-800 dark:bg-white dark:hover:bg-neutral-100 dark:text-neutral-900 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition flex items-center space-x-1.5 disabled:opacity-50 cursor-pointer shadow-xs shrink-0"
                       >
                         {isSubmittingTask ? (
                           <Loader2 className="w-3.5 h-3.5 animate-spin" />
                         ) : (
                           <>
                             <Plus className="w-3.5 h-3.5" />
-                            <span>{t('dashboard.saveTaskBtn')}</span>
+                            <span className="hidden sm:inline">{t('dashboard.saveTaskBtn')}</span>
+                            <span className="sm:hidden">{isEn ? 'Add' : 'Tambah'}</span>
                           </>
                         )}
                       </button>
