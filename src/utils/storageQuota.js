@@ -1,15 +1,15 @@
 /**
- * Ersona Workspace - Storage Quota & Tier Utility
+ * Ersona Workspace - Storage Quota & Tier Utility (Didukung Cloudflare R2 10 GB)
  * 
  * Aturan Kuota:
- * - 100 MB: User baru / Email belum dikonfirmasi
- * - 300 MB: User dengan email terkonfirmasi
- * - 1 GB: User yang di-upgrade (Ersona Pro)
+ * - 500 MB: User baru / Email belum dikonfirmasi
+ * - 2 GB: User dengan email terkonfirmasi
+ * - 10 GB: User yang di-upgrade (Ersona Pro - Kapasitas Penuh Cloudflare R2 Free Tier)
  */
 
-export const QUOTA_UNCONFIRMED = 100 * 1024 * 1024; // 100 MB
-export const QUOTA_CONFIRMED = 300 * 1024 * 1024;   // 300 MB
-export const QUOTA_UPGRADED = 1024 * 1024 * 1024;   // 1 GB
+export const QUOTA_UNCONFIRMED = 500 * 1024 * 1024;       // 500 MB
+export const QUOTA_CONFIRMED = 2 * 1024 * 1024 * 1024;   // 2 GB
+export const QUOTA_UPGRADED = 10 * 1024 * 1024 * 1024;   // 10 GB (Cloudflare R2 Free Tier)
 
 /**
  * Mendapatkan konfigurasi kuota pengguna berdasarkan objek user Supabase
@@ -18,8 +18,8 @@ export function getUserQuotaConfig(user) {
   if (!user) {
     return {
       maxBytes: QUOTA_UNCONFIRMED,
-      maxMB: 100,
-      tierName: 'Free (Tamu)',
+      maxMB: 500,
+      tierName: 'Free Tamu (500 MB)',
       tierCode: 'unconfirmed',
       isEmailConfirmed: false,
       isUpgraded: false,
@@ -32,8 +32,8 @@ export function getUserQuotaConfig(user) {
   if (isUpgraded) {
     return {
       maxBytes: QUOTA_UPGRADED,
-      maxMB: 1024,
-      tierName: 'Ersona Pro (1 GB)',
+      maxMB: 10240,
+      tierName: 'Ersona Pro (10 GB Cloudflare R2)',
       tierCode: 'pro',
       isEmailConfirmed,
       isUpgraded: true,
@@ -43,8 +43,8 @@ export function getUserQuotaConfig(user) {
   if (isEmailConfirmed) {
     return {
       maxBytes: QUOTA_CONFIRMED,
-      maxMB: 300,
-      tierName: 'Free Terverifikasi (300 MB)',
+      maxMB: 2048,
+      tierName: 'Free Terverifikasi (2 GB)',
       tierCode: 'confirmed',
       isEmailConfirmed: true,
       isUpgraded: false,
@@ -53,8 +53,8 @@ export function getUserQuotaConfig(user) {
 
   return {
     maxBytes: QUOTA_UNCONFIRMED,
-    maxMB: 100,
-    tierName: 'Free Belum Konfirmasi (100 MB)',
+    maxMB: 500,
+    tierName: 'Free Belum Konfirmasi (500 MB)',
     tierCode: 'unconfirmed',
     isEmailConfirmed: false,
     isUpgraded: false,

@@ -17,6 +17,7 @@ import { compressImage } from '../utils/compressor';
 import { parseMediaUrl } from '../utils/embedHelper';
 import SettingsModal from './SettingsModal';
 import { getUserQuotaConfig, calculateUserStorageUsage, formatBytes } from '../utils/storageQuota';
+import { uploadMediaToR2OrSupabase, deleteMediaByUrl } from '../utils/r2Storage';
 
 // Helper normalisasi warna status untuk Notion-style Dark Mode
 export const normalizeStatusColor = (color) => {
@@ -403,26 +404,12 @@ export default function Dashboard({ onGoToLanding }) {
   // Lightbox Modal State (Perbesar Foto & Video)
   const [lightboxMedia, setLightboxMedia] = useState(null);
 
-  // Helper untuk menghapus file fisik di Supabase Storage secara aman
+  // Helper untuk menghapus file fisik di Cloudflare R2 / Supabase Storage secara aman
   const deleteStorageFilesByUrls = async (urls) => {
     if (!urls || urls.length === 0) return;
-    const paths = urls
-      .filter(u => u && typeof u === 'string' && u.includes('/attachments/'))
-      .map(u => {
-        try {
-          const afterBucket = u.split('/attachments/')[1];
-          if (!afterBucket) return null;
-          const cleanPath = afterBucket.split('?')[0];
-          return decodeURIComponent(cleanPath);
-        } catch {
-          return null;
-        }
-      })
-      .filter(Boolean);
-
-    if (paths.length > 0) {
+    for (const u of urls) {
       try {
-        await supabase.storage.from('attachments').remove(paths);
+        await deleteMediaByUrl(u, supabase);
       } catch (err) {
         console.warn('Gagal menghapus file dari storage:', err);
       }
@@ -1241,12 +1228,8 @@ export default function Dashboard({ onGoToLanding }) {
     if (notePhotos.length > 0) {
       try {
         const uploadPromises = notePhotos.map(async (item) => {
-          const fileExt = item.file.name.split('.').pop();
-          const safeName = `${user.id}/${Date.now()}-${Math.random().toString(36).substring(2, 7)}.${fileExt}`;
-          const { data, error } = await supabase.storage.from('attachments').upload(safeName, item.file);
-          if (error) throw error;
-          const { data: { publicUrl } } = supabase.storage.from('attachments').getPublicUrl(data.path);
-          return { url: publicUrl, type: 'image' };
+          const res = await uploadMediaToR2OrSupabase({ file: item.file, userId: user.id, supabase });
+          return { url: res.url, type: 'image' };
         });
         const uploadedImages = await Promise.all(uploadPromises);
         mediaItems.push(...uploadedImages);
@@ -1260,12 +1243,8 @@ export default function Dashboard({ onGoToLanding }) {
     // Upload video jika ada
     if (noteVideo) {
       try {
-        const fileExt = noteVideo.file.name.split('.').pop();
-        const safeName = `${user.id}/video-${Date.now()}.${fileExt}`;
-        const { data, error } = await supabase.storage.from('attachments').upload(safeName, noteVideo.file);
-        if (error) throw error;
-        const { data: { publicUrl } } = supabase.storage.from('attachments').getPublicUrl(data.path);
-        mediaItems.push({ url: publicUrl, type: 'video' });
+        const res = await uploadMediaToR2OrSupabase({ file: noteVideo.file, userId: user.id, supabase });
+        mediaItems.push({ url: res.url, type: 'video' });
       } catch (err) {
         alert('Gagal mengunggah video: ' + err.message);
         setIsSubmittingNote(false);
@@ -1385,12 +1364,8 @@ export default function Dashboard({ onGoToLanding }) {
     if (editNewPhotos.length > 0) {
       try {
         const uploadPromises = editNewPhotos.map(async (item) => {
-          const fileExt = item.file.name.split('.').pop();
-          const safeName = `${user.id}/${Date.now()}-${Math.random().toString(36).substring(2, 7)}.${fileExt}`;
-          const { data, error } = await supabase.storage.from('attachments').upload(safeName, item.file);
-          if (error) throw error;
-          const { data: { publicUrl } } = supabase.storage.from('attachments').getPublicUrl(data.path);
-          return { url: publicUrl, type: 'image' };
+          const res = await uploadMediaToR2OrSupabase({ file: item.file, userId: user.id, supabase });
+          return { url: res.url, type: 'image' };
         });
         const uploadedImages = await Promise.all(uploadPromises);
         finalMediaItems.push(...uploadedImages);
@@ -1404,12 +1379,8 @@ export default function Dashboard({ onGoToLanding }) {
     // Upload video baru jika ada
     if (editNewVideo) {
       try {
-        const fileExt = editNewVideo.file.name.split('.').pop();
-        const safeName = `${user.id}/video-${Date.now()}.${fileExt}`;
-        const { data, error } = await supabase.storage.from('attachments').upload(safeName, editNewVideo.file);
-        if (error) throw error;
-        const { data: { publicUrl } } = supabase.storage.from('attachments').getPublicUrl(data.path);
-        finalMediaItems.push({ url: publicUrl, type: 'video' });
+        const res = await uploadMediaToR2OrSupabase({ file: editNewVideo.file, userId: user.id, supabase });
+        finalMediaItems.push({ url: res.url, type: 'video' });
       } catch (err) {
         alert('Gagal mengunggah video baru: ' + err.message);
         setIsUpdatingNote(false);
