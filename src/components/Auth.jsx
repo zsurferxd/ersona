@@ -56,7 +56,7 @@ export default function Auth() {
             🪐
           </div>
           <div>
-            <h1 className="text-xl font-bold text-neutral-900 tracking-tight">Solist</h1>
+            <h1 className="text-xl font-bold text-neutral-900 tracking-tight">Ersona</h1>
             <p className="text-xs text-neutral-500">Workspace To-Do & Catatan Minimalis</p>
           </div>
         </div>

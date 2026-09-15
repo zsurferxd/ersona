@@ -1,4 +1,4 @@
-# Solist — Notion-Style Workspace (To-Do & Catatan)
+# Ersona — Notion-Style Workspace (To-Do & Catatan)
 
 Aplikasi web modern untuk manajemen To-Do List dan Catatan dengan antarmuka minimalis bergaya Notion. Dibangun menggunakan **React (Vite)**, **Tailwind CSS v4**, dan backend **Supabase** dengan keamanan data berbasis **Row Level Security (RLS)**.
 
@@ -19,7 +19,7 @@ Aplikasi web modern untuk manajemen To-Do List dan Catatan dengan antarmuka mini
 ## Struktur Proyek
 
 ```
-solist/
+ersona/
 ├── public/
 ├── src/
 │   ├── components/
@@ -88,5 +88,5 @@ Buka browser di `http://localhost:5173`.
    - Klik **Deploy**.
 3. **Atur Redirect URL di Supabase**:
    - Di dashboard Supabase, buka **Authentication > URL Configuration**.
-   - Ubah **Site URL** ke domain Vercel Anda (misal: `https://solist.vercel.app`).
-   - Tambahkan `https://solist.vercel.app/**` di **Redirect URLs**.
+   - Ubah **Site URL** ke domain Vercel Anda (misal: `https://ersona.vercel.app`).
+   - Tambahkan `https://ersona.vercel.app/**` di **Redirect URLs**.

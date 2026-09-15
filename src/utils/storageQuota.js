@@ -1,10 +1,10 @@
 /**
- * Solist Workspace - Storage Quota & Tier Utility
+ * Ersona Workspace - Storage Quota & Tier Utility
  * 
  * Aturan Kuota:
  * - 100 MB: User baru / Email belum dikonfirmasi
  * - 300 MB: User dengan email terkonfirmasi
- * - 1 GB: User yang di-upgrade (Solist Pro)
+ * - 1 GB: User yang di-upgrade (Ersona Pro)
  */
 
 export const QUOTA_UNCONFIRMED = 100 * 1024 * 1024; // 100 MB
@@ -33,7 +33,7 @@ export function getUserQuotaConfig(user) {
     return {
       maxBytes: QUOTA_UPGRADED,
       maxMB: 1024,
-      tierName: 'Solist Pro (1 GB)',
+      tierName: 'Ersona Pro (1 GB)',
       tierCode: 'pro',
       isEmailConfirmed,
       isUpgraded: true,

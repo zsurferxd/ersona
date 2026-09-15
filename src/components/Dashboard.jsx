@@ -63,7 +63,7 @@ export default function Dashboard() {
   // Preferensi Tampilan & Kustomisasi Teks
   const [preferences, setPreferences] = useState(() => {
     try {
-      const saved = localStorage.getItem('solist_preferences');
+      const saved = localStorage.getItem('ersona_preferences') || localStorage.getItem('solist_preferences');
       return saved ? JSON.parse(saved) : DEFAULT_PREFERENCES;
     } catch {
       return DEFAULT_PREFERENCES;
@@ -73,7 +73,7 @@ export default function Dashboard() {
   const handleSavePreferences = (newPrefs) => {
     setPreferences(newPrefs);
     try {
-      localStorage.setItem('solist_preferences', JSON.stringify(newPrefs));
+      localStorage.setItem('ersona_preferences', JSON.stringify(newPrefs));
     } catch (e) {
       console.warn('Gagal menyimpan preferensi:', e);
     }
@@ -82,6 +82,7 @@ export default function Dashboard() {
   const handleResetPreferences = () => {
     setPreferences(DEFAULT_PREFERENCES);
     try {
+      localStorage.removeItem('ersona_preferences');
       localStorage.removeItem('solist_preferences');
     } catch (e) {
       console.warn('Gagal mereset preferensi:', e);
@@ -130,7 +131,7 @@ export default function Dashboard() {
       if (!quotaConfig.isEmailConfirmed && !quotaConfig.isUpgraded) {
         suggestion = '\n\n💡 Tip: Konfirmasi email akun Anda di Pengaturan untuk menaikkan kuota menjadi 300 MB!';
       } else if (!quotaConfig.isUpgraded) {
-        suggestion = '\n\n💡 Tip: Upgrade ke Solist Pro di Pengaturan untuk mendapatkan kuota 1 GB!';
+        suggestion = '\n\n💡 Tip: Upgrade ke Ersona Pro di Pengaturan untuk mendapatkan kuota 1 GB!';
       }
 
       alert(`⚠️ Batas Kuota Penyimpanan Terlampaui!\n\nPenggunaan saat ini: ${currentMB} MB dari ${maxMB} MB.\nFile yang ingin diunggah: ${fileMB} MB.${suggestion}\n\nSilakan hapus file lama atau kosongkan tempat sampah.`);
@@ -152,7 +153,7 @@ export default function Dashboard() {
   // Status Task Kustom & Mode Tampilan (Baris vs Kolom Board)
   const [taskStatuses, setTaskStatuses] = useState(() => {
     try {
-      const saved = localStorage.getItem('solist_task_statuses');
+      const saved = localStorage.getItem('ersona_task_statuses') || localStorage.getItem('solist_task_statuses');
       if (saved) {
         const parsed = JSON.parse(saved);
         if (!parsed.some(s => s.id === 'completed')) {
@@ -169,7 +170,7 @@ export default function Dashboard() {
   const saveTaskStatuses = (newStatuses) => {
     setTaskStatuses(newStatuses);
     try {
-      localStorage.setItem('solist_task_statuses', JSON.stringify(newStatuses));
+      localStorage.setItem('ersona_task_statuses', JSON.stringify(newStatuses));
     } catch (e) {
       console.warn('Gagal menyimpan task statuses:', e);
     }
@@ -193,17 +194,17 @@ export default function Dashboard() {
   };
 
   const [taskViewMode, setTaskViewMode] = useState(() => {
-    return localStorage.getItem('solist_task_view_mode') || 'list'; // 'list' | 'board'
+    return localStorage.getItem('ersona_task_view_mode') || localStorage.getItem('solist_task_view_mode') || 'list'; // 'list' | 'board'
   });
 
   const [isGroupedByStatus, setIsGroupedByStatus] = useState(() => {
-    return localStorage.getItem('solist_grouped_by_status') === 'true';
+    return (localStorage.getItem('ersona_grouped_by_status') || localStorage.getItem('solist_grouped_by_status')) === 'true';
   });
 
   const toggleViewMode = (mode) => {
     setTaskViewMode(mode);
     try {
-      localStorage.setItem('solist_task_view_mode', mode);
+      localStorage.setItem('ersona_task_view_mode', mode);
     } catch (e) {
       console.warn(e);
     }
@@ -213,7 +214,7 @@ export default function Dashboard() {
     setIsGroupedByStatus(prev => {
       const next = !prev;
       try {
-        localStorage.setItem('solist_grouped_by_status', String(next));
+        localStorage.setItem('ersona_grouped_by_status', String(next));
       } catch (e) {
         console.warn(e);
       }
@@ -1711,7 +1712,7 @@ export default function Dashboard() {
           </div>
 
           <div className="text-[11px] text-neutral-400 flex items-center justify-between px-1">
-            <span>Solist Workspace</span>
+            <span>Ersona Workspace</span>
             <span className="bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded text-[10px] font-mono">v1.7</span>
           </div>
         </div>
@@ -1723,7 +1724,7 @@ export default function Dashboard() {
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-neutral-900 flex items-center space-x-2">
-              <span>Solist Workspace</span>
+              <span>Ersona Workspace</span>
               <span className="text-xs bg-neutral-200 text-neutral-700 px-2 py-0.5 rounded-full font-normal">v1.7</span>
             </h1>
             <p className="text-xs text-neutral-500 mt-1">To-do list interaktif, galeri foto catatan, pengingat, dan sistem sampah.</p>

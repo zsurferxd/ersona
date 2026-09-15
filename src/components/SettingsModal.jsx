@@ -210,7 +210,7 @@ export default function SettingsModal({
                 <div className="flex items-center space-x-2">
                   <Sparkles className="w-4 h-4 text-amber-500" />
                   <h3 className="text-sm font-semibold text-neutral-900">
-                    {quotaConfig?.isUpgraded ? 'Akun Solist Pro (1 GB Aktif)' : 'Testing Upgrade: Solist Pro'}
+                    {quotaConfig?.isUpgraded ? 'Akun Ersona Pro (1 GB Aktif)' : 'Testing Upgrade: Ersona Pro'}
                   </h3>
                 </div>
                 <p className="text-xs text-neutral-500 mt-1">
@@ -274,7 +274,7 @@ export default function SettingsModal({
 
         {/* Footer Modal */}
         <div className="px-6 py-3.5 border-t border-neutral-100 flex items-center justify-between bg-[#FBFBFA]">
-          <span className="text-[11px] text-neutral-400">Solist Workspace Account</span>
+          <span className="text-[11px] text-neutral-400">Ersona Workspace Account</span>
           <button
             type="button"
             onClick={onClose}
