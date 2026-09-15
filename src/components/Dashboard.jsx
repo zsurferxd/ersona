@@ -7,7 +7,7 @@ import {
   Sparkles, X, Image, Video, Paperclip, Link, ExternalLink, Bell,
   ArrowUpDown, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, ZoomIn, Eye, MessageSquare,
   Edit3, Flag, Check, RotateCcw, AlertTriangle, Film, Settings,
-  HardDrive, Flame, Columns3, List, Layers, Settings2, ArrowRight
+  HardDrive, Flame, Columns3, List, Layers, Settings2, ArrowRight, Menu
 } from 'lucide-react';
 import { format, isPast, isToday, parseISO, differenceInDays } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
@@ -56,6 +56,9 @@ export default function Dashboard() {
   const todoFileInputRef = useRef(null);
   const editTodoFileInputRef = useRef(null);
   const boardRef = useRef(null);
+
+  // State menu navigasi di perangkat mobile
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Preferensi Tampilan & Kustomisasi Teks
   const [preferences, setPreferences] = useState(() => {
@@ -1289,8 +1292,8 @@ export default function Dashboard() {
             : 'border-neutral-200/80 hover:border-neutral-300'
         }`}
       >
-        <div className="flex items-center justify-between gap-3">
-          {/* Sisi Kiri: Checkbox + Status Badge + Judul Tugas */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3">
+          {/* Sisi Kiri / Atas: Checkbox + Status Badge + Judul Tugas */}
           <div className="flex items-center space-x-2.5 flex-1 min-w-0">
             <button
               onClick={() => handleToggleTodo(todo.id, todo.is_completed)}
@@ -1328,40 +1331,42 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Sisi Kanan: Prioritas, Jatuh Tempo, Foto, Hapus */}
-          <div className="flex items-center space-x-2 shrink-0 ml-3">
-            {renderPriorityBadge(todo.priority)}
+          {/* Sisi Kanan / Bawah (Mobile): Prioritas, Jatuh Tempo, Foto, Hapus */}
+          <div className="flex items-center justify-between sm:justify-end space-x-2 shrink-0 pl-7 sm:pl-0 sm:ml-3 pt-0.5 sm:pt-0">
+            <div className="flex items-center space-x-1.5 flex-wrap gap-y-1">
+              {renderPriorityBadge(todo.priority)}
 
-            {todo.reminder_date && (
-              <span className={`inline-flex items-center space-x-1 text-[10px] px-2 py-0.5 rounded-md font-mono ${
-                reminderActive 
-                  ? 'bg-amber-100 text-amber-800 border border-amber-300 font-semibold' 
-                  : 'bg-neutral-100 text-neutral-500'
-              }`}>
-                <Bell className="w-2.5 h-2.5" />
-                <span>{format(parseISO(todo.reminder_date), 'dd MMM', { locale: localeId })}</span>
-              </span>
-            )}
+              {todo.reminder_date && (
+                <span className={`inline-flex items-center space-x-1 text-[10px] px-2 py-0.5 rounded-md font-mono ${
+                  reminderActive 
+                    ? 'bg-amber-100 text-amber-800 border border-amber-300 font-semibold' 
+                    : 'bg-neutral-100 text-neutral-500'
+                }`}>
+                  <Bell className="w-2.5 h-2.5" />
+                  <span>{format(parseISO(todo.reminder_date), 'dd MMM', { locale: localeId })}</span>
+                </span>
+              )}
 
-            {renderDateBadge(todo.due_date)}
+              {renderDateBadge(todo.due_date)}
 
-            {todo.media_url && (
-              <button
-                onClick={() => setLightboxMedia({ url: todo.media_url, type: todo.media_type, title: todo.title })}
-                className="relative group/thumb w-7 h-7 rounded-md overflow-hidden border border-neutral-200 shrink-0 cursor-pointer"
-                title="Klik untuk perbesar foto"
-              >
-                <img src={todo.media_url} alt="Thumb" className="w-full h-full object-cover" />
-                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/thumb:opacity-100 flex items-center justify-center text-white transition">
-                  <ZoomIn className="w-3 h-3" />
-                </div>
-              </button>
-            )}
+              {todo.media_url && (
+                <button
+                  onClick={() => setLightboxMedia({ url: todo.media_url, type: todo.media_type, title: todo.title })}
+                  className="relative group/thumb w-6 h-6 sm:w-7 sm:h-7 rounded-md overflow-hidden border border-neutral-200 shrink-0 cursor-pointer"
+                  title="Klik untuk perbesar foto"
+                >
+                  <img src={todo.media_url} alt="Thumb" className="w-full h-full object-cover" />
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/thumb:opacity-100 flex items-center justify-center text-white transition">
+                    <ZoomIn className="w-3 h-3" />
+                  </div>
+                </button>
+              )}
+            </div>
 
-            {/* Tombol Hapus: tanpa tombol edit pencil karena klik baris sudah membuka modal edit */}
+            {/* Tombol Hapus: di mobile terlihat opacity-70, di desktop muncul saat hover */}
             <button
               onClick={() => handleSoftDeleteTodo(todo.id)}
-              className="opacity-0 group-hover:opacity-100 text-neutral-400 hover:text-red-600 transition p-1 cursor-pointer"
+              className="opacity-70 sm:opacity-0 sm:group-hover:opacity-100 text-neutral-400 hover:text-red-600 transition p-1 cursor-pointer"
               title={labels.moveToTrash}
             >
               <Trash2 className="w-4 h-4" />
@@ -1509,8 +1514,42 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-[#FBFBFA]">
-      {/* Sidebar Khas Notion */}
-      <aside className="w-full md:w-64 bg-[#F7F6F3] border-r border-neutral-200/80 p-4 flex flex-col justify-between shrink-0">
+      {/* Mobile Top Header (Hanya di Layar Kecil / HP) */}
+      <div className="md:hidden flex items-center justify-between px-4 py-3 bg-[#F7F6F3] border-b border-neutral-200/80 sticky top-0 z-30 shadow-2xs">
+        <div className="flex items-center space-x-2 min-w-0">
+          <span className="text-lg">🪐</span>
+          <span className="font-bold text-sm text-neutral-800 truncate">
+            {user?.email?.split('@')[0]}
+          </span>
+          <span className="text-[10px] bg-neutral-200/70 text-neutral-600 px-1.5 py-0.5 rounded font-medium shrink-0">
+            {activeTab === 'reminders' ? labels.remindersTab : activeTab === 'todos' ? labels.todosTab : activeTab === 'notes' ? labels.notesTab : activeTab === 'trash' ? labels.trashTab : 'Semua'}
+          </span>
+        </div>
+
+        <div className="flex items-center space-x-1.5 shrink-0">
+          <button
+            onClick={() => setIsSettingsOpen(true)}
+            className="p-1.5 text-neutral-500 hover:text-neutral-900 bg-white border border-neutral-200 rounded-lg transition"
+            title="Pengaturan"
+          >
+            <Settings className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            className="p-1.5 rounded-lg border border-neutral-200 bg-white text-neutral-800 flex items-center space-x-1 text-xs font-medium cursor-pointer shadow-2xs"
+          >
+            {isMobileMenuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
+            <span className="text-xs">{isMobileMenuOpen ? 'Tutup' : 'Menu'}</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Sidebar Khas Notion (Desktop: Selalu Terbuka | Mobile: Dropdown / Tersembunyi saat tidak dipanggil) */}
+      <aside className={`
+        ${isMobileMenuOpen ? 'flex' : 'hidden'} md:flex
+        w-full md:w-64 bg-[#F7F6F3] border-b md:border-b-0 md:border-r border-neutral-200/80 p-4 flex-col justify-between shrink-0
+        ${isMobileMenuOpen ? 'animate-in fade-in slide-in-from-top-2' : ''}
+      `}>
         <div>
           {/* User Workspace Info */}
           <div className="flex items-center justify-between pb-4 border-b border-neutral-200/60 mb-4">
@@ -1532,7 +1571,10 @@ export default function Dashboard() {
           {/* Navigasi / Filter */}
           <nav className="space-y-1">
             <button
-              onClick={() => setActiveTab('all')}
+              onClick={() => {
+                setActiveTab('all');
+                setIsMobileMenuOpen(false);
+              }}
               className={`w-full flex items-center space-x-2 px-2.5 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
                 activeTab === 'all' ? 'bg-neutral-200/70 text-neutral-900' : 'text-neutral-600 hover:bg-neutral-200/40'
               }`}
@@ -1543,7 +1585,10 @@ export default function Dashboard() {
 
             {/* TAB PENGINGAT (REMINDERS) */}
             <button
-              onClick={() => setActiveTab('reminders')}
+              onClick={() => {
+                setActiveTab('reminders');
+                setIsMobileMenuOpen(false);
+              }}
               className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
                 activeTab === 'reminders' ? 'bg-amber-100/70 text-amber-900 font-semibold' : 'text-neutral-600 hover:bg-neutral-200/40'
               }`}
@@ -1560,7 +1605,10 @@ export default function Dashboard() {
             </button>
 
             <button
-              onClick={() => setActiveTab('todos')}
+              onClick={() => {
+                setActiveTab('todos');
+                setIsMobileMenuOpen(false);
+              }}
               className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
                 activeTab === 'todos' ? 'bg-neutral-200/70 text-neutral-900' : 'text-neutral-600 hover:bg-neutral-200/40'
               }`}
@@ -1575,7 +1623,10 @@ export default function Dashboard() {
             </button>
 
             <button
-              onClick={() => setActiveTab('notes')}
+              onClick={() => {
+                setActiveTab('notes');
+                setIsMobileMenuOpen(false);
+              }}
               className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
                 activeTab === 'notes' ? 'bg-neutral-200/70 text-neutral-900' : 'text-neutral-600 hover:bg-neutral-200/40'
               }`}
@@ -1589,7 +1640,10 @@ export default function Dashboard() {
 
             {/* TAB TEMPAT SAMPAH (TRASH) */}
             <button
-              onClick={() => setActiveTab('trash')}
+              onClick={() => {
+                setActiveTab('trash');
+                setIsMobileMenuOpen(false);
+              }}
               className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
                 activeTab === 'trash' ? 'bg-red-50 text-red-900 font-semibold' : 'text-neutral-500 hover:bg-neutral-200/40'
               }`}
@@ -1607,7 +1661,10 @@ export default function Dashboard() {
 
             {/* TOMBOL PENGATURAN */}
             <button
-              onClick={() => setIsSettingsOpen(true)}
+              onClick={() => {
+                setIsSettingsOpen(true);
+                setIsMobileMenuOpen(false);
+              }}
               className="w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-sm font-medium text-neutral-600 hover:bg-neutral-200/40 hover:text-neutral-900 transition cursor-pointer mt-1"
             >
               <div className="flex items-center space-x-2">
@@ -1626,7 +1683,10 @@ export default function Dashboard() {
         {/* Footer Sidebar & Mini Storage Widget */}
         <div className="pt-3 border-t border-neutral-200/60 space-y-3">
           <div 
-            onClick={() => setIsSettingsOpen(true)}
+            onClick={() => {
+              setIsSettingsOpen(true);
+              setIsMobileMenuOpen(false);
+            }}
             className="p-2.5 bg-neutral-200/40 hover:bg-neutral-200/70 rounded-xl border border-neutral-200/60 transition cursor-pointer group"
             title="Klik untuk melihat kuota storage di Pengaturan"
           >
@@ -1658,7 +1718,7 @@ export default function Dashboard() {
       </aside>
 
       {/* Konten Utama */}
-      <main className="flex-1 max-w-4xl mx-auto w-full p-6 md:p-10 space-y-6 overflow-y-auto">
+      <main className="flex-1 max-w-4xl mx-auto w-full p-3.5 sm:p-6 md:p-10 space-y-5 sm:space-y-6 overflow-y-auto">
         {/* Search & Header Bar */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
@@ -2123,7 +2183,7 @@ export default function Dashboard() {
                   /* MODE KOLOM BERSIH (KANBAN BOARD) */
                   <div 
                     ref={boardRef}
-                    className="flex gap-4 overflow-x-auto pb-3 pt-1 items-start scroll-smooth"
+                    className="flex gap-3 sm:gap-4 overflow-x-auto pb-3 pt-1 items-start scroll-smooth snap-x snap-mandatory sm:snap-none -mx-3.5 px-3.5 sm:mx-0 sm:px-0"
                   >
                     {taskStatuses.map((status) => {
                       const todosInStatus = filteredActiveTodos.filter(t => {
@@ -2134,7 +2194,7 @@ export default function Dashboard() {
                       return (
                         <div
                           key={status.id}
-                          className="w-72 shrink-0 bg-[#F7F6F3]/90 border border-neutral-200/80 rounded-2xl p-3 flex flex-col shadow-2xs max-h-[calc(100vh-270px)] min-h-[420px]"
+                          className="w-[82vw] max-w-[300px] sm:w-72 shrink-0 bg-[#F7F6F3]/90 border border-neutral-200/80 rounded-2xl p-3 flex flex-col shadow-2xs max-h-[calc(100vh-270px)] min-h-[420px] snap-center sm:snap-align-none"
                         >
                           {/* Header Kolom - Pinned di Atas */}
                           <div className="flex items-center space-x-2 px-1 pb-2.5 mb-2 border-b border-neutral-200/60 shrink-0">
@@ -2243,7 +2303,7 @@ export default function Dashboard() {
                                           </span>
                                         )}
                                       </div>
-                                      <div className="flex items-center space-x-1 opacity-0 group-hover/card:opacity-100 transition">
+                                      <div className="flex items-center space-x-1 opacity-70 sm:opacity-0 sm:group-hover/card:opacity-100 transition">
                                         <button
                                           onClick={() => handleSoftDeleteTodo(todo.id)}
                                           className="text-neutral-400 hover:text-red-600 p-1 cursor-pointer"
@@ -2361,7 +2421,7 @@ export default function Dashboard() {
                                     e.stopPropagation();
                                     openEditNoteModal(note);
                                   }}
-                                  className="opacity-0 group-hover:opacity-100 text-neutral-400 hover:text-neutral-800 transition p-1 cursor-pointer"
+                                  className="opacity-70 sm:opacity-0 sm:group-hover:opacity-100 text-neutral-400 hover:text-neutral-800 transition p-1 cursor-pointer"
                                   title="Edit catatan"
                                 >
                                   <Edit3 className="w-3.5 h-3.5" />
@@ -2372,7 +2432,7 @@ export default function Dashboard() {
                                     e.stopPropagation();
                                     handleSoftDeleteNote(note.id);
                                   }}
-                                  className="opacity-0 group-hover:opacity-100 text-neutral-400 hover:text-red-600 transition p-1 cursor-pointer"
+                                  className="opacity-70 sm:opacity-0 sm:group-hover:opacity-100 text-neutral-400 hover:text-red-600 transition p-1 cursor-pointer"
                                   title={labels.moveToTrash}
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
@@ -2620,7 +2680,7 @@ export default function Dashboard() {
       {/* 2. MODAL EDIT TUGAS */}
       {editingTodo && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in">
-          <div className="bg-white border border-neutral-200 rounded-2xl max-w-lg w-full p-6 shadow-xl space-y-4 max-h-[90vh] overflow-y-auto">
+          <div className="bg-white border border-neutral-200 rounded-2xl max-w-lg w-full p-4 sm:p-6 shadow-xl space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-neutral-100">
               <span className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">Detail & Edit Tugas</span>
               <button 
@@ -2868,7 +2928,7 @@ export default function Dashboard() {
       {/* 4. MODAL BUAT CATATAN BARU (MULTI-MEDIA: MAKS 5 FOTO & 1 VIDEO) */}
       {showNoteModal && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white border border-neutral-200 rounded-2xl max-w-lg w-full p-6 shadow-xl animate-in fade-in zoom-in-95 max-h-[90vh] overflow-y-auto">
+          <div className="bg-white border border-neutral-200 rounded-2xl max-w-lg w-full p-4 sm:p-6 shadow-xl animate-in fade-in zoom-in-95 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-base font-semibold text-neutral-900">Buat Catatan & Galeri Media</h3>
               <button 
@@ -3100,7 +3160,7 @@ export default function Dashboard() {
       {/* MODAL KELOLA STATUS TUGAS */}
       {isStatusManagerOpen && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in">
-          <div className="bg-white border border-neutral-200 rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4 max-h-[90vh] overflow-y-auto">
+          <div className="bg-white border border-neutral-200 rounded-2xl max-w-md w-full p-4 sm:p-6 shadow-xl space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-neutral-100">
               <div className="flex items-center space-x-2">
                 <Settings2 className="w-4 h-4 text-neutral-600" />
