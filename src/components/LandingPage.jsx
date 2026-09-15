@@ -220,10 +220,9 @@ export default function LandingPage({ onStartAuth, user, onGoToDashboard }) {
               <div className="w-3 h-3 rounded-full bg-emerald-400/80" />
             </div>
 
-            {/* Simulated Address Bar */}
-            <div className="flex-1 max-w-md mx-auto bg-white border border-neutral-200/80 rounded-lg px-3 py-1 text-center text-xs text-neutral-500 font-mono select-none flex items-center justify-center space-x-1.5 shadow-2xs">
-              <span className="w-2 h-2 rounded-full bg-emerald-500" />
-              <span>https://ersona.app/workspace</span>
+            {/* Window Title Bar */}
+            <div className="flex-1 max-w-xs mx-auto bg-white border border-neutral-200/80 rounded-lg px-3 py-1 text-center text-xs text-neutral-600 select-none flex items-center justify-center space-x-1.5 shadow-2xs font-medium">
+              <span>🪐 ersona</span>
             </div>
 
             {/* View Mode Switcher: Baris vs Kolom */}
