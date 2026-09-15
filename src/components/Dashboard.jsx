@@ -7,7 +7,7 @@ import {
   Sparkles, X, Image, Video, Paperclip, Link, ExternalLink, Bell,
   ArrowUpDown, ChevronDown, ChevronUp, ZoomIn, Eye, MessageSquare,
   Edit3, Flag, Check, RotateCcw, AlertTriangle, Film, Settings,
-  HardDrive
+  HardDrive, Flame, Columns3, List, Layers, Settings2, ArrowRight
 } from 'lucide-react';
 import { format, isPast, isToday, parseISO, differenceInDays } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
@@ -15,6 +15,23 @@ import { compressImage } from '../utils/compressor';
 import { parseMediaUrl } from '../utils/embedHelper';
 import SettingsModal from './SettingsModal';
 import { getUserQuotaConfig, calculateUserStorageUsage, formatBytes } from '../utils/storageQuota';
+
+export const DEFAULT_TASK_STATUSES = [
+  { id: 'todo', label: 'To Do', color: 'bg-neutral-100 text-neutral-700 border-neutral-200' },
+  { id: 'in_progress', label: 'In Progress', color: 'bg-blue-50 text-blue-700 border-blue-200' },
+  { id: 'review', label: 'Review', color: 'bg-purple-50 text-purple-700 border-purple-200' },
+  { id: 'completed', label: 'Complete', color: 'bg-emerald-50 text-emerald-700 border-emerald-200', isLocked: true },
+];
+
+export const STATUS_COLOR_OPTIONS = [
+  { label: 'Abu-abu (Netral)', value: 'bg-neutral-100 text-neutral-700 border-neutral-200' },
+  { label: 'Biru (Info)', value: 'bg-blue-50 text-blue-700 border-blue-200' },
+  { label: 'Ungu (Proses)', value: 'bg-purple-50 text-purple-700 border-purple-200' },
+  { label: 'Hijau (Selesai)', value: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  { label: 'Kuning / Amber', value: 'bg-amber-50 text-amber-700 border-amber-200' },
+  { label: 'Merah / Rose', value: 'bg-rose-50 text-rose-700 border-rose-200' },
+  { label: 'Cyan / Teal', value: 'bg-cyan-50 text-cyan-700 border-cyan-200' },
+];
 
 const DEFAULT_PREFERENCES = {
   viewDensity: 'cozy',
@@ -128,12 +145,114 @@ export default function Dashboard() {
   // To-Do Sorting State
   const [todoSortBy, setTodoSortBy] = useState(preferences.defaultSort || 'created_desc');
 
+  // Status Task Kustom & Mode Tampilan (Baris vs Kolom Board)
+  const [taskStatuses, setTaskStatuses] = useState(() => {
+    try {
+      const saved = localStorage.getItem('solist_task_statuses');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (!parsed.some(s => s.id === 'completed')) {
+          parsed.push({ id: 'completed', label: 'Complete', color: 'bg-emerald-50 text-emerald-700 border-emerald-200', isLocked: true });
+        }
+        return parsed;
+      }
+      return DEFAULT_TASK_STATUSES;
+    } catch {
+      return DEFAULT_TASK_STATUSES;
+    }
+  });
+
+  const saveTaskStatuses = (newStatuses) => {
+    setTaskStatuses(newStatuses);
+    try {
+      localStorage.setItem('solist_task_statuses', JSON.stringify(newStatuses));
+    } catch (e) {
+      console.warn('Gagal menyimpan task statuses:', e);
+    }
+  };
+
+  const getStatusObj = (statusId) => {
+    return taskStatuses.find(s => s.id === statusId) || taskStatuses[0] || { id: 'todo', label: 'To Do', color: 'bg-neutral-100 text-neutral-700 border-neutral-200' };
+  };
+
+  const [taskViewMode, setTaskViewMode] = useState(() => {
+    return localStorage.getItem('solist_task_view_mode') || 'list'; // 'list' | 'board'
+  });
+
+  const [isGroupedByStatus, setIsGroupedByStatus] = useState(() => {
+    return localStorage.getItem('solist_grouped_by_status') === 'true';
+  });
+
+  const toggleViewMode = (mode) => {
+    setTaskViewMode(mode);
+    try {
+      localStorage.setItem('solist_task_view_mode', mode);
+    } catch (e) {
+      console.warn(e);
+    }
+  };
+
+  const toggleGroupByStatus = () => {
+    setIsGroupedByStatus(prev => {
+      const next = !prev;
+      try {
+        localStorage.setItem('solist_grouped_by_status', String(next));
+      } catch (e) {
+        console.warn(e);
+      }
+      return next;
+    });
+  };
+
+  const [isStatusManagerOpen, setIsStatusManagerOpen] = useState(false);
+  const [newStatusLabel, setNewStatusLabel] = useState('');
+  const [newStatusColor, setNewStatusColor] = useState(STATUS_COLOR_OPTIONS[0].value);
+
+  const handleAddCustomStatus = (e) => {
+    e.preventDefault();
+    const clean = newStatusLabel.trim();
+    if (!clean) return;
+    const newId = clean.toLowerCase().replace(/[^a-z0-9]/g, '_') + '_' + Date.now().toString(36).substring(4);
+    
+    const completedIndex = taskStatuses.findIndex(s => s.id === 'completed');
+    const updated = [...taskStatuses];
+    const newStatusObj = { id: newId, label: clean, color: newStatusColor };
+    if (completedIndex !== -1) {
+      updated.splice(completedIndex, 0, newStatusObj);
+    } else {
+      updated.push(newStatusObj);
+    }
+    saveTaskStatuses(updated);
+    setNewStatusLabel('');
+  };
+
+  const handleDeleteCustomStatus = (statusId) => {
+    if (statusId === 'completed') {
+      alert('Status "Complete" adalah status wajib dan tidak dapat dihapus.');
+      return;
+    }
+    if (!confirm('Hapus status ini? Semua tugas dengan status ini akan dipindahkan ke status awal ("To Do").')) return;
+    
+    setTodos(todos.map(t => t.status === statusId ? { ...t, status: 'todo' } : t));
+    supabase.from('todos').update({ status: 'todo' }).eq('status', statusId).then();
+    
+    const updated = taskStatuses.filter(s => s.id !== statusId);
+    saveTaskStatuses(updated);
+  };
+
+  const handleResetStatuses = () => {
+    if (confirm('Kembalikan status task ke standar (To Do, In Progress, Review, Complete)?')) {
+      saveTaskStatuses(DEFAULT_TASK_STATUSES);
+    }
+  };
+
   // Form State untuk Tambah Task Baru
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [newTaskDate, setNewTaskDate] = useState('');
   const [newTaskReminderDate, setNewTaskReminderDate] = useState('');
   const [newTaskDesc, setNewTaskDesc] = useState('');
   const [newTaskPriority, setNewTaskPriority] = useState(preferences.defaultPriority !== 'none' ? preferences.defaultPriority : 'medium');
+  const [newTaskStatus, setNewTaskStatus] = useState('todo');
   const [showTodoAdvanced, setShowTodoAdvanced] = useState(false);
   const [isSubmittingTask, setIsSubmittingTask] = useState(false);
 
@@ -150,6 +269,7 @@ export default function Dashboard() {
   const [editDueDate, setEditDueDate] = useState('');
   const [editReminderDate, setEditReminderDate] = useState('');
   const [editPriority, setEditPriority] = useState('medium');
+  const [editStatus, setEditStatus] = useState('todo');
   const [editMediaUrl, setEditMediaUrl] = useState(null);
   const [editMediaType, setEditMediaType] = useState(null);
   const [editFile, setEditFile] = useState(null);
@@ -361,6 +481,7 @@ export default function Dashboard() {
     setEditDueDate(todo.due_date ? todo.due_date.substring(0, 10) : '');
     setEditReminderDate(todo.reminder_date ? todo.reminder_date.substring(0, 10) : '');
     setEditPriority(todo.priority || 'medium');
+    setEditStatus(todo.status || (todo.is_completed ? 'completed' : 'todo'));
     setEditMediaUrl(todo.media_url || null);
     setEditMediaType(todo.media_type || null);
     setEditFile(null);
@@ -397,12 +518,15 @@ export default function Dashboard() {
       }
     }
 
+    const isCompleted = editStatus === 'completed';
     const updates = {
       title: cleanTitle,
       description: editDesc.trim() || null,
       due_date: editDueDate ? new Date(editDueDate).toISOString() : null,
       reminder_date: editReminderDate ? new Date(editReminderDate).toISOString() : null,
       priority: editPriority,
+      status: editStatus,
+      is_completed: isCompleted,
       media_url: finalMediaUrl,
       media_type: finalMediaType,
       updated_at: new Date().toISOString(),
@@ -457,12 +581,15 @@ export default function Dashboard() {
       }
     }
 
+    const isCompleted = newTaskStatus === 'completed';
     const payload = {
       title: cleanTitle,
       description: newTaskDesc.trim() || null,
       due_date: newTaskDate ? new Date(newTaskDate).toISOString() : null,
       reminder_date: newTaskReminderDate ? new Date(newTaskReminderDate).toISOString() : null,
       priority: newTaskPriority,
+      status: newTaskStatus,
+      is_completed: isCompleted,
       media_url: uploadedMediaUrl,
       media_type: uploadedMediaType,
     };
@@ -478,6 +605,7 @@ export default function Dashboard() {
       setNewTaskReminderDate('');
       setNewTaskDesc('');
       setNewTaskPriority(preferences.defaultPriority !== 'none' ? preferences.defaultPriority : 'medium');
+      setNewTaskStatus('todo');
       clearTodoFile();
       setShowTodoAdvanced(false);
     } else {
@@ -486,14 +614,30 @@ export default function Dashboard() {
   };
 
   const handleToggleTodo = async (id, currentStatus) => {
-    setTodos(todos.map(t => t.id === id ? { ...t, is_completed: !currentStatus } : t));
+    const newCompleted = !currentStatus;
+    const newStatus = newCompleted ? 'completed' : (taskStatuses[0]?.id || 'todo');
+    setTodos(todos.map(t => t.id === id ? { ...t, is_completed: newCompleted, status: newStatus } : t));
     const { error } = await supabase
       .from('todos')
-      .update({ is_completed: !currentStatus, updated_at: new Date().toISOString() })
+      .update({ is_completed: newCompleted, status: newStatus, updated_at: new Date().toISOString() })
       .eq('id', id);
 
     if (error) {
       console.error('Error updating todo:', error);
+      fetchData();
+    }
+  };
+
+  const handleUpdateTaskStatus = async (id, newStatus) => {
+    const isComp = newStatus === 'completed';
+    setTodos(todos.map(t => t.id === id ? { ...t, status: newStatus, is_completed: isComp } : t));
+    const { error } = await supabase
+      .from('todos')
+      .update({ status: newStatus, is_completed: isComp, updated_at: new Date().toISOString() })
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error updating status:', error);
       fetchData();
     }
   };
@@ -998,10 +1142,18 @@ export default function Dashboard() {
   };
 
   const renderPriorityBadge = (priority) => {
+    if (priority === 'urgent') {
+      return (
+        <span className="inline-flex items-center space-x-1 text-[10px] px-2 py-0.5 rounded-md bg-red-100 text-red-700 border border-red-300 font-bold shadow-2xs">
+          <Flame className="w-3 h-3 text-red-600 fill-red-500 animate-pulse" />
+          <span>Mendesak</span>
+        </span>
+      );
+    }
     if (priority === 'high') {
       return (
-        <span className="inline-flex items-center space-x-1 text-[10px] px-2 py-0.5 rounded-md bg-red-50 text-red-700 border border-red-200 font-medium">
-          <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span>
+        <span className="inline-flex items-center space-x-1 text-[10px] px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 border border-rose-200 font-medium">
+          <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
           <span>Tinggi</span>
         </span>
       );
@@ -1022,6 +1174,28 @@ export default function Dashboard() {
     );
   };
 
+  const renderStatusBadge = (todo) => {
+    const currentStatusId = todo.status || (todo.is_completed ? 'completed' : 'todo');
+    const statusObj = getStatusObj(currentStatusId);
+
+    return (
+      <div className="relative inline-block" onClick={(e) => e.stopPropagation()}>
+        <select
+          value={currentStatusId}
+          onChange={(e) => handleUpdateTaskStatus(todo.id, e.target.value)}
+          className={`text-[10px] font-medium px-2 py-0.5 rounded-md border cursor-pointer focus:outline-none transition appearance-none pr-3.5 ${statusObj.color}`}
+          title="Ubah Status Tugas"
+        >
+          {taskStatuses.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.label}
+            </option>
+          ))}
+        </select>
+      </div>
+    );
+  };
+
   const getSortedTodos = (list) => {
     return [...list].sort((a, b) => {
       if (todoSortBy === 'created_desc') return new Date(b.created_at) - new Date(a.created_at);
@@ -1037,11 +1211,120 @@ export default function Dashboard() {
         return new Date(b.due_date) - new Date(a.due_date);
       }
       if (todoSortBy === 'priority_desc') {
-        const order = { high: 3, medium: 2, low: 1 };
-        return (order[b.priority] || 2) - (order[a.priority] || 2);
+        const order = { urgent: 4, high: 3, medium: 2, low: 1, none: 0 };
+        return (order[b.priority] ?? 2) - (order[a.priority] ?? 2);
       }
       return 0;
     });
+  };
+
+  const renderTaskRow = (todo) => {
+    const reminderActive = isReminderActive(todo);
+    return (
+      <div
+        key={todo.id}
+        className={`group flex flex-col ${preferences.viewDensity === 'compact' ? 'p-2' : 'p-3'} bg-white border rounded-xl hover:shadow-2xs transition ${
+          reminderActive 
+            ? 'border-amber-300/80 bg-amber-50/20' 
+            : 'border-neutral-200/80 hover:border-neutral-300'
+        }`}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3 flex-1 min-w-0">
+            <button
+              onClick={() => handleToggleTodo(todo.id, todo.is_completed)}
+              className="text-neutral-400 hover:text-neutral-800 transition cursor-pointer shrink-0"
+              title={todo.is_completed ? 'Tandai belum selesai' : 'Tandai selesai'}
+            >
+              {todo.is_completed ? (
+                <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+              ) : (
+                <Circle className="w-5 h-5" />
+              )}
+            </button>
+
+            <div 
+              onClick={() => openEditTodoModal(todo)}
+              className="flex-1 min-w-0 cursor-pointer"
+            >
+              <div className="flex items-center flex-wrap gap-1.5">
+                <span className={`text-sm truncate font-medium hover:underline ${todo.is_completed ? 'line-through text-neutral-400' : 'text-neutral-800'}`}>
+                  {todo.title}
+                </span>
+
+                {renderPriorityBadge(todo.priority)}
+                {renderStatusBadge(todo)}
+
+                {todo.description && (
+                  <span title="Tugas ini memiliki catatan" className="text-neutral-400">
+                    <MessageSquare className="w-3.5 h-3.5" />
+                  </span>
+                )}
+
+                {todo.media_url && (
+                  <span title="Tugas ini memiliki lampiran foto" className="text-blue-500">
+                    <Image className="w-3.5 h-3.5" />
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center space-x-2 shrink-0 ml-3">
+            {todo.reminder_date && (
+              <span className={`inline-flex items-center space-x-1 text-[10px] px-2 py-0.5 rounded-md font-mono ${
+                reminderActive 
+                  ? 'bg-amber-100 text-amber-800 border border-amber-300 font-semibold' 
+                  : 'bg-neutral-100 text-neutral-500'
+              }`}>
+                <Bell className="w-2.5 h-2.5" />
+                <span>{format(parseISO(todo.reminder_date), 'dd MMM', { locale: localeId })}</span>
+              </span>
+            )}
+
+            {renderDateBadge(todo.due_date)}
+
+            {todo.media_url && (
+              <button
+                onClick={() => setLightboxMedia({ url: todo.media_url, type: todo.media_type, title: todo.title })}
+                className="relative group/thumb w-7 h-7 rounded-md overflow-hidden border border-neutral-200 shrink-0 cursor-pointer"
+                title="Klik untuk perbesar foto"
+              >
+                <img src={todo.media_url} alt="Thumb" className="w-full h-full object-cover" />
+                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/thumb:opacity-100 flex items-center justify-center text-white transition">
+                  <ZoomIn className="w-3 h-3" />
+                </div>
+              </button>
+            )}
+
+            <button
+              onClick={() => openEditTodoModal(todo)}
+              className="opacity-0 group-hover:opacity-100 text-neutral-400 hover:text-neutral-800 transition p-1 cursor-pointer"
+              title="Edit tugas"
+            >
+              <Edit3 className="w-4 h-4" />
+            </button>
+
+            <button
+              onClick={() => handleSoftDeleteTodo(todo.id)}
+              className="opacity-0 group-hover:opacity-100 text-neutral-400 hover:text-red-600 transition p-1 cursor-pointer"
+              title={labels.moveToTrash}
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        {todo.description && (
+          <div 
+            onClick={() => openEditTodoModal(todo)}
+            className="mt-2 text-xs text-neutral-500 pl-8 line-clamp-1 cursor-pointer hover:text-neutral-700 transition"
+          >
+            💬 {todo.description}
+          </div>
+        )}
+      </div>
+    );
   };
 
   // Render Galeri Media di Kartu Catatan (1-5 Foto & 1 Video)
@@ -1526,7 +1809,7 @@ export default function Dashboard() {
             {/* SECTION 1: TO-DO LIST AKTIF */}
             {(activeTab === 'all' || activeTab === 'todos' || activeTab === 'reminders') && (
               <section className="space-y-4">
-                <div className="flex items-center justify-between pb-2 border-b border-neutral-200">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-neutral-200">
                   <div className="flex items-center space-x-2">
                     <h2 className="text-sm font-semibold uppercase tracking-wider text-neutral-500 flex items-center space-x-2">
                       <CheckSquare className="w-4 h-4" />
@@ -1535,21 +1818,80 @@ export default function Dashboard() {
                     <span className="text-xs text-neutral-400 font-mono">({filteredActiveTodos.length})</span>
                   </div>
 
-                  {/* DROP DOWN SORTING TO-DO */}
-                  <div className="flex items-center space-x-1.5 text-xs text-neutral-600 bg-white border border-neutral-200 rounded-lg px-2.5 py-1">
-                    <ArrowUpDown className="w-3.5 h-3.5 text-neutral-400" />
-                    <span className="text-[11px] text-neutral-400 hidden sm:inline">Urutkan:</span>
-                    <select
-                      value={todoSortBy}
-                      onChange={(e) => setTodoSortBy(e.target.value)}
-                      className="bg-transparent focus:outline-none cursor-pointer text-xs font-medium text-neutral-800"
+                  <div className="flex items-center flex-wrap gap-2">
+                    {/* 1-Click View Switcher (Baris vs Kolom) */}
+                    <div className="flex items-center bg-neutral-100 p-0.5 rounded-lg border border-neutral-200/80 text-xs">
+                      <button
+                        type="button"
+                        onClick={() => toggleViewMode('list')}
+                        className={`flex items-center space-x-1 px-2.5 py-1 rounded-md font-medium transition cursor-pointer ${
+                          taskViewMode === 'list'
+                            ? 'bg-white text-neutral-900 shadow-2xs'
+                            : 'text-neutral-500 hover:text-neutral-800'
+                        }`}
+                        title="Tampilan Baris (List)"
+                      >
+                        <List className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">Baris</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => toggleViewMode('board')}
+                        className={`flex items-center space-x-1 px-2.5 py-1 rounded-md font-medium transition cursor-pointer ${
+                          taskViewMode === 'board'
+                            ? 'bg-white text-neutral-900 shadow-2xs'
+                            : 'text-neutral-500 hover:text-neutral-800'
+                        }`}
+                        title="Tampilan Kolom Bersih (Kanban Board)"
+                      >
+                        <Columns3 className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">Kolom</span>
+                      </button>
+                    </div>
+
+                    {/* Toggle Kelompokkan Status (Aktif di mode Baris) */}
+                    {taskViewMode === 'list' && (
+                      <button
+                        type="button"
+                        onClick={toggleGroupByStatus}
+                        className={`flex items-center space-x-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border transition cursor-pointer ${
+                          isGroupedByStatus
+                            ? 'bg-neutral-900 text-white border-neutral-900'
+                            : 'bg-white text-neutral-600 border-neutral-200 hover:bg-neutral-50'
+                        }`}
+                        title="Kelompokkan tugas berdasarkan status"
+                      >
+                        <Layers className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">Kelompokkan</span>
+                      </button>
+                    )}
+
+                    {/* Kelola Kustom Status */}
+                    <button
+                      type="button"
+                      onClick={() => setIsStatusManagerOpen(true)}
+                      className="flex items-center space-x-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-white text-neutral-600 border border-neutral-200 hover:bg-neutral-50 transition cursor-pointer"
+                      title="Kustomisasi Status Tugas"
                     >
-                      <option value="created_desc">Terbaru Dibuat</option>
-                      <option value="created_asc">Terlama Dibuat</option>
-                      <option value="due_date_asc">Jatuh Tempo Terdekat</option>
-                      <option value="due_date_desc">Jatuh Tempo Terjauh</option>
-                      <option value="priority_desc">Prioritas Tertinggi</option>
-                    </select>
+                      <Settings2 className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">Kelola Status</span>
+                    </button>
+
+                    {/* DROP DOWN SORTING TO-DO */}
+                    <div className="flex items-center space-x-1.5 text-xs text-neutral-600 bg-white border border-neutral-200 rounded-lg px-2 py-1">
+                      <ArrowUpDown className="w-3.5 h-3.5 text-neutral-400" />
+                      <select
+                        value={todoSortBy}
+                        onChange={(e) => setTodoSortBy(e.target.value)}
+                        className="bg-transparent focus:outline-none cursor-pointer text-xs font-medium text-neutral-800"
+                      >
+                        <option value="created_desc">Terbaru Dibuat</option>
+                        <option value="created_asc">Terlama Dibuat</option>
+                        <option value="due_date_asc">Jatuh Tempo Terdekat</option>
+                        <option value="due_date_desc">Jatuh Tempo Terjauh</option>
+                        <option value="priority_desc">Prioritas Tertinggi</option>
+                      </select>
+                    </div>
                   </div>
                 </div>
 
@@ -1565,16 +1907,28 @@ export default function Dashboard() {
                         onChange={(e) => setNewTaskTitle(e.target.value)}
                         className="flex-1 px-3 py-1.5 text-sm bg-transparent focus:outline-none placeholder:text-neutral-400"
                       />
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center flex-wrap gap-2">
                         <select
                           value={newTaskPriority}
                           onChange={(e) => setNewTaskPriority(e.target.value)}
                           className="text-xs bg-neutral-50 border border-neutral-200 text-neutral-700 rounded-lg px-2 py-1.5 focus:outline-none font-medium cursor-pointer"
                           title="Prioritas Tugas"
                         >
-                          <option value="low">🔵 Rendah</option>
-                          <option value="medium">🟡 Sedang</option>
+                          <option value="urgent">🔥 Mendesak</option>
                           <option value="high">🔴 Tinggi</option>
+                          <option value="medium">🟡 Sedang</option>
+                          <option value="low">🔵 Rendah</option>
+                        </select>
+
+                        <select
+                          value={newTaskStatus}
+                          onChange={(e) => setNewTaskStatus(e.target.value)}
+                          className="text-xs bg-neutral-50 border border-neutral-200 text-neutral-700 rounded-lg px-2 py-1.5 focus:outline-none font-medium cursor-pointer"
+                          title="Status Tugas"
+                        >
+                          {taskStatuses.map(s => (
+                            <option key={s.id} value={s.id}>{s.label}</option>
+                          ))}
                         </select>
 
                         <input
@@ -1676,123 +2030,203 @@ export default function Dashboard() {
                   </form>
                 )}
 
-                {/* List Tugas Aktif */}
-                <div className="space-y-2">
-                  {filteredActiveTodos.length === 0 ? (
-                    <div className="text-center py-6 text-neutral-400 text-xs italic bg-white/40 rounded-xl border border-dashed border-neutral-200">
-                      {activeTab === 'reminders' 
-                        ? 'Tidak ada tugas yang membutuhkan pengingat saat ini.' 
-                        : 'Belum ada tugas yang perlu diselesaikan.'}
-                    </div>
-                  ) : (
-                    filteredActiveTodos.map((todo) => {
-                      const reminderActive = isReminderActive(todo);
+                {/* TAMPILAN TUGAS: KOLOM (BOARD) VS BARIS (LIST) */}
+                {taskViewMode === 'board' ? (
+                  /* MODE KOLOM BERSIH (KANBAN BOARD) */
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-start pb-4 overflow-x-auto">
+                    {taskStatuses.map((status) => {
+                      const todosInStatus = filteredActiveTodos.filter(t => {
+                        const sId = t.status || (t.is_completed ? 'completed' : 'todo');
+                        return sId === status.id;
+                      });
+
                       return (
-                        <div
-                          key={todo.id}
-                          className={`group flex flex-col ${preferences.viewDensity === 'compact' ? 'p-2' : 'p-3'} bg-white border rounded-xl hover:shadow-2xs transition ${
-                            reminderActive 
-                              ? 'border-amber-300/80 bg-amber-50/20' 
-                              : 'border-neutral-200/80 hover:border-neutral-300'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-3 flex-1 min-w-0">
-                              <button
-                                onClick={() => handleToggleTodo(todo.id, todo.is_completed)}
-                                className="text-neutral-400 hover:text-neutral-800 transition cursor-pointer shrink-0"
-                              >
-                                {todo.is_completed ? (
-                                  <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                                ) : (
-                                  <Circle className="w-5 h-5" />
-                                )}
-                              </button>
-
-                              <div 
-                                onClick={() => openEditTodoModal(todo)}
-                                className="flex-1 min-w-0 cursor-pointer"
-                              >
-                                <div className="flex items-center space-x-2">
-                                  <span className={`text-sm truncate font-medium hover:underline ${todo.is_completed ? 'line-through text-neutral-400' : 'text-neutral-800'}`}>
-                                    {todo.title}
-                                  </span>
-
-                                  {renderPriorityBadge(todo.priority)}
-
-                                  {todo.description && (
-                                    <span title="Tugas ini memiliki catatan" className="text-neutral-400">
-                                      <MessageSquare className="w-3.5 h-3.5" />
-                                    </span>
-                                  )}
-
-                                  {todo.media_url && (
-                                    <span title="Tugas ini memiliki lampiran foto" className="text-blue-500">
-                                      <Image className="w-3.5 h-3.5" />
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
+                        <div key={status.id} className="bg-neutral-100/70 border border-neutral-200/80 rounded-2xl p-3 flex flex-col space-y-3 min-w-[250px]">
+                          {/* Header Kolom */}
+                          <div className="flex items-center justify-between px-1">
+                            <div className="flex items-center space-x-2">
+                              <span className={`px-2.5 py-0.5 rounded-md text-xs font-semibold border ${status.color}`}>
+                                {status.label}
+                              </span>
+                              <span className="text-xs text-neutral-400 font-mono font-medium">
+                                ({todosInStatus.length})
+                              </span>
                             </div>
-
-                            <div className="flex items-center space-x-2 shrink-0 ml-3">
-                              {todo.reminder_date && (
-                                <span className={`inline-flex items-center space-x-1 text-[10px] px-2 py-0.5 rounded-md font-mono ${
-                                  reminderActive 
-                                    ? 'bg-amber-100 text-amber-800 border border-amber-300 font-semibold' 
-                                    : 'bg-neutral-100 text-neutral-500'
-                                }`}>
-                                  <Bell className="w-2.5 h-2.5" />
-                                  <span>{format(parseISO(todo.reminder_date), 'dd MMM', { locale: localeId })}</span>
-                                </span>
-                              )}
-
-                              {renderDateBadge(todo.due_date)}
-
-                              {todo.media_url && (
-                                <button
-                                  onClick={() => setLightboxMedia({ url: todo.media_url, type: todo.media_type, title: todo.title })}
-                                  className="relative group/thumb w-7 h-7 rounded-md overflow-hidden border border-neutral-200 shrink-0 cursor-pointer"
-                                  title="Klik untuk perbesar foto"
-                                >
-                                  <img src={todo.media_url} alt="Thumb" className="w-full h-full object-cover" />
-                                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/thumb:opacity-100 flex items-center justify-center text-white transition">
-                                    <ZoomIn className="w-3 h-3" />
-                                  </div>
-                                </button>
-                              )}
-
-                              <button
-                                onClick={() => openEditTodoModal(todo)}
-                                className="opacity-0 group-hover:opacity-100 text-neutral-400 hover:text-neutral-800 transition p-1 cursor-pointer"
-                                title="Edit tugas"
-                              >
-                                <Edit3 className="w-4 h-4" />
-                              </button>
-
-                              <button
-                                onClick={() => handleSoftDeleteTodo(todo.id)}
-                                className="opacity-0 group-hover:opacity-100 text-neutral-400 hover:text-red-600 transition p-1 cursor-pointer"
-                                title={labels.moveToTrash}
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setNewTaskStatus(status.id);
+                                window.scrollTo({ top: 0, behavior: 'smooth' });
+                              }}
+                              className="text-neutral-400 hover:text-neutral-700 p-1 rounded hover:bg-neutral-200/50 transition cursor-pointer"
+                              title={`Tambah tugas ke ${status.label}`}
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                            </button>
                           </div>
 
-                          {todo.description && (
-                            <div 
-                              onClick={() => openEditTodoModal(todo)}
-                              className="mt-2 text-xs text-neutral-500 pl-8 line-clamp-1 cursor-pointer hover:text-neutral-700 transition"
-                            >
-                              💬 {todo.description}
-                            </div>
-                          )}
+                          {/* Kartu dalam Kolom */}
+                          <div className="space-y-2.5">
+                            {todosInStatus.length === 0 ? (
+                              <div className="py-8 text-center text-xs text-neutral-400 border border-dashed border-neutral-200/80 rounded-xl bg-white/50">
+                                Belum ada tugas
+                              </div>
+                            ) : (
+                              todosInStatus.map(todo => {
+                                const reminderActive = isReminderActive(todo);
+                                return (
+                                  <div
+                                    key={todo.id}
+                                    className={`group/card bg-white border rounded-xl p-3 shadow-2xs hover:shadow-xs transition space-y-2.5 ${
+                                      reminderActive ? 'border-amber-300 bg-amber-50/20' : 'border-neutral-200/80 hover:border-neutral-300'
+                                    }`}
+                                  >
+                                    <div className="flex items-center justify-between">
+                                      {renderPriorityBadge(todo.priority)}
+                                      {renderStatusBadge(todo)}
+                                    </div>
+
+                                    <div className="flex items-start space-x-2.5">
+                                      <button
+                                        onClick={() => handleToggleTodo(todo.id, todo.is_completed)}
+                                        className="text-neutral-400 hover:text-neutral-800 transition cursor-pointer shrink-0 mt-0.5"
+                                        title={todo.is_completed ? 'Tandai belum selesai' : 'Tandai selesai'}
+                                      >
+                                        {todo.is_completed ? (
+                                          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                                        ) : (
+                                          <Circle className="w-4 h-4" />
+                                        )}
+                                      </button>
+                                      <div
+                                        onClick={() => openEditTodoModal(todo)}
+                                        className="cursor-pointer flex-1 min-w-0"
+                                      >
+                                        <h4 className={`text-xs font-semibold leading-snug line-clamp-2 hover:underline ${
+                                          todo.is_completed ? 'line-through text-neutral-400' : 'text-neutral-800'
+                                        }`}>
+                                          {todo.title}
+                                        </h4>
+                                      </div>
+                                    </div>
+
+                                    {todo.description && (
+                                      <p
+                                        onClick={() => openEditTodoModal(todo)}
+                                        className="text-[11px] text-neutral-500 line-clamp-2 cursor-pointer hover:text-neutral-700 pl-6"
+                                      >
+                                        💬 {todo.description}
+                                      </p>
+                                    )}
+
+                                    {todo.media_url && (
+                                      <div 
+                                        onClick={() => setLightboxMedia({ url: todo.media_url, type: todo.media_type, title: todo.title })}
+                                        className="relative h-24 rounded-lg overflow-hidden border border-neutral-100 cursor-zoom-in group/media"
+                                      >
+                                        <img src={todo.media_url} alt="Attachment" className="w-full h-full object-cover group-hover/media:scale-105 transition" />
+                                        <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/media:opacity-100 flex items-center justify-center text-white text-xs transition">
+                                          <ZoomIn className="w-4 h-4" />
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    <div className="flex items-center justify-between pt-1 border-t border-neutral-100 text-[11px]">
+                                      <div className="flex items-center space-x-1.5 flex-wrap gap-y-1">
+                                        {todo.due_date && renderDateBadge(todo.due_date)}
+                                        {todo.reminder_date && (
+                                          <span className={`inline-flex items-center space-x-1 text-[10px] px-1.5 py-0.5 rounded font-mono ${
+                                            reminderActive ? 'bg-amber-100 text-amber-800 font-semibold' : 'bg-neutral-100 text-neutral-500'
+                                          }`}>
+                                            <Bell className="w-2.5 h-2.5" />
+                                            <span>{format(parseISO(todo.reminder_date), 'dd MMM', { locale: localeId })}</span>
+                                          </span>
+                                        )}
+                                      </div>
+                                      <div className="flex items-center space-x-1 opacity-0 group-hover/card:opacity-100 transition">
+                                        <button
+                                          onClick={() => openEditTodoModal(todo)}
+                                          className="text-neutral-400 hover:text-neutral-700 p-1 cursor-pointer"
+                                          title="Edit Tugas"
+                                        >
+                                          <Edit3 className="w-3.5 h-3.5" />
+                                        </button>
+                                        <button
+                                          onClick={() => handleSoftDeleteTodo(todo.id)}
+                                          className="text-neutral-400 hover:text-red-600 p-1 cursor-pointer"
+                                          title={labels.moveToTrash}
+                                        >
+                                          <Trash2 className="w-3.5 h-3.5" />
+                                        </button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })
+                            )}
+                          </div>
                         </div>
                       );
-                    })
-                  )}
-                </div>
+                    })}
+                  </div>
+                ) : isGroupedByStatus ? (
+                  /* MODE BARIS DIKELOMPOKKAN PER STATUS */
+                  <div className="space-y-6">
+                    {taskStatuses.map(status => {
+                      const todosInGroup = filteredActiveTodos.filter(t => {
+                        const sId = t.status || (t.is_completed ? 'completed' : 'todo');
+                        return sId === status.id;
+                      });
+
+                      return (
+                        <div key={status.id} className="space-y-2">
+                          <div className="flex items-center justify-between px-1 pb-1 border-b border-neutral-200/60">
+                            <div className="flex items-center space-x-2">
+                              <span className={`px-2.5 py-0.5 rounded-md text-xs font-semibold border ${status.color}`}>
+                                {status.label}
+                              </span>
+                              <span className="text-xs text-neutral-400 font-mono font-medium">({todosInGroup.length})</span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setNewTaskStatus(status.id);
+                                window.scrollTo({ top: 0, behavior: 'smooth' });
+                              }}
+                              className="text-neutral-400 hover:text-neutral-700 text-xs font-medium flex items-center space-x-1 cursor-pointer"
+                            >
+                              <Plus className="w-3 h-3" />
+                              <span>Tambah</span>
+                            </button>
+                          </div>
+
+                          <div className="space-y-2">
+                            {todosInGroup.length === 0 ? (
+                              <div className="text-xs text-neutral-400 italic py-3 px-4 bg-white/40 rounded-xl border border-dashed border-neutral-200">
+                                Tidak ada tugas berstatus "{status.label}"
+                              </div>
+                            ) : (
+                              todosInGroup.map(todo => renderTaskRow(todo))
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  /* MODE BARIS STANDAR (FLAT LIST) */
+                  <div className="space-y-2">
+                    {filteredActiveTodos.length === 0 ? (
+                      <div className="text-center py-6 text-neutral-400 text-xs italic bg-white/40 rounded-xl border border-dashed border-neutral-200">
+                        {activeTab === 'reminders' 
+                          ? 'Tidak ada tugas yang membutuhkan pengingat saat ini.' 
+                          : 'Belum ada tugas yang perlu diselesaikan.'}
+                      </div>
+                    ) : (
+                      filteredActiveTodos.map(todo => renderTaskRow(todo))
+                    )}
+                  </div>
+                )}
               </section>
             )}
 
@@ -2130,7 +2564,23 @@ export default function Dashboard() {
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 bg-neutral-50/80 rounded-xl border border-neutral-200/80">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 p-3 bg-neutral-50/80 rounded-xl border border-neutral-200/80">
+                <div>
+                  <label className="block text-[11px] font-medium text-neutral-600 mb-1 flex items-center space-x-1">
+                    <Layers className="w-3 h-3 text-neutral-500" />
+                    <span>Status</span>
+                  </label>
+                  <select
+                    value={editStatus}
+                    onChange={(e) => setEditStatus(e.target.value)}
+                    className="w-full text-xs bg-white border border-neutral-200 text-neutral-800 rounded-lg p-1.5 focus:outline-none font-medium cursor-pointer"
+                  >
+                    {taskStatuses.map(s => (
+                      <option key={s.id} value={s.id}>{s.label}</option>
+                    ))}
+                  </select>
+                </div>
+
                 <div>
                   <label className="block text-[11px] font-medium text-neutral-600 mb-1 flex items-center space-x-1">
                     <Flag className="w-3 h-3 text-neutral-500" />
@@ -2141,9 +2591,10 @@ export default function Dashboard() {
                     onChange={(e) => setEditPriority(e.target.value)}
                     className="w-full text-xs bg-white border border-neutral-200 text-neutral-800 rounded-lg p-1.5 focus:outline-none font-medium cursor-pointer"
                   >
-                    <option value="low">🔵 Rendah</option>
-                    <option value="medium">🟡 Sedang</option>
+                    <option value="urgent">🔥 Mendesak</option>
                     <option value="high">🔴 Tinggi</option>
+                    <option value="medium">🟡 Sedang</option>
+                    <option value="low">🔵 Rendah</option>
                   </select>
                 </div>
 
@@ -2559,6 +3010,105 @@ export default function Dashboard() {
                   ) : (
                     <span>Simpan Catatan</span>
                   )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL KELOLA STATUS TUGAS */}
+      {isStatusManagerOpen && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in">
+          <div className="bg-white border border-neutral-200 rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-neutral-100">
+              <div className="flex items-center space-x-2">
+                <Settings2 className="w-4 h-4 text-neutral-600" />
+                <h3 className="font-semibold text-sm text-neutral-900">Kelola Status Tugas</h3>
+              </div>
+              <button
+                onClick={() => setIsStatusManagerOpen(false)}
+                className="text-neutral-400 hover:text-neutral-600 p-1 rounded-md cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-neutral-500">
+              Kustomisasi status alur kerja tugas Anda. Status <strong>Complete</strong> wajib ada dan tidak dapat dihapus.
+            </p>
+
+            {/* List Status Saat Ini */}
+            <div className="space-y-2">
+              <span className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">Daftar Status</span>
+              <div className="space-y-1.5">
+                {taskStatuses.map((s) => (
+                  <div key={s.id} className="flex items-center justify-between p-2.5 bg-neutral-50 rounded-xl border border-neutral-200/70 text-xs">
+                    <div className="flex items-center space-x-2">
+                      <span className={`px-2.5 py-0.5 rounded-md font-medium border ${s.color}`}>
+                        {s.label}
+                      </span>
+                      {s.isLocked && (
+                        <span className="text-[10px] text-neutral-400 italic">(Wajib sistem)</span>
+                      )}
+                    </div>
+                    {!s.isLocked && (
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteCustomStatus(s.id)}
+                        className="text-neutral-400 hover:text-red-600 p-1 transition cursor-pointer"
+                        title="Hapus status ini"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Tambah Status Baru */}
+            <form onSubmit={handleAddCustomStatus} className="pt-3 border-t border-neutral-100 space-y-3">
+              <span className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider block">Tambah Status Baru</span>
+              <div className="space-y-2">
+                <input
+                  type="text"
+                  placeholder="Nama status baru (misal: On Hold, Testing)..."
+                  maxLength={30}
+                  value={newStatusLabel}
+                  onChange={(e) => setNewStatusLabel(e.target.value)}
+                  className="w-full px-3 py-1.5 text-xs bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-800"
+                />
+
+                <div className="flex items-center space-x-2">
+                  <span className="text-xs text-neutral-500 shrink-0">Warna:</span>
+                  <select
+                    value={newStatusColor}
+                    onChange={(e) => setNewStatusColor(e.target.value)}
+                    className="flex-1 text-xs bg-neutral-50 border border-neutral-200 rounded-lg p-1.5 focus:outline-none cursor-pointer"
+                  >
+                    {STATUS_COLOR_OPTIONS.map((c, i) => (
+                      <option key={i} value={c.value}>{c.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-2">
+                <button
+                  type="button"
+                  onClick={handleResetStatuses}
+                  className="text-xs text-neutral-500 hover:text-neutral-800 underline cursor-pointer"
+                >
+                  Reset ke Default
+                </button>
+                <button
+                  type="submit"
+                  disabled={!newStatusLabel.trim()}
+                  className="px-3.5 py-1.5 text-xs font-medium bg-neutral-900 hover:bg-neutral-800 text-white rounded-lg transition disabled:opacity-50 cursor-pointer flex items-center space-x-1"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Tambah Status</span>
                 </button>
               </div>
             </form>
