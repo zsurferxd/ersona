@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Mail, Lock, ArrowRight, Loader2, KeyRound, AlertTriangle } from 'lucide-react';
+import { Mail, Lock, ArrowRight, Loader2, KeyRound, AlertTriangle, ArrowLeft } from 'lucide-react';
 
-export default function Auth() {
-  const [isSignUp, setIsSignUp] = useState(false);
+export default function Auth({ onBackToHome, initialIsSignUp = false }) {
+  const [isSignUp, setIsSignUp] = useState(initialIsSignUp);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -36,7 +36,18 @@ export default function Auth() {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-[#FBFBFA]">
-      <div className="w-full max-w-md bg-white border border-neutral-200/90 rounded-2xl shadow-sm p-8 transition-all">
+      <div className="w-full max-w-md bg-white border border-neutral-200/90 rounded-2xl shadow-sm p-6 sm:p-8 transition-all relative">
+        {/* Tombol Kembali ke Beranda */}
+        {onBackToHome && (
+          <button
+            type="button"
+            onClick={onBackToHome}
+            className="mb-4 inline-flex items-center space-x-1.5 text-xs text-neutral-500 hover:text-neutral-900 transition cursor-pointer p-1 rounded-md"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Kembali ke Beranda</span>
+          </button>
+        )}
         {/* Supabase Not Configured Alert */}
         {!isSupabaseConfigured && (
           <div className="mb-6 p-3.5 bg-amber-50/80 border border-amber-200 text-amber-900 rounded-xl text-xs space-y-1.5">

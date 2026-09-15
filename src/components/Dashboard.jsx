@@ -7,7 +7,7 @@ import {
   Sparkles, X, Image, Video, Paperclip, Link, ExternalLink, Bell,
   ArrowUpDown, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, ZoomIn, Eye, MessageSquare,
   Edit3, Flag, Check, RotateCcw, AlertTriangle, Film, Settings,
-  HardDrive, Flame, Columns3, List, Layers, Settings2, ArrowRight, Menu
+  HardDrive, Flame, Columns3, List, Layers, Settings2, ArrowRight, Menu, Globe
 } from 'lucide-react';
 import { format, isPast, isToday, parseISO, differenceInDays } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
@@ -24,19 +24,17 @@ export const DEFAULT_TASK_STATUSES = [
 ];
 
 export const STATUS_COLOR_OPTIONS = [
-  { label: 'Abu-abu (Netral)', value: 'bg-neutral-100 text-neutral-700 border-neutral-200' },
-  { label: 'Biru (Info)', value: 'bg-blue-50 text-blue-700 border-blue-200' },
-  { label: 'Ungu (Proses)', value: 'bg-purple-50 text-purple-700 border-purple-200' },
-  { label: 'Hijau (Selesai)', value: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-  { label: 'Kuning / Amber', value: 'bg-amber-50 text-amber-700 border-amber-200' },
-  { label: 'Merah / Rose', value: 'bg-rose-50 text-rose-700 border-rose-200' },
-  { label: 'Cyan / Teal', value: 'bg-cyan-50 text-cyan-700 border-cyan-200' },
+  { label: 'Abu-abu (Default)', value: 'bg-neutral-100 text-neutral-700 border-neutral-200' },
+  { label: 'Biru (Progress)', value: 'bg-blue-50 text-blue-700 border-blue-200' },
+  { label: 'Ungu (Review)', value: 'bg-purple-50 text-purple-700 border-purple-200' },
+  { label: 'Amber (Menunggu)', value: 'bg-amber-50 text-amber-700 border-amber-200' },
+  { label: 'Merah (Blocked)', value: 'bg-red-50 text-red-700 border-red-200' },
+  { label: 'Emerald (Complete)', value: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
 ];
 
 const DEFAULT_PREFERENCES = {
-  viewDensity: 'cozy',
+  themeColor: 'emerald',
   defaultSort: 'created_desc',
-  defaultPriority: 'none',
   customLabels: {
     trashTab: 'Sampah',
     remindersTab: 'Pengingat',
@@ -47,7 +45,7 @@ const DEFAULT_PREFERENCES = {
   },
 };
 
-export default function Dashboard() {
+export default function Dashboard({ onGoToLanding }) {
   const { user, signOut } = useAuth();
   const notePhotoInputRef = useRef(null);
   const noteVideoInputRef = useRef(null);
@@ -1678,6 +1676,23 @@ export default function Dashboard() {
                 {quotaConfig.isUpgraded ? 'PRO' : 'FREE'}
               </span>
             </button>
+
+            {/* TOMBOL BERANDA / LANDING PAGE */}
+            {onGoToLanding && (
+              <button
+                onClick={() => {
+                  onGoToLanding();
+                  setIsMobileMenuOpen(false);
+                }}
+                className="w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-sm font-medium text-neutral-500 hover:bg-neutral-200/40 hover:text-neutral-900 transition cursor-pointer mt-0.5"
+                title="Buka Halaman Beranda & Pengenalan Ersona"
+              >
+                <div className="flex items-center space-x-2">
+                  <Globe className="w-4 h-4 text-neutral-400" />
+                  <span>Halaman Beranda</span>
+                </div>
+              </button>
+            )}
           </nav>
         </div>
 
