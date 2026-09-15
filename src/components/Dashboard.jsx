@@ -5,7 +5,7 @@ import {
   CheckCircle2, Circle, Calendar, Trash2, Plus, LogOut, 
   FileText, CheckSquare, Search, Tag, AlertCircle, Clock, Loader2,
   Sparkles, X, Image, Video, Paperclip, Link, ExternalLink, Bell,
-  ArrowUpDown, ChevronDown, ChevronUp, ZoomIn, Eye, MessageSquare,
+  ArrowUpDown, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, ZoomIn, Eye, MessageSquare,
   Edit3, Flag, Check, RotateCcw, AlertTriangle, Film, Settings,
   HardDrive, Flame, Columns3, List, Layers, Settings2, ArrowRight
 } from 'lucide-react';
@@ -55,6 +55,7 @@ export default function Dashboard() {
   const editNoteVideoInputRef = useRef(null);
   const todoFileInputRef = useRef(null);
   const editTodoFileInputRef = useRef(null);
+  const boardRef = useRef(null);
 
   // Preferensi Tampilan & Kustomisasi Teks
   const [preferences, setPreferences] = useState(() => {
@@ -1904,6 +1905,28 @@ export default function Dashboard() {
                         <span>Kolom</span>
                       </button>
                     </div>
+
+                    {/* Tombol Geser Kolom Cepat (Scroll Kiri/Kanan di Mode Kolom) */}
+                    {taskViewMode === 'board' && (
+                      <div className="flex items-center bg-neutral-100 p-0.5 rounded-lg border border-neutral-200/80 text-xs shrink-0 space-x-0.5">
+                        <button
+                          type="button"
+                          onClick={() => boardRef.current?.scrollBy({ left: -320, behavior: 'smooth' })}
+                          className="p-1 rounded-md text-neutral-600 hover:bg-white hover:text-neutral-900 transition cursor-pointer shadow-2xs"
+                          title="Geser status ke kiri"
+                        >
+                          <ChevronLeft className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => boardRef.current?.scrollBy({ left: 320, behavior: 'smooth' })}
+                          className="p-1 rounded-md text-neutral-600 hover:bg-white hover:text-neutral-900 transition cursor-pointer shadow-2xs"
+                          title="Geser status ke kanan"
+                        >
+                          <ChevronRight className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   {/* Kanan: Alat Kontrol (Kelompokkan, Status, Urutkan) */}
@@ -2098,7 +2121,10 @@ export default function Dashboard() {
                 {/* TAMPILAN TUGAS: KOLOM (BOARD) VS BARIS (LIST) */}
                 {taskViewMode === 'board' ? (
                   /* MODE KOLOM BERSIH (KANBAN BOARD) */
-                  <div className="flex gap-4 overflow-x-auto pb-4 pt-1 items-start min-h-[420px]">
+                  <div 
+                    ref={boardRef}
+                    className="flex gap-4 overflow-x-auto pb-3 pt-1 items-start scroll-smooth"
+                  >
                     {taskStatuses.map((status) => {
                       const todosInStatus = filteredActiveTodos.filter(t => {
                         const sId = getTaskStatusId(t);
@@ -2108,10 +2134,10 @@ export default function Dashboard() {
                       return (
                         <div
                           key={status.id}
-                          className="w-72 shrink-0 bg-[#F7F6F3]/90 border border-neutral-200/80 rounded-2xl p-3 flex flex-col space-y-3 shadow-2xs"
+                          className="w-72 shrink-0 bg-[#F7F6F3]/90 border border-neutral-200/80 rounded-2xl p-3 flex flex-col shadow-2xs max-h-[calc(100vh-270px)] min-h-[420px]"
                         >
-                          {/* Header Kolom */}
-                          <div className="flex items-center space-x-2 px-1">
+                          {/* Header Kolom - Pinned di Atas */}
+                          <div className="flex items-center space-x-2 px-1 pb-2.5 mb-2 border-b border-neutral-200/60 shrink-0">
                             <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${status.color}`}>
                               {status.label}
                             </span>
@@ -2120,10 +2146,10 @@ export default function Dashboard() {
                             </span>
                           </div>
 
-                          {/* Kartu dalam Kolom */}
-                          <div className="space-y-2.5">
+                          {/* Kartu dalam Kolom - Scroll Vertikal Mandiri */}
+                          <div className="flex-1 overflow-y-auto space-y-2.5 pr-1 focus:outline-none">
                             {todosInStatus.length === 0 ? (
-                              <div className="py-10 text-center text-xs text-neutral-400 border border-dashed border-neutral-200/80 rounded-xl bg-white/40">
+                              <div className="h-32 flex items-center justify-center text-xs text-neutral-400 border border-dashed border-neutral-200/80 rounded-xl bg-white/40">
                                 Belum ada tugas
                               </div>
                             ) : (
