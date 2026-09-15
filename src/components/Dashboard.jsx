@@ -581,15 +581,14 @@ export default function Dashboard() {
       }
     }
 
-    const isCompleted = newTaskStatus === 'completed';
     const payload = {
       title: cleanTitle,
       description: newTaskDesc.trim() || null,
       due_date: newTaskDate ? new Date(newTaskDate).toISOString() : null,
       reminder_date: newTaskReminderDate ? new Date(newTaskReminderDate).toISOString() : null,
       priority: newTaskPriority,
-      status: newTaskStatus,
-      is_completed: isCompleted,
+      status: 'todo',
+      is_completed: false,
       media_url: uploadedMediaUrl,
       media_type: uploadedMediaType,
     };
@@ -1223,25 +1222,28 @@ export default function Dashboard() {
     return (
       <div
         key={todo.id}
-        className={`group flex flex-col ${preferences.viewDensity === 'compact' ? 'p-2' : 'p-3'} bg-white border rounded-xl hover:shadow-2xs transition ${
+        className={`group flex flex-col ${preferences.viewDensity === 'compact' ? 'p-2' : 'p-2.5 sm:p-3'} bg-white border rounded-xl hover:shadow-2xs transition ${
           reminderActive 
             ? 'border-amber-300/80 bg-amber-50/20' 
             : 'border-neutral-200/80 hover:border-neutral-300'
         }`}
       >
         <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center space-x-3 flex-1 min-w-0">
+          {/* Sisi Kiri: Checkbox + Status Badge + Judul Tugas */}
+          <div className="flex items-center space-x-2.5 flex-1 min-w-0">
             <button
               onClick={() => handleToggleTodo(todo.id, todo.is_completed)}
               className="text-neutral-400 hover:text-neutral-800 transition cursor-pointer shrink-0"
               title={todo.is_completed ? 'Tandai belum selesai' : 'Tandai selesai'}
             >
               {todo.is_completed ? (
-                <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                <CheckCircle2 className="w-4.5 h-4.5 text-emerald-600" />
               ) : (
-                <Circle className="w-5 h-5" />
+                <Circle className="w-4.5 h-4.5" />
               )}
             </button>
+
+            {!hideStatus && renderStatusBadge(todo)}
 
             <div 
               onClick={() => openEditTodoModal(todo)}
@@ -1265,9 +1267,9 @@ export default function Dashboard() {
             </div>
           </div>
 
+          {/* Sisi Kanan: Prioritas, Jatuh Tempo, Foto, Hapus */}
           <div className="flex items-center space-x-2 shrink-0 ml-3">
             {renderPriorityBadge(todo.priority)}
-            {!hideStatus && renderStatusBadge(todo)}
 
             {todo.reminder_date && (
               <span className={`inline-flex items-center space-x-1 text-[10px] px-2 py-0.5 rounded-md font-mono ${
@@ -1295,14 +1297,7 @@ export default function Dashboard() {
               </button>
             )}
 
-            <button
-              onClick={() => openEditTodoModal(todo)}
-              className="opacity-0 group-hover:opacity-100 text-neutral-400 hover:text-neutral-800 transition p-1 cursor-pointer"
-              title="Edit tugas"
-            >
-              <Edit3 className="w-4 h-4" />
-            </button>
-
+            {/* Tombol Hapus: tanpa tombol edit pencil karena klik baris sudah membuka modal edit */}
             <button
               onClick={() => handleSoftDeleteTodo(todo.id)}
               className="opacity-0 group-hover:opacity-100 text-neutral-400 hover:text-red-600 transition p-1 cursor-pointer"
@@ -1808,17 +1803,20 @@ export default function Dashboard() {
             {(activeTab === 'all' || activeTab === 'todos' || activeTab === 'reminders') && (
               <section className="space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-neutral-200">
-                  <div className="flex items-center space-x-2">
-                    <h2 className="text-sm font-semibold uppercase tracking-wider text-neutral-500 flex items-center space-x-2">
-                      <CheckSquare className="w-4 h-4" />
-                      <span>{activeTab === 'reminders' ? `Daftar ${labels.remindersTab} Aktif` : `${labels.todosTab} & Jadwal`}</span>
-                    </h2>
-                    <span className="text-xs text-neutral-400 font-mono">({filteredActiveTodos.length})</span>
-                  </div>
+                  {/* Kiri: Judul Tab + Pill Jumlah + Notion-style View Tabs (Baris & Kolom) */}
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center space-x-2 shrink-0">
+                      <h2 className="text-sm font-semibold uppercase tracking-wider text-neutral-600 flex items-center space-x-1.5 whitespace-nowrap">
+                        <CheckSquare className="w-4 h-4 text-neutral-500" />
+                        <span>{activeTab === 'reminders' ? `Daftar ${labels.remindersTab}` : `${labels.todosTab} & Jadwal`}</span>
+                      </h2>
+                      <span className="text-xs bg-neutral-100 text-neutral-600 px-2 py-0.5 rounded-full font-mono font-medium">
+                        {filteredActiveTodos.length}
+                      </span>
+                    </div>
 
-                  <div className="flex items-center flex-wrap gap-2">
                     {/* 1-Click View Switcher (Baris vs Kolom) */}
-                    <div className="flex items-center bg-neutral-100 p-0.5 rounded-lg border border-neutral-200/80 text-xs">
+                    <div className="flex items-center bg-neutral-100 p-0.5 rounded-lg border border-neutral-200/80 text-xs shrink-0">
                       <button
                         type="button"
                         onClick={() => toggleViewMode('list')}
@@ -1830,7 +1828,7 @@ export default function Dashboard() {
                         title="Tampilan Baris (List)"
                       >
                         <List className="w-3.5 h-3.5" />
-                        <span className="hidden sm:inline">Baris</span>
+                        <span>Baris</span>
                       </button>
                       <button
                         type="button"
@@ -1843,10 +1841,13 @@ export default function Dashboard() {
                         title="Tampilan Kolom Bersih (Kanban Board)"
                       >
                         <Columns3 className="w-3.5 h-3.5" />
-                        <span className="hidden sm:inline">Kolom</span>
+                        <span>Kolom</span>
                       </button>
                     </div>
+                  </div>
 
+                  {/* Kanan: Alat Kontrol (Kelompokkan, Status, Urutkan) */}
+                  <div className="flex items-center flex-wrap sm:flex-nowrap gap-2">
                     {/* Toggle Kelompokkan Status (Aktif di mode Baris) */}
                     {taskViewMode === 'list' && (
                       <button
@@ -1854,13 +1855,13 @@ export default function Dashboard() {
                         onClick={toggleGroupByStatus}
                         className={`flex items-center space-x-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border transition cursor-pointer ${
                           isGroupedByStatus
-                            ? 'bg-neutral-900 text-white border-neutral-900'
+                            ? 'bg-neutral-900 text-white border-neutral-900 shadow-2xs'
                             : 'bg-white text-neutral-600 border-neutral-200 hover:bg-neutral-50'
                         }`}
                         title="Kelompokkan tugas berdasarkan status"
                       >
                         <Layers className="w-3.5 h-3.5" />
-                        <span className="hidden sm:inline">Kelompokkan</span>
+                        <span>Kelompokkan</span>
                       </button>
                     )}
 
@@ -1868,23 +1869,23 @@ export default function Dashboard() {
                     <button
                       type="button"
                       onClick={() => setIsStatusManagerOpen(true)}
-                      className="flex items-center space-x-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-white text-neutral-600 border border-neutral-200 hover:bg-neutral-50 transition cursor-pointer"
+                      className="flex items-center space-x-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-white text-neutral-600 border border-neutral-200 hover:bg-neutral-50 transition cursor-pointer"
                       title="Kustomisasi Status Tugas"
                     >
-                      <Settings2 className="w-3.5 h-3.5" />
-                      <span className="hidden sm:inline">Kelola Status</span>
+                      <Settings2 className="w-3.5 h-3.5 text-neutral-500" />
+                      <span>Status</span>
                     </button>
 
                     {/* DROP DOWN SORTING TO-DO */}
-                    <div className="flex items-center space-x-1.5 text-xs text-neutral-600 bg-white border border-neutral-200 rounded-lg px-2 py-1">
-                      <ArrowUpDown className="w-3.5 h-3.5 text-neutral-400" />
+                    <div className="flex items-center space-x-1 text-xs text-neutral-600 bg-white border border-neutral-200 rounded-lg px-2 py-1">
+                      <ArrowUpDown className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
                       <select
                         value={todoSortBy}
                         onChange={(e) => setTodoSortBy(e.target.value)}
-                        className="bg-transparent focus:outline-none cursor-pointer text-xs font-medium text-neutral-800"
+                        className="bg-transparent focus:outline-none cursor-pointer text-xs font-medium text-neutral-700 pr-1"
                       >
-                        <option value="created_desc">Terbaru Dibuat</option>
-                        <option value="created_asc">Terlama Dibuat</option>
+                        <option value="created_desc">Terbaru</option>
+                        <option value="created_asc">Terlama</option>
                         <option value="due_date_asc">Jatuh Tempo Terdekat</option>
                         <option value="due_date_desc">Jatuh Tempo Terjauh</option>
                         <option value="priority_desc">Prioritas Tertinggi</option>
@@ -1927,20 +1928,6 @@ export default function Dashboard() {
                           </select>
                         </div>
 
-                        {/* Status Chip */}
-                        <div className="flex items-center space-x-1.5 bg-neutral-50 hover:bg-neutral-100 border border-neutral-200/80 rounded-lg px-2.5 py-1 text-xs transition">
-                          <Layers className="w-3 h-3 text-neutral-400" />
-                          <select
-                            value={newTaskStatus}
-                            onChange={(e) => setNewTaskStatus(e.target.value)}
-                            className="bg-transparent focus:outline-none text-xs font-medium text-neutral-700 cursor-pointer"
-                            title="Status Awal"
-                          >
-                            {taskStatuses.map(s => (
-                              <option key={s.id} value={s.id}>{s.label}</option>
-                            ))}
-                          </select>
-                        </div>
 
                         {/* Jatuh Tempo Chip */}
                         <div className="flex items-center space-x-1.5 bg-neutral-50 hover:bg-neutral-100 border border-neutral-200/80 rounded-lg px-2.5 py-1 text-xs transition">
@@ -2064,26 +2051,13 @@ export default function Dashboard() {
                           className="w-72 shrink-0 bg-[#F7F6F3]/90 border border-neutral-200/80 rounded-2xl p-3 flex flex-col space-y-3 shadow-2xs"
                         >
                           {/* Header Kolom */}
-                          <div className="flex items-center justify-between px-1">
-                            <div className="flex items-center space-x-2">
-                              <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${status.color}`}>
-                                {status.label}
-                              </span>
-                              <span className="text-xs text-neutral-400 font-mono font-medium">
-                                ({todosInStatus.length})
-                              </span>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setNewTaskStatus(status.id);
-                                window.scrollTo({ top: 0, behavior: 'smooth' });
-                              }}
-                              className="text-neutral-400 hover:text-neutral-700 p-1 rounded-md hover:bg-neutral-200/50 transition cursor-pointer"
-                              title={`Tambah tugas ke ${status.label}`}
-                            >
-                              <Plus className="w-3.5 h-3.5" />
-                            </button>
+                          <div className="flex items-center space-x-2 px-1">
+                            <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${status.color}`}>
+                              {status.label}
+                            </span>
+                            <span className="text-xs text-neutral-400 font-mono font-medium">
+                              ({todosInStatus.length})
+                            </span>
                           </div>
 
                           {/* Kartu dalam Kolom */}
@@ -2185,13 +2159,6 @@ export default function Dashboard() {
                                       </div>
                                       <div className="flex items-center space-x-1 opacity-0 group-hover/card:opacity-100 transition">
                                         <button
-                                          onClick={() => openEditTodoModal(todo)}
-                                          className="text-neutral-400 hover:text-neutral-700 p-1 cursor-pointer"
-                                          title="Edit Tugas"
-                                        >
-                                          <Edit3 className="w-3.5 h-3.5" />
-                                        </button>
-                                        <button
                                           onClick={() => handleSoftDeleteTodo(todo.id)}
                                           className="text-neutral-400 hover:text-red-600 p-1 cursor-pointer"
                                           title={labels.moveToTrash}
@@ -2220,24 +2187,11 @@ export default function Dashboard() {
 
                       return (
                         <div key={status.id} className="space-y-2">
-                          <div className="flex items-center justify-between px-1 pb-1 border-b border-neutral-200/60">
-                            <div className="flex items-center space-x-2">
-                              <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${status.color}`}>
-                                {status.label}
-                              </span>
-                              <span className="text-xs text-neutral-400 font-mono font-medium">({todosInGroup.length})</span>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setNewTaskStatus(status.id);
-                                window.scrollTo({ top: 0, behavior: 'smooth' });
-                              }}
-                              className="text-neutral-400 hover:text-neutral-700 text-xs font-medium flex items-center space-x-1 cursor-pointer"
-                            >
-                              <Plus className="w-3 h-3" />
-                              <span>Tambah</span>
-                            </button>
+                          <div className="flex items-center space-x-2 px-1 pb-1.5 border-b border-neutral-200/60">
+                            <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${status.color}`}>
+                              {status.label}
+                            </span>
+                            <span className="text-xs text-neutral-400 font-mono font-medium">({todosInGroup.length})</span>
                           </div>
 
                           <div className="space-y-2">
