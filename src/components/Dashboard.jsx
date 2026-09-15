@@ -9,7 +9,7 @@ import {
   ArrowUpDown, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, ZoomIn, Eye, MessageSquare,
   Edit3, Flag, Check, RotateCcw, AlertTriangle, Film, Settings,
   HardDrive, Flame, Columns3, List, Layers, Settings2, ArrowRight, Menu, Globe,
-  Sun, Moon
+  Sun, Moon, Users, UserPlus, Copy, Share2
 } from 'lucide-react';
 import { format, isPast, isToday, parseISO, differenceInDays } from 'date-fns';
 import { id as localeId, enUS as localeEn } from 'date-fns/locale';
@@ -79,6 +79,26 @@ export default function Dashboard({ onGoToLanding }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   // State expand Quick Add form (collapsed by default on mobile)
   const [quickAddExpanded, setQuickAddExpanded] = useState(false);
+
+  // ─── Workspace Collaboration State (Personal vs Shared Workspaces) ───
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState(() => {
+    try {
+      return localStorage.getItem('ersona_active_workspace_id') || null;
+    } catch {
+      return null;
+    }
+  });
+  const [workspaces, setWorkspaces] = useState([]);
+  const [workspaceMembers, setWorkspaceMembers] = useState([]);
+  const [isWorkspaceMenuOpen, setIsWorkspaceMenuOpen] = useState(false);
+  const [isCreateWsModalOpen, setIsCreateWsModalOpen] = useState(false);
+  const [isJoinWsModalOpen, setIsJoinWsModalOpen] = useState(false);
+  const [isWsMembersModalOpen, setIsWsMembersModalOpen] = useState(false);
+  const [newWsName, setNewWsName] = useState('');
+  const [joinInviteCode, setJoinInviteCode] = useState('');
+  const [wsActionLoading, setWsActionLoading] = useState(false);
+  const [wsError, setWsError] = useState('');
+  const [copiedInvite, setCopiedInvite] = useState(false);
 
   // Preferensi Tampilan & Kustomisasi Teks
   const [preferences, setPreferences] = useState(() => {
@@ -458,10 +478,215 @@ export default function Dashboard({ onGoToLanding }) {
     }
   };
 
+  const fetchWorkspaces = async () => {
+    if (!user) return;
+    try {
+      const { data, error } = await supabase
+        .from('workspaces')
+        .select('id, name, owner_id, invite_code, created_at')
+        .order('created_at', { ascending: true });
+      if (!error && data) {
+        setWorkspaces(data);
+        if (activeWorkspaceId && !data.some(w => w.id === activeWorkspaceId)) {
+          setActiveWorkspaceId(null);
+          try { localStorage.removeItem('ersona_active_workspace_id'); } catch {}
+        }
+      }
+    } catch (err) {
+      console.warn('Gagal memuat workspaces:', err);
+    }
+  };
+
+  const fetchWorkspaceMembers = async (wsId) => {
+    if (!wsId) {
+      setWorkspaceMembers([]);
+      return;
+    }
+    try {
+      const { data, error } = await supabase
+        .from('workspace_members')
+        .select('id, user_id, user_email, role, joined_at')
+        .eq('workspace_id', wsId)
+        .order('joined_at', { ascending: true });
+      if (!error && data) {
+        setWorkspaceMembers(data);
+      }
+    } catch (err) {
+      console.warn('Gagal memuat anggota workspace:', err);
+    }
+  };
+
+  const handleSwitchWorkspace = (wsId) => {
+    setActiveWorkspaceId(wsId);
+    try {
+      if (wsId) {
+        localStorage.setItem('ersona_active_workspace_id', wsId);
+      } else {
+        localStorage.removeItem('ersona_active_workspace_id');
+      }
+    } catch {}
+    setIsWorkspaceMenuOpen(false);
+  };
+
+  const handleCreateWorkspace = async (e) => {
+    e?.preventDefault();
+    if (!newWsName.trim()) return;
+    setWsActionLoading(true);
+    setWsError('');
+    try {
+      const inviteCode = Math.random().toString(36).substring(2, 10).toUpperCase();
+      const { data, error } = await supabase
+        .from('workspaces')
+        .insert({
+          name: newWsName.trim(),
+          owner_id: user.id,
+          invite_code: inviteCode,
+        })
+        .select()
+        .single();
+      if (error) throw error;
+
+      await supabase.from('workspace_members').insert({
+        workspace_id: data.id,
+        user_id: user.id,
+        user_email: user.email,
+        role: 'owner',
+      });
+
+      setWorkspaces(prev => [...prev, data]);
+      handleSwitchWorkspace(data.id);
+      setNewWsName('');
+      setIsCreateWsModalOpen(false);
+    } catch (err) {
+      setWsError(err.message || 'Gagal membuat ruang kerja');
+    } finally {
+      setWsActionLoading(false);
+    }
+  };
+
+  const handleJoinWorkspace = async (e) => {
+    e?.preventDefault();
+    if (!joinInviteCode.trim()) return;
+    setWsActionLoading(true);
+    setWsError('');
+    try {
+      const { data: rpcData, error: rpcErr } = await supabase
+        .rpc('join_workspace_by_code', { code_input: joinInviteCode.trim() });
+
+      if (!rpcErr && rpcData) {
+        if (!rpcData.success) {
+          throw new Error(rpcData.message);
+        }
+        await fetchWorkspaces();
+        handleSwitchWorkspace(rpcData.workspace_id);
+        setJoinInviteCode('');
+        setIsJoinWsModalOpen(false);
+        return;
+      }
+
+      const { data: wsData, error: wsErr } = await supabase
+        .from('workspaces')
+        .select('id, name, owner_id')
+        .ilike('invite_code', joinInviteCode.trim())
+        .single();
+      if (wsErr || !wsData) throw new Error('Kode undangan tidak ditemukan');
+
+      const { error: joinErr } = await supabase
+        .from('workspace_members')
+        .insert({
+          workspace_id: wsData.id,
+          user_id: user.id,
+          user_email: user.email,
+          role: 'member'
+        });
+      if (joinErr && !joinErr.message?.includes('duplicate')) throw joinErr;
+
+      await fetchWorkspaces();
+      handleSwitchWorkspace(wsData.id);
+      setJoinInviteCode('');
+      setIsJoinWsModalOpen(false);
+    } catch (err) {
+      setWsError(err.message || 'Gagal bergabung ke ruang kerja');
+    } finally {
+      setWsActionLoading(false);
+    }
+  };
+
+  const handleLeaveWorkspace = async (wsId) => {
+    if (!window.confirm(t('dashboard.confirmLeaveWorkspace'))) return;
+    try {
+      await supabase
+        .from('workspace_members')
+        .delete()
+        .eq('workspace_id', wsId)
+        .eq('user_id', user.id);
+      handleSwitchWorkspace(null);
+      fetchWorkspaces();
+      setIsWsMembersModalOpen(false);
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const handleDeleteWorkspace = async (wsId) => {
+    if (!window.confirm(t('dashboard.confirmDeleteWorkspace'))) return;
+    try {
+      await supabase.from('workspaces').delete().eq('id', wsId);
+      handleSwitchWorkspace(null);
+      fetchWorkspaces();
+      setIsWsMembersModalOpen(false);
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
   useEffect(() => {
     fetchData();
+    fetchWorkspaces();
     refreshStorageUsage();
+
+    // Cek query param ?join=... di URL untuk auto-open modal gabung
+    const params = new URLSearchParams(window.location.search);
+    const joinCode = params.get('join');
+    if (joinCode) {
+      setJoinInviteCode(joinCode.toUpperCase());
+      setIsJoinWsModalOpen(true);
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+
+    // Setup Supabase Realtime channel untuk sinkronisasi tim multi-user secara langsung
+    const channel = supabase
+      .channel('ersona_workspace_realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'todos' }, (payload) => {
+        if (payload.eventType === 'INSERT') {
+          setTodos(prev => prev.some(t => t.id === payload.new.id) ? prev : [payload.new, ...prev]);
+        } else if (payload.eventType === 'UPDATE') {
+          setTodos(prev => prev.map(t => t.id === payload.new.id ? payload.new : t));
+        } else if (payload.eventType === 'DELETE') {
+          setTodos(prev => prev.filter(t => t.id === payload.old.id));
+        }
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'notes' }, (payload) => {
+        if (payload.eventType === 'INSERT') {
+          setNotes(prev => prev.some(n => n.id === payload.new.id) ? prev : [payload.new, ...prev]);
+        } else if (payload.eventType === 'UPDATE') {
+          setNotes(prev => prev.map(n => n.id === payload.new.id ? payload.new : n));
+        } else if (payload.eventType === 'DELETE') {
+          setNotes(prev => prev.filter(n => n.id === payload.old.id));
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
+
+  useEffect(() => {
+    if (activeWorkspaceId) {
+      fetchWorkspaceMembers(activeWorkspaceId);
+    }
+  }, [activeWorkspaceId]);
 
   // Auto-heal: Deteksi dan sinkronkan tugas yang memiliki status yatim (status yang sudah dihapus dari daftar status)
   useEffect(() => {
@@ -491,11 +716,23 @@ export default function Dashboard({ onGoToLanding }) {
     }
   }, [loading, taskStatuses]);
 
+  // Workspace aktif saat ini
+  const currentWorkspace = workspaces.find(w => w.id === activeWorkspaceId) || null;
+
+  // Filter Data berdasarkan Workspace Aktif (Personal jika activeWorkspaceId null, atau Workspace Tim)
+  const scopedTodos = activeWorkspaceId 
+    ? todos.filter(t => t.workspace_id === activeWorkspaceId)
+    : todos.filter(t => !t.workspace_id);
+
+  const scopedNotes = activeWorkspaceId 
+    ? notes.filter(n => n.workspace_id === activeWorkspaceId)
+    : notes.filter(n => !n.workspace_id);
+
   // Filter Data Aktif vs Sampah
-  const activeTodos = todos.filter(t => !t.deleted_at);
-  const activeNotes = notes.filter(n => !n.deleted_at);
-  const trashTodos = todos.filter(t => Boolean(t.deleted_at));
-  const trashNotes = notes.filter(n => Boolean(n.deleted_at));
+  const activeTodos = scopedTodos.filter(t => !t.deleted_at);
+  const activeNotes = scopedNotes.filter(n => !n.deleted_at);
+  const trashTodos = scopedTodos.filter(t => Boolean(t.deleted_at));
+  const trashNotes = scopedNotes.filter(n => Boolean(n.deleted_at));
   const totalTrashCount = trashTodos.length + trashNotes.length;
 
   // Helper untuk membaca daftar media catatan (kompatibel dengan schema lama & baru)
@@ -699,6 +936,7 @@ export default function Dashboard({ onGoToLanding }) {
       is_completed: false,
       media_url: uploadedMediaUrl,
       media_type: uploadedMediaType,
+      workspace_id: activeWorkspaceId || null,
     };
 
     const { data, error } = await supabase.from('todos').insert([payload]).select();
@@ -1042,6 +1280,7 @@ export default function Dashboard({ onGoToLanding }) {
       media_items: mediaItems,
       media_url: mediaItems[0]?.url || null,
       media_type: mediaItems[0]?.type || null,
+      workspace_id: activeWorkspaceId || null,
     };
 
     const { data, error } = await supabase.from('notes').insert([payload]).select();
@@ -1571,16 +1810,19 @@ export default function Dashboard({ onGoToLanding }) {
           <Menu className="w-5 h-5" />
         </button>
 
-        {/* Logo + Section name */}
-        <div className="flex items-center space-x-2 ml-1 min-w-0 flex-1">
-          <span className="text-base">🪐</span>
-          <span className="text-sm font-semibold text-neutral-800 dark:text-neutral-100 truncate">
+        {/* Logo + Workspace / Section name */}
+        <div className="flex items-center space-x-1.5 ml-1 min-w-0 flex-1">
+          <span className="text-base shrink-0">🪐</span>
+          <span className="text-sm font-semibold text-neutral-800 dark:text-neutral-100 truncate max-w-[120px]">
+            {currentWorkspace ? currentWorkspace.name : 'Ersona'}
+          </span>
+          <span className="text-[10px] bg-neutral-200/70 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 px-1.5 py-0.5 rounded font-medium shrink-0 truncate">
             {activeTab === 'reminders' ? labels.remindersTab
               : activeTab === 'todos' ? labels.todosTab
               : activeTab === 'notes' ? labels.notesTab
               : activeTab === 'trash' ? labels.trashTab
               : activeTab === 'settings' ? t('dashboard.settingsTab')
-              : 'Ersona'}
+              : t('dashboard.allTab')}
           </span>
         </div>
 
@@ -1632,6 +1874,104 @@ export default function Dashboard({ onGoToLanding }) {
 
             {/* Nav tabs */}
             <nav className="flex-1 overflow-y-auto p-3 space-y-0.5">
+              {/* Mobile Workspace Switcher */}
+              <div className="relative mb-3">
+                <button
+                  type="button"
+                  onClick={() => setIsWorkspaceMenuOpen(!isWorkspaceMenuOpen)}
+                  className="w-full flex items-center justify-between p-2 rounded-xl bg-white dark:bg-[#282828] border border-neutral-200/90 dark:border-neutral-700/80 transition cursor-pointer shadow-2xs"
+                >
+                  <div className="flex items-center space-x-2 min-w-0">
+                    <div className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs shrink-0 ${
+                      activeWorkspaceId ? 'bg-blue-600 text-white' : 'bg-neutral-900 dark:bg-white text-white dark:text-neutral-900'
+                    }`}>
+                      {activeWorkspaceId ? <Users className="w-3.5 h-3.5" /> : '👤'}
+                    </div>
+                    <div className="text-left min-w-0">
+                      <div className="text-xs font-semibold text-neutral-800 dark:text-neutral-100 truncate">
+                        {currentWorkspace ? currentWorkspace.name : t('dashboard.personalWorkspace')}
+                      </div>
+                      <div className="text-[10px] text-neutral-400 dark:text-neutral-500">
+                        {currentWorkspace ? t('dashboard.sharedWorkspace') : 'Private'}
+                      </div>
+                    </div>
+                  </div>
+                  <ChevronDown className={`w-3.5 h-3.5 text-neutral-400 transition-transform shrink-0 ml-1 ${isWorkspaceMenuOpen ? 'rotate-180' : ''}`} />
+                </button>
+
+                {isWorkspaceMenuOpen && (
+                  <div className="mt-1 bg-white dark:bg-[#252525] border border-neutral-200 dark:border-neutral-700 rounded-xl shadow-lg p-1.5 space-y-0.5 animate-in fade-in">
+                    <button
+                      type="button"
+                      onClick={() => handleSwitchWorkspace(null)}
+                      className={`w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-xs transition cursor-pointer ${
+                        activeWorkspaceId === null ? 'bg-neutral-100 dark:bg-neutral-800 font-semibold text-neutral-900 dark:text-white' : 'text-neutral-700 dark:text-neutral-300'
+                      }`}
+                    >
+                      <div className="flex items-center space-x-2 truncate">
+                        <span>👤</span>
+                        <span className="truncate">{t('dashboard.personalWorkspace')}</span>
+                      </div>
+                      {activeWorkspaceId === null && <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />}
+                    </button>
+
+                    {workspaces.map(ws => (
+                      <button
+                        key={ws.id}
+                        type="button"
+                        onClick={() => handleSwitchWorkspace(ws.id)}
+                        className={`w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-xs transition cursor-pointer ${
+                          activeWorkspaceId === ws.id ? 'bg-neutral-100 dark:bg-neutral-800 font-semibold text-neutral-900 dark:text-white' : 'text-neutral-700 dark:text-neutral-300'
+                        }`}
+                      >
+                        <div className="flex items-center space-x-2 truncate">
+                          <Users className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                          <span className="truncate">{ws.name}</span>
+                        </div>
+                        {activeWorkspaceId === ws.id && <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />}
+                      </button>
+                    ))}
+
+                    <div className="my-1 border-t border-neutral-100 dark:border-neutral-800" />
+
+                    <button
+                      type="button"
+                      onClick={() => { setIsWorkspaceMenuOpen(false); setIsCreateWsModalOpen(true); }}
+                      className="w-full flex items-center space-x-2 px-2 py-1.5 rounded-lg text-xs text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition cursor-pointer font-medium"
+                    >
+                      <Plus className="w-3.5 h-3.5 text-neutral-500 shrink-0" />
+                      <span>{t('dashboard.createWorkspace')}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => { setIsWorkspaceMenuOpen(false); setIsJoinWsModalOpen(true); }}
+                      className="w-full flex items-center space-x-2 px-2 py-1.5 rounded-lg text-xs text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition cursor-pointer font-medium"
+                    >
+                      <UserPlus className="w-3.5 h-3.5 text-neutral-500 shrink-0" />
+                      <span>{t('dashboard.joinWorkspace')}</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Mobile Member Badge for Team Workspace */}
+              {currentWorkspace && (
+                <div className="mb-3 flex items-center justify-between p-2 rounded-xl bg-blue-50/80 dark:bg-blue-950/30 border border-blue-200/80 dark:border-blue-900/50 text-xs">
+                  <div className="flex items-center space-x-1.5 text-blue-900 dark:text-blue-300 min-w-0">
+                    <Users className="w-3.5 h-3.5 shrink-0 text-blue-600" />
+                    <span className="font-medium truncate">{workspaceMembers.length} {isEn ? 'members' : 'anggota'}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsWsMembersModalOpen(true)}
+                    className="px-2 py-0.5 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-medium transition cursor-pointer shrink-0"
+                  >
+                    {t('dashboard.workspaceMembers')}
+                  </button>
+                </div>
+              )}
+
               <button
                 onClick={() => { setActiveTab('all'); setIsMobileMenuOpen(false); }}
                 className={`w-full flex items-center space-x-2 px-2.5 py-2.5 rounded-xl text-sm font-medium transition cursor-pointer ${
@@ -1744,6 +2084,120 @@ export default function Dashboard({ onGoToLanding }) {
               <LogOut className="w-4 h-4" />
             </button>
           </div>
+
+          {/* Workspace Switcher Dropdown */}
+          <div className="relative mb-3">
+            <button
+              type="button"
+              onClick={() => setIsWorkspaceMenuOpen(!isWorkspaceMenuOpen)}
+              className="w-full flex items-center justify-between p-2 rounded-xl bg-white dark:bg-[#282828] border border-neutral-200/90 dark:border-neutral-700/80 hover:border-neutral-300 dark:hover:border-neutral-600 transition cursor-pointer shadow-2xs"
+            >
+              <div className="flex items-center space-x-2 min-w-0">
+                <div className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs shrink-0 ${
+                  activeWorkspaceId ? 'bg-blue-600 text-white' : 'bg-neutral-900 dark:bg-white text-white dark:text-neutral-900'
+                }`}>
+                  {activeWorkspaceId ? <Users className="w-3.5 h-3.5" /> : '👤'}
+                </div>
+                <div className="text-left min-w-0">
+                  <div className="text-xs font-semibold text-neutral-800 dark:text-neutral-100 truncate">
+                    {currentWorkspace ? currentWorkspace.name : t('dashboard.personalWorkspace')}
+                  </div>
+                  <div className="text-[10px] text-neutral-400 dark:text-neutral-500">
+                    {currentWorkspace ? t('dashboard.sharedWorkspace') : 'Private'}
+                  </div>
+                </div>
+              </div>
+              <ChevronDown className={`w-3.5 h-3.5 text-neutral-400 transition-transform shrink-0 ml-1 ${isWorkspaceMenuOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {/* Dropdown Menu */}
+            {isWorkspaceMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setIsWorkspaceMenuOpen(false)} />
+                <div className="absolute left-0 right-0 top-full mt-1.5 z-50 bg-white dark:bg-[#252525] border border-neutral-200 dark:border-neutral-700 rounded-xl shadow-xl p-1.5 space-y-0.5 animate-in fade-in zoom-in-95">
+                  <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-neutral-400 dark:text-neutral-500">
+                    Workspaces
+                  </div>
+
+                  {/* Personal Workspace Option */}
+                  <button
+                    type="button"
+                    onClick={() => handleSwitchWorkspace(null)}
+                    className={`w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-xs transition cursor-pointer ${
+                      activeWorkspaceId === null 
+                        ? 'bg-neutral-100 dark:bg-neutral-800 font-semibold text-neutral-900 dark:text-white' 
+                        : 'text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800/60'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-2 truncate">
+                      <span>👤</span>
+                      <span className="truncate">{t('dashboard.personalWorkspace')}</span>
+                    </div>
+                    {activeWorkspaceId === null && <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />}
+                  </button>
+
+                  {/* Team Workspaces List */}
+                  {workspaces.map(ws => (
+                    <button
+                      key={ws.id}
+                      type="button"
+                      onClick={() => handleSwitchWorkspace(ws.id)}
+                      className={`w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-xs transition cursor-pointer ${
+                        activeWorkspaceId === ws.id 
+                          ? 'bg-neutral-100 dark:bg-neutral-800 font-semibold text-neutral-900 dark:text-white' 
+                          : 'text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800/60'
+                      }`}
+                    >
+                      <div className="flex items-center space-x-2 truncate">
+                        <Users className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                        <span className="truncate">{ws.name}</span>
+                      </div>
+                      {activeWorkspaceId === ws.id && <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />}
+                    </button>
+                  ))}
+
+                  <div className="my-1 border-t border-neutral-100 dark:border-neutral-800" />
+
+                  {/* Create New Workspace Button */}
+                  <button
+                    type="button"
+                    onClick={() => { setIsWorkspaceMenuOpen(false); setIsCreateWsModalOpen(true); }}
+                    className="w-full flex items-center space-x-2 px-2 py-1.5 rounded-lg text-xs text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition cursor-pointer font-medium"
+                  >
+                    <Plus className="w-3.5 h-3.5 text-neutral-500 shrink-0" />
+                    <span>{t('dashboard.createWorkspace')}</span>
+                  </button>
+
+                  {/* Join Workspace Button */}
+                  <button
+                    type="button"
+                    onClick={() => { setIsWorkspaceMenuOpen(false); setIsJoinWsModalOpen(true); }}
+                    className="w-full flex items-center space-x-2 px-2 py-1.5 rounded-lg text-xs text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition cursor-pointer font-medium"
+                  >
+                    <UserPlus className="w-3.5 h-3.5 text-neutral-500 shrink-0" />
+                    <span>{t('dashboard.joinWorkspace')}</span>
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Quick Member Badge & Settings for Team Workspace */}
+          {currentWorkspace && (
+            <div className="mb-3 flex items-center justify-between p-2 rounded-xl bg-blue-50/80 dark:bg-blue-950/30 border border-blue-200/80 dark:border-blue-900/50 text-xs">
+              <div className="flex items-center space-x-1.5 text-blue-900 dark:text-blue-300 min-w-0">
+                <Users className="w-3.5 h-3.5 shrink-0 text-blue-600" />
+                <span className="font-medium truncate">{workspaceMembers.length} {isEn ? 'members' : 'anggota'}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsWsMembersModalOpen(true)}
+                className="px-2 py-0.5 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-medium transition cursor-pointer shrink-0"
+              >
+                {t('dashboard.workspaceMembers')}
+              </button>
+            </div>
+          )}
           <nav className="space-y-1">
             <button onClick={() => setActiveTab('all')} className={`w-full flex items-center space-x-2 px-2.5 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${activeTab === 'all' ? 'bg-neutral-200/70 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 font-semibold' : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200/40 dark:hover:bg-neutral-800/60'}`}>
               <CheckSquare className="w-4 h-4 text-neutral-500" /><span>{t('dashboard.allTab')}</span>
@@ -3315,6 +3769,263 @@ export default function Dashboard({ onGoToLanding }) {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: BUAT WORKSPACE BARU */}
+      {isCreateWsModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
+          <div className="bg-white dark:bg-[#202020] border border-neutral-200 dark:border-neutral-800 rounded-2xl w-full max-w-md p-5 shadow-2xl space-y-4 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-300 flex items-center justify-center">
+                  <Users className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">{t('dashboard.createWorkspace')}</h3>
+                  <p className="text-[11px] text-neutral-400 dark:text-neutral-500">{isEn ? 'Collaborate with team & friends' : 'Berkolaborasi dengan tim & teman'}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setIsCreateWsModalOpen(false); setWsError(''); }}
+                className="text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 p-1 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {wsError && (
+              <div className="p-2.5 rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-xs text-red-600 dark:text-red-300 flex items-center space-x-1.5">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                <span>{wsError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleCreateWorkspace} className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-neutral-700 dark:text-neutral-300 mb-1.5">
+                  {isEn ? 'Workspace Name' : 'Nama Ruang Kerja'}
+                </label>
+                <input
+                  type="text"
+                  maxLength={100}
+                  required
+                  placeholder={t('dashboard.workspaceNamePlaceholder')}
+                  value={newWsName}
+                  onChange={(e) => setNewWsName(e.target.value)}
+                  className="w-full text-xs p-2.5 bg-neutral-50 dark:bg-[#282828] border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 rounded-xl focus:outline-none focus:ring-1 focus:ring-neutral-800 dark:focus:ring-neutral-400"
+                />
+              </div>
+
+              <div className="flex items-center justify-end space-x-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => { setIsCreateWsModalOpen(false); setWsError(''); }}
+                  className="px-3 py-1.5 text-xs text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg transition cursor-pointer"
+                >
+                  {t('common.cancel')}
+                </button>
+                <button
+                  type="submit"
+                  disabled={wsActionLoading || !newWsName.trim()}
+                  className="px-4 py-1.5 text-xs font-medium bg-neutral-900 hover:bg-neutral-800 dark:bg-white dark:hover:bg-neutral-100 text-white dark:text-neutral-900 rounded-lg transition disabled:opacity-50 cursor-pointer flex items-center space-x-1.5"
+                >
+                  {wsActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+                  <span>{t('dashboard.createWorkspaceBtn')}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: GABUNG WORKSPACE DENGAN KODE */}
+      {isJoinWsModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
+          <div className="bg-white dark:bg-[#202020] border border-neutral-200 dark:border-neutral-800 rounded-2xl w-full max-w-md p-5 shadow-2xl space-y-4 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-300 flex items-center justify-center">
+                  <UserPlus className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">{t('dashboard.joinWorkspace')}</h3>
+                  <p className="text-[11px] text-neutral-400 dark:text-neutral-500">{isEn ? 'Join using an 8-character invite code' : 'Gabung menggunakan kode undangan 8 digit'}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setIsJoinWsModalOpen(false); setWsError(''); }}
+                className="text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 p-1 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {wsError && (
+              <div className="p-2.5 rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-xs text-red-600 dark:text-red-300 flex items-center space-x-1.5">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                <span>{wsError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleJoinWorkspace} className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-neutral-700 dark:text-neutral-300 mb-1.5">
+                  {t('dashboard.inviteCode')}
+                </label>
+                <input
+                  type="text"
+                  maxLength={12}
+                  required
+                  placeholder={t('dashboard.inviteCodePlaceholder')}
+                  value={joinInviteCode}
+                  onChange={(e) => setJoinInviteCode(e.target.value.toUpperCase())}
+                  className="w-full text-sm font-mono tracking-wider text-center uppercase p-2.5 bg-neutral-50 dark:bg-[#282828] border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 rounded-xl focus:outline-none focus:ring-1 focus:ring-neutral-800 dark:focus:ring-neutral-400"
+                />
+              </div>
+
+              <div className="flex items-center justify-end space-x-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => { setIsJoinWsModalOpen(false); setWsError(''); }}
+                  className="px-3 py-1.5 text-xs text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg transition cursor-pointer"
+                >
+                  {t('common.cancel')}
+                </button>
+                <button
+                  type="submit"
+                  disabled={wsActionLoading || !joinInviteCode.trim()}
+                  className="px-4 py-1.5 text-xs font-medium bg-neutral-900 hover:bg-neutral-800 dark:bg-white dark:hover:bg-neutral-100 text-white dark:text-neutral-900 rounded-lg transition disabled:opacity-50 cursor-pointer flex items-center space-x-1.5"
+                >
+                  {wsActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <UserPlus className="w-3.5 h-3.5" />}
+                  <span>{t('dashboard.joinWorkspaceBtn')}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: MANAJEMEN ANGGOTA & PENGATURAN WORKSPACE TIM */}
+      {isWsMembersModalOpen && currentWorkspace && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
+          <div className="bg-white dark:bg-[#202020] border border-neutral-200 dark:border-neutral-800 rounded-2xl w-full max-w-lg p-5 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between shrink-0">
+              <div className="flex items-center space-x-2">
+                <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center">
+                  <Users className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">{currentWorkspace.name}</h3>
+                  <p className="text-[11px] text-neutral-400 dark:text-neutral-500">{workspaceMembers.length} {isEn ? 'collaborators in this workspace' : 'kolaborator dalam ruang kerja ini'}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsWsMembersModalOpen(false)}
+                className="text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 p-1 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Invite Code & Link Box */}
+            <div className="p-3 bg-neutral-50 dark:bg-[#282828] rounded-xl border border-neutral-200 dark:border-neutral-700 space-y-2 shrink-0">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-medium text-neutral-700 dark:text-neutral-300">{t('dashboard.inviteCode')}</span>
+                <span className="font-mono font-bold bg-white dark:bg-[#202020] px-2 py-0.5 rounded border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100">
+                  {currentWorkspace.invite_code}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  const inviteLink = `${window.location.origin}/workspace?join=${currentWorkspace.invite_code}`;
+                  navigator.clipboard?.writeText(inviteLink);
+                  setCopiedInvite(true);
+                  setTimeout(() => setCopiedInvite(false), 2500);
+                }}
+                className="w-full flex items-center justify-center space-x-1.5 p-2 bg-white dark:bg-[#202020] hover:bg-neutral-100 dark:hover:bg-[#303030] text-neutral-800 dark:text-neutral-200 border border-neutral-200 dark:border-neutral-700 rounded-lg text-xs font-medium transition cursor-pointer"
+              >
+                {copiedInvite ? (
+                  <>
+                    <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <span className="text-emerald-600 font-semibold">{t('dashboard.inviteLinkCopied')}</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
+                    <span>{t('dashboard.copyInviteLink')}</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Live Sync Active Banner */}
+            <div className="flex items-center space-x-2 text-[11px] text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 p-2 rounded-lg border border-emerald-200 dark:border-emerald-900/60 shrink-0">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span>{t('dashboard.liveSyncActive')}</span>
+            </div>
+
+            {/* Daftar Anggota */}
+            <div className="flex-1 overflow-y-auto space-y-1.5 min-h-[120px]">
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400 dark:text-neutral-500 mb-1">
+                {t('dashboard.workspaceMembers')}
+              </div>
+              {workspaceMembers.map(m => (
+                <div key={m.id} className="flex items-center justify-between p-2 rounded-lg bg-neutral-50 dark:bg-[#252525] border border-neutral-100 dark:border-neutral-800 text-xs">
+                  <div className="flex items-center space-x-2 truncate">
+                    <div className="w-6 h-6 rounded-full bg-neutral-200 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 flex items-center justify-center text-[10px] font-bold uppercase shrink-0">
+                      {(m.user_email || 'U')[0]}
+                    </div>
+                    <span className="text-neutral-800 dark:text-neutral-200 truncate">{m.user_email || 'Member'}</span>
+                    {m.user_id === user.id && (
+                      <span className="text-[10px] bg-neutral-200 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300 px-1 rounded font-medium shrink-0">You</span>
+                    )}
+                  </div>
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium shrink-0 ${
+                    m.role === 'owner' 
+                      ? 'bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300' 
+                      : 'bg-neutral-200 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300'
+                  }`}>
+                    {m.role === 'owner' ? t('dashboard.roleOwner') : t('dashboard.roleMember')}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            {/* Danger Zone Actions */}
+            <div className="pt-3 border-t border-neutral-100 dark:border-neutral-800 flex items-center justify-between shrink-0">
+              {currentWorkspace.owner_id === user.id ? (
+                <button
+                  type="button"
+                  onClick={() => handleDeleteWorkspace(currentWorkspace.id)}
+                  className="text-xs text-red-600 dark:text-red-400 hover:underline cursor-pointer flex items-center space-x-1"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>{t('dashboard.deleteWorkspace')}</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => handleLeaveWorkspace(currentWorkspace.id)}
+                  className="text-xs text-red-600 dark:text-red-400 hover:underline cursor-pointer flex items-center space-x-1"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>{t('dashboard.leaveWorkspace')}</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setIsWsMembersModalOpen(false)}
+                className="px-3.5 py-1.5 text-xs font-medium bg-neutral-900 hover:bg-neutral-800 dark:bg-white dark:hover:bg-neutral-100 text-white dark:text-neutral-900 rounded-lg transition cursor-pointer"
+              >
+                {t('common.close')}
+              </button>
+            </div>
           </div>
         </div>
       )}
