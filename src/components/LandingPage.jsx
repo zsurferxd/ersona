@@ -2,41 +2,85 @@ import React, { useState } from 'react';
 import {
   CheckCircle2, Circle, Flag, Calendar, Bell, Paperclip,
   Columns3, List, Layers, Trash2, Sparkles, ArrowRight,
-  ShieldCheck, Smartphone, Eye, Play, Pause, ChevronRight,
-  ExternalLink, RotateCcw, Check, Star, Zap, Layout
+  ShieldCheck, Smartphone, Eye, ExternalLink, Check,
+  Search, ArrowUpDown, ChevronDown
 } from 'lucide-react';
 
 export default function LandingPage({ onStartAuth, user, onGoToDashboard }) {
-  // State untuk Interactive Showcase di dalam Frame Mockup
-  const [demoViewMode, setDemoViewMode] = useState('board'); // 'board' | 'list'
-  const [demoTasks, setDemoTasks] = useState([
-    { id: 1, title: 'Rancang alur kerja mingguan', status: 'todo', priority: 'urgent', date: 'Besok', completed: false },
-    { id: 2, title: 'Tinjau catatan riset & lampiran foto', status: 'in_progress', priority: 'high', date: 'Hari Ini', completed: false },
-    { id: 3, title: 'Evaluasi kesiapan rilis Ersona v1.7', status: 'review', priority: 'medium', date: '18 Sep', completed: false },
-    { id: 4, title: 'Konfigurasi basis data & keamanan RLS', status: 'completed', priority: 'low', date: 'Kemarin', completed: true },
-  ]);
-  const [demoActiveTab, setDemoActiveTab] = useState('interactive'); // 'interactive' | 'video'
-  const [isPlayingVideo, setIsPlayingVideo] = useState(false);
+  // State untuk Switcher Tampilan (Papan Kolom vs Baris) di dalam Preview Mockup
+  const [previewMode, setPreviewMode] = useState('board'); // 'board' | 'list'
 
-  const toggleDemoTask = (id) => {
-    setDemoTasks(prev => prev.map(t => {
-      if (t.id === id) {
-        const nextCompleted = !t.completed;
-        return {
-          ...t,
-          completed: nextCompleted,
-          status: nextCompleted ? 'completed' : 'todo'
-        };
-      }
-      return t;
-    }));
-  };
+  // Data Representasi Visual Antarmuka Ersona (Statis & Rapi)
+  const previewTasks = [
+    {
+      id: 1,
+      title: 'Rancang arsitektur database Supabase & RLS',
+      status: 'todo',
+      statusLabel: 'To Do',
+      statusColor: 'bg-neutral-100 text-neutral-700 border-neutral-200',
+      priority: 'urgent',
+      priorityLabel: '🔥 Mendesak',
+      priorityColor: 'bg-red-50 text-red-700 border-red-200',
+      date: '16 Sep',
+      reminder: '15 Sep',
+      completed: false,
+    },
+    {
+      id: 2,
+      title: 'Implementasi alur kerja kanban & drag responsive',
+      status: 'todo',
+      statusLabel: 'To Do',
+      statusColor: 'bg-neutral-100 text-neutral-700 border-neutral-200',
+      priority: 'high',
+      priorityLabel: '🔴 Tinggi',
+      priorityColor: 'bg-amber-50 text-amber-700 border-amber-200',
+      date: '17 Sep',
+      completed: false,
+    },
+    {
+      id: 3,
+      title: 'Optimalisasi kompresi foto & lampiran catatan',
+      status: 'in_progress',
+      statusLabel: 'In Progress',
+      statusColor: 'bg-blue-50 text-blue-700 border-blue-200',
+      priority: 'medium',
+      priorityLabel: '🟡 Sedang',
+      priorityColor: 'bg-neutral-100 text-neutral-600 border-neutral-200',
+      date: '18 Sep',
+      hasImage: true,
+      completed: false,
+    },
+    {
+      id: 4,
+      title: 'Uji responsivitas mobile & drawer navigasi HP',
+      status: 'review',
+      statusLabel: 'Review',
+      statusColor: 'bg-purple-50 text-purple-700 border-purple-200',
+      priority: 'medium',
+      priorityLabel: '🟡 Sedang',
+      priorityColor: 'bg-neutral-100 text-neutral-600 border-neutral-200',
+      date: '19 Sep',
+      completed: false,
+    },
+    {
+      id: 5,
+      title: 'Konfigurasi deployment otomatis di Vercel',
+      status: 'completed',
+      statusLabel: 'Complete',
+      statusColor: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+      priority: 'low',
+      priorityLabel: '🔵 Rendah',
+      priorityColor: 'bg-neutral-100 text-neutral-600 border-neutral-200',
+      date: '14 Sep',
+      completed: true,
+    },
+  ];
 
-  const statuses = [
-    { id: 'todo', label: 'To Do', color: 'bg-neutral-100 text-neutral-700 border-neutral-200' },
-    { id: 'in_progress', label: 'In Progress', color: 'bg-blue-50 text-blue-700 border-blue-200' },
-    { id: 'review', label: 'Review', color: 'bg-amber-50 text-amber-700 border-amber-200' },
-    { id: 'completed', label: 'Complete', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  const previewStatuses = [
+    { id: 'todo', label: 'To Do', color: 'bg-neutral-100 text-neutral-700 border-neutral-200', count: 2 },
+    { id: 'in_progress', label: 'In Progress', color: 'bg-blue-50 text-blue-700 border-blue-200', count: 1 },
+    { id: 'review', label: 'Review', color: 'bg-purple-50 text-purple-700 border-purple-200', count: 1 },
+    { id: 'completed', label: 'Complete', color: 'bg-emerald-50 text-emerald-700 border-emerald-200', count: 1 },
   ];
 
   return (
@@ -58,7 +102,7 @@ export default function LandingPage({ onStartAuth, user, onGoToDashboard }) {
           {/* Nav Links (Desktop) */}
           <nav className="hidden md:flex items-center space-x-8 text-xs font-medium text-neutral-600">
             <a href="#fitur" className="hover:text-neutral-900 transition">Fitur Utama</a>
-            <a href="#demo" className="hover:text-neutral-900 transition">Demo Interaktif</a>
+            <a href="#preview" className="hover:text-neutral-900 transition">Preview Tampilan</a>
             <a href="#keunggulan" className="hover:text-neutral-900 transition">Kenapa Ersona?</a>
             <a href="#faq" className="hover:text-neutral-900 transition">FAQ</a>
           </nav>
@@ -125,11 +169,11 @@ export default function LandingPage({ onStartAuth, user, onGoToDashboard }) {
               <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
             </button>
             <a
-              href="#demo"
+              href="#preview"
               className="w-full sm:w-auto px-5 py-3 bg-white hover:bg-neutral-50 text-neutral-700 text-sm font-semibold border border-neutral-200/90 rounded-xl transition flex items-center justify-center space-x-2 cursor-pointer shadow-2xs"
             >
               <Eye className="w-4 h-4 text-neutral-500" />
-              <span>Lihat Demo Interaktif</span>
+              <span>Lihat Preview Tampilan</span>
             </a>
           </div>
 
@@ -151,17 +195,17 @@ export default function LandingPage({ onStartAuth, user, onGoToDashboard }) {
         </div>
       </section>
 
-      {/* 3. SHOWCASE SECTION (INTERACTIVE DEMO & VIDEO FRAME) */}
-      <section id="demo" className="max-w-5xl mx-auto px-4 sm:px-6 pb-20 sm:pb-32">
+      {/* 3. SHOWCASE SECTION (PREVIEW MOCKUP ELEGAN & REALISTIS) */}
+      <section id="preview" className="max-w-5xl mx-auto px-4 sm:px-6 pb-20 sm:pb-32">
         <div className="text-center space-y-2 mb-8">
           <span className="text-xs font-mono font-semibold uppercase tracking-wider text-neutral-400">
-            Showcase Langsung
+            Preview Antarmuka
           </span>
           <h2 className="text-2xl sm:text-3xl font-bold text-neutral-900 tracking-tight">
-            Rasakan Alur Kerja yang Bersih & Fokus
+            Desain Jernih, Alur Kerja yang Mengalir
           </h2>
           <p className="text-xs sm:text-sm text-neutral-500 max-w-lg mx-auto">
-            Coba klik tombol mode atau selesaikan tugas di bawah ini untuk melihat bagaimana Ersona bekerja.
+            Lihat bagaimana antarmuka Ersona membantu Anda fokus pada hal terpenting tanpa distraksi visual.
           </p>
         </div>
 
@@ -182,224 +226,196 @@ export default function LandingPage({ onStartAuth, user, onGoToDashboard }) {
               <span>https://ersona.app/workspace</span>
             </div>
 
-            {/* Tab Switcher: Demo Interaktif vs Video */}
+            {/* View Mode Switcher: Baris vs Kolom */}
             <div className="flex items-center bg-neutral-200/70 p-0.5 rounded-lg text-xs">
               <button
                 type="button"
-                onClick={() => setDemoActiveTab('interactive')}
-                className={`px-2.5 py-1 rounded-md font-medium transition cursor-pointer ${
-                  demoActiveTab === 'interactive'
+                onClick={() => setPreviewMode('list')}
+                className={`flex items-center space-x-1 px-2.5 py-1 rounded-md font-medium transition cursor-pointer ${
+                  previewMode === 'list'
                     ? 'bg-white text-neutral-900 shadow-2xs font-semibold'
                     : 'text-neutral-500 hover:text-neutral-900'
                 }`}
               >
-                Simulasi Interaktif
+                <List className="w-3 h-3" />
+                <span>Baris</span>
               </button>
               <button
                 type="button"
-                onClick={() => setDemoActiveTab('video')}
-                className={`px-2.5 py-1 rounded-md font-medium transition cursor-pointer flex items-center space-x-1 ${
-                  demoActiveTab === 'video'
+                onClick={() => setPreviewMode('board')}
+                className={`flex items-center space-x-1 px-2.5 py-1 rounded-md font-medium transition cursor-pointer ${
+                  previewMode === 'board'
                     ? 'bg-white text-neutral-900 shadow-2xs font-semibold'
                     : 'text-neutral-500 hover:text-neutral-900'
                 }`}
               >
-                <Play className="w-2.5 h-2.5 fill-current" />
-                <span>Video Demo</span>
+                <Columns3 className="w-3 h-3" />
+                <span>Kolom</span>
               </button>
             </div>
           </div>
 
-          {/* Window Body */}
-          <div className="p-4 sm:p-6 bg-[#FBFBFA] min-h-[460px]">
-            {demoActiveTab === 'interactive' ? (
-              /* LIVE INTERACTIVE DEMO */
-              <div className="space-y-4">
-                {/* Header Toolbar Simulasi */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-neutral-200/80">
-                  <div className="flex items-center space-x-2">
-                    <h3 className="font-semibold text-sm text-neutral-800">Daftar Tugas & Jadwal</h3>
-                    <span className="text-[11px] font-mono bg-neutral-100 text-neutral-600 px-2 py-0.5 rounded-full font-medium">
-                      {demoTasks.length} tugas
-                    </span>
-                  </div>
+          {/* Window Body (Workspace Preview) */}
+          <div className="p-4 sm:p-6 bg-[#FBFBFA] space-y-4">
+            {/* Mockup Toolbar Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-neutral-200/80">
+              <div className="flex items-center space-x-2">
+                <span className="text-sm font-semibold text-neutral-800">Daftar Tugas & Jadwal</span>
+                <span className="text-[11px] font-mono bg-neutral-100 text-neutral-600 px-2 py-0.5 rounded-full font-medium">
+                  {previewTasks.length}
+                </span>
+              </div>
 
-                  {/* 1-Click View Switcher */}
-                  <div className="flex items-center bg-neutral-100 p-0.5 rounded-lg border border-neutral-200/80 text-xs self-start sm:self-auto">
-                    <button
-                      type="button"
-                      onClick={() => setDemoViewMode('list')}
-                      className={`flex items-center space-x-1.5 px-3 py-1 rounded-md font-medium transition cursor-pointer ${
-                        demoViewMode === 'list'
-                          ? 'bg-white text-neutral-900 shadow-2xs font-semibold'
-                          : 'text-neutral-500 hover:text-neutral-800'
-                      }`}
-                    >
-                      <List className="w-3.5 h-3.5" />
-                      <span>Baris</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setDemoViewMode('board')}
-                      className={`flex items-center space-x-1.5 px-3 py-1 rounded-md font-medium transition cursor-pointer ${
-                        demoViewMode === 'board'
-                          ? 'bg-white text-neutral-900 shadow-2xs font-semibold'
-                          : 'text-neutral-500 hover:text-neutral-800'
-                      }`}
-                    >
-                      <Columns3 className="w-3.5 h-3.5" />
-                      <span>Kolom (Kanban)</span>
-                    </button>
-                  </div>
+              <div className="flex items-center space-x-2 text-xs text-neutral-500">
+                <span className="bg-white border border-neutral-200/80 px-2.5 py-1 rounded-lg flex items-center space-x-1 text-neutral-600 shadow-2xs font-medium">
+                  <ArrowUpDown className="w-3 h-3 text-neutral-400" />
+                  <span>Jatuh Tempo Terdekat</span>
+                </span>
+              </div>
+            </div>
+
+            {/* Mockup Quick Add Bar */}
+            <div className="bg-white border border-neutral-200/90 rounded-xl p-3 shadow-2xs space-y-2">
+              <div className="text-xs text-neutral-400 font-medium select-none">
+                + Tambah tugas baru... (tekan Enter untuk menyimpan)
+              </div>
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-neutral-100 text-[11px] text-neutral-600">
+                <div className="flex items-center gap-1.5">
+                  <span className="bg-neutral-50 border border-neutral-200/80 px-2 py-0.5 rounded-md flex items-center space-x-1 text-neutral-700">
+                    <Flag className="w-2.5 h-2.5 text-neutral-400" />
+                    <span>🔥 Mendesak</span>
+                  </span>
+                  <span className="bg-neutral-50 border border-neutral-200/80 px-2 py-0.5 rounded-md flex items-center space-x-1 text-neutral-700">
+                    <Calendar className="w-2.5 h-2.5 text-neutral-400" />
+                    <span>18 Sep 2026</span>
+                  </span>
+                  <span className="bg-neutral-50 border border-neutral-200/80 px-2 py-0.5 rounded-md flex items-center space-x-1 text-neutral-600">
+                    <Paperclip className="w-2.5 h-2.5 text-neutral-400" />
+                    <span>+ Catatan / Foto</span>
+                  </span>
                 </div>
+                <div className="bg-neutral-900 text-white text-[10px] font-semibold px-2.5 py-1 rounded-lg shadow-2xs">
+                  Simpan Tugas
+                </div>
+              </div>
+            </div>
 
-                {/* Konten Simulasi: Mode Kolom (Board) vs Baris (List) */}
-                {demoViewMode === 'board' ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
-                    {statuses.map(st => {
-                      const tasksInStatus = demoTasks.filter(t => t.status === st.id);
-                      return (
-                        <div key={st.id} className="bg-[#F7F6F3] border border-neutral-200/80 rounded-xl p-3 flex flex-col min-h-[300px]">
-                          {/* Column Title */}
-                          <div className="flex items-center justify-between pb-2 mb-2 border-b border-neutral-200/60">
-                            <span className={`px-2 py-0.5 rounded-md text-[11px] font-semibold border ${st.color}`}>
-                              {st.label}
-                            </span>
-                            <span className="text-xs text-neutral-400 font-mono font-medium">({tasksInStatus.length})</span>
-                          </div>
-
-                          {/* Task Cards */}
-                          <div className="space-y-2 flex-1">
-                            {tasksInStatus.length === 0 ? (
-                              <div className="h-20 flex items-center justify-center text-[11px] text-neutral-400 border border-dashed border-neutral-200 rounded-lg">
-                                Kosong
-                              </div>
-                            ) : (
-                              tasksInStatus.map(task => (
-                                <div
-                                  key={task.id}
-                                  onClick={() => toggleDemoTask(task.id)}
-                                  className={`p-2.5 rounded-xl border bg-white shadow-2xs space-y-2 cursor-pointer transition hover:border-neutral-400 ${
-                                    task.completed ? 'opacity-70 bg-neutral-50' : 'hover:shadow-xs'
-                                  }`}
-                                  title="Klik untuk mengubah status centang"
-                                >
-                                  <div className="flex items-start space-x-2">
-                                    <button
-                                      type="button"
-                                      className="text-neutral-400 hover:text-neutral-700 mt-0.5 shrink-0"
-                                    >
-                                      {task.completed ? (
-                                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                                      ) : (
-                                        <Circle className="w-3.5 h-3.5" />
-                                      )}
-                                    </button>
-                                    <p className={`text-xs font-medium leading-snug ${task.completed ? 'line-through text-neutral-400' : 'text-neutral-800'}`}>
-                                      {task.title}
-                                    </p>
-                                  </div>
-
-                                  <div className="flex items-center justify-between text-[10px] pt-1 border-t border-neutral-100 text-neutral-400">
-                                    <span className={`px-1.5 py-0.5 rounded font-medium ${
-                                      task.priority === 'urgent' ? 'bg-red-50 text-red-700 border border-red-200' :
-                                      task.priority === 'high' ? 'bg-amber-50 text-amber-700 border border-amber-200' :
-                                      'bg-neutral-100 text-neutral-600'
-                                    }`}>
-                                      {task.priority === 'urgent' ? '🔥 Urgent' : task.priority.toUpperCase()}
-                                    </span>
-                                    <span>{task.date}</span>
-                                  </div>
-                                </div>
-                              ))
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="space-y-2 pt-1">
-                    {demoTasks.map(task => (
-                      <div
-                        key={task.id}
-                        onClick={() => toggleDemoTask(task.id)}
-                        className={`p-3 bg-white border border-neutral-200/80 rounded-xl shadow-2xs flex items-center justify-between gap-3 cursor-pointer hover:border-neutral-300 transition ${
-                          task.completed ? 'opacity-70 bg-neutral-50/50' : ''
-                        }`}
-                      >
-                        <div className="flex items-center space-x-3 min-w-0">
-                          <button type="button" className="text-neutral-400 hover:text-neutral-700 shrink-0">
-                            {task.completed ? (
-                              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                            ) : (
-                              <Circle className="w-4 h-4" />
-                            )}
-                          </button>
-                          <span className={`text-xs font-medium truncate ${task.completed ? 'line-through text-neutral-400' : 'text-neutral-800'}`}>
-                            {task.title}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center space-x-2 shrink-0 text-xs">
-                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold border ${
-                            task.status === 'completed' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                            task.status === 'in_progress' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                            task.status === 'review' ? 'bg-amber-50 text-amber-700 border-amber-200' :
-                            'bg-neutral-100 text-neutral-600 border-neutral-200'
-                          }`}>
-                            {task.status.replace('_', ' ').toUpperCase()}
-                          </span>
-                          <span className="text-[11px] text-neutral-400 font-mono hidden sm:inline">{task.date}</span>
-                        </div>
+            {/* Tampilan Sesuai Mode: Kolom (Board) vs Baris (List) */}
+            {previewMode === 'board' ? (
+              /* PREVIEW KANBAN BOARD */
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
+                {previewStatuses.map(status => {
+                  const tasksInCol = previewTasks.filter(t => t.status === status.id);
+                  return (
+                    <div key={status.id} className="bg-[#F7F6F3] border border-neutral-200/80 rounded-2xl p-3 flex flex-col min-h-[310px] shadow-2xs">
+                      {/* Header Kolom */}
+                      <div className="flex items-center justify-between pb-2 mb-2 border-b border-neutral-200/60">
+                        <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold border ${status.color}`}>
+                          {status.label}
+                        </span>
+                        <span className="text-xs text-neutral-400 font-mono font-medium">({status.count})</span>
                       </div>
-                    ))}
-                  </div>
-                )}
 
-                {/* Footnote Instruksi Interaktif */}
-                <p className="text-center text-[11px] text-neutral-400 pt-2 italic">
-                  💡 Tip interaktif: Klik kartu mana pun di atas untuk menandai selesai/belum, atau klik tombol <strong>"Baris"</strong> & <strong>"Kolom"</strong> untuk beralih tampilan seketika.
-                </p>
+                      {/* Kartu-Kartu Tugas dalam Kolom */}
+                      <div className="space-y-2.5 flex-1">
+                        {tasksInCol.map(task => (
+                          <div
+                            key={task.id}
+                            className={`bg-white border rounded-xl p-3 shadow-2xs space-y-2 select-none ${
+                              task.completed ? 'border-neutral-200/60 opacity-75' : 'border-neutral-200/90'
+                            }`}
+                          >
+                            {/* Card Top: Prioritas Badge */}
+                            <div className="flex items-center justify-between">
+                              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md border ${task.priorityColor}`}>
+                                {task.priorityLabel}
+                              </span>
+                              <span className="text-[10px] text-neutral-400 font-mono font-medium">
+                                #{task.id}
+                              </span>
+                            </div>
+
+                            {/* Card Title & Checkbox */}
+                            <div className="flex items-start space-x-2">
+                              <div className="mt-0.5 shrink-0 text-neutral-400">
+                                {task.completed ? (
+                                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                                ) : (
+                                  <Circle className="w-4 h-4" />
+                                )}
+                              </div>
+                              <p className={`text-xs font-semibold leading-snug ${
+                                task.completed ? 'line-through text-neutral-400' : 'text-neutral-800'
+                              }`}>
+                                {task.title}
+                              </p>
+                            </div>
+
+                            {/* Contoh Lampiran Gambar Mini */}
+                            {task.hasImage && (
+                              <div className="h-16 rounded-lg bg-neutral-100 border border-neutral-200/70 flex items-center justify-center text-[10px] text-neutral-500 space-x-1">
+                                <Paperclip className="w-3 h-3 text-neutral-400" />
+                                <span>Preview_Foto_Lampiran.jpg</span>
+                              </div>
+                            )}
+
+                            {/* Card Footer: Due Date & Reminder */}
+                            <div className="flex items-center justify-between pt-1 border-t border-neutral-100 text-[10px] text-neutral-500">
+                              <div className="flex items-center space-x-1 font-mono">
+                                <Calendar className="w-2.5 h-2.5 text-neutral-400" />
+                                <span>{task.date}</span>
+                              </div>
+                              {task.reminder && (
+                                <span className="bg-amber-100/70 text-amber-800 px-1.5 py-0.2 rounded font-semibold flex items-center space-x-0.5 text-[9px]">
+                                  <Bell className="w-2 h-2" />
+                                  <span>{task.reminder}</span>
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             ) : (
-              /* VIDEO DEMO SHOWCASE PLAYER */
-              <div className="flex flex-col items-center justify-center p-4 min-h-[380px] text-center">
-                <div className="w-full max-w-2xl bg-neutral-900 text-white rounded-2xl overflow-hidden shadow-2xl relative aspect-video flex items-center justify-center border border-neutral-800 group">
-                  {/* Video Element (jika ada file demo.mp4) atau Fallback Animated Tour */}
-                  <video
-                    id="demo-video-player"
-                    src="/demo.mp4"
-                    className="w-full h-full object-cover"
-                    controls={isPlayingVideo}
-                    onPlay={() => setIsPlayingVideo(true)}
-                    onPause={() => setIsPlayingVideo(false)}
-                    onError={(e) => {
-                      // Jika file /demo.mp4 belum ada, sembunyikan error dan tampilkan mockup interaktif
-                      e.target.style.display = 'none';
-                    }}
-                  />
+              /* PREVIEW BARIS (LIST) */
+              <div className="space-y-2 pt-1">
+                {previewTasks.map(task => (
+                  <div
+                    key={task.id}
+                    className="p-3 bg-white border border-neutral-200/80 rounded-xl shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 select-none"
+                  >
+                    <div className="flex items-center space-x-2.5 min-w-0">
+                      <div className="text-neutral-400 shrink-0">
+                        {task.completed ? (
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                        ) : (
+                          <Circle className="w-4 h-4" />
+                        )}
+                      </div>
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border shrink-0 ${task.statusColor}`}>
+                        {task.statusLabel}
+                      </span>
+                      <span className={`text-xs font-medium truncate ${
+                        task.completed ? 'line-through text-neutral-400' : 'text-neutral-800'
+                      }`}>
+                        {task.title}
+                      </span>
+                    </div>
 
-                  {/* Fallback Overlay Poster saat belum ada /demo.mp4 */}
-                  <div className="absolute inset-0 bg-gradient-to-br from-neutral-900 via-neutral-800 to-neutral-950 flex flex-col items-center justify-center p-6 text-center space-y-4">
-                    <div className="w-16 h-16 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-white backdrop-blur-sm shadow-xl group-hover:scale-105 transition cursor-pointer"
-                         onClick={() => setDemoActiveTab('interactive')}>
-                      <Play className="w-7 h-7 fill-white translate-x-0.5" />
+                    <div className="flex items-center space-x-2 pl-6 sm:pl-0 shrink-0 text-xs">
+                      <span className={`text-[10px] font-medium px-2 py-0.5 rounded-md border ${task.priorityColor}`}>
+                        {task.priorityLabel}
+                      </span>
+                      <span className="text-[11px] text-neutral-400 font-mono flex items-center space-x-1 bg-neutral-50 px-2 py-0.5 rounded">
+                        <Calendar className="w-3 h-3 text-neutral-400" />
+                        <span>{task.date}</span>
+                      </span>
                     </div>
-                    <div>
-                      <h4 className="text-base font-semibold text-white tracking-tight">Tur Interaktif Ersona Workspace</h4>
-                      <p className="text-xs text-neutral-400 max-w-sm mx-auto mt-1">
-                        Rasakan langsung pengalaman menggunakan Ersona melalui simulasi langsung di tab <strong>"Simulasi Interaktif"</strong>.
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => setDemoActiveTab('interactive')}
-                      className="px-4 py-2 bg-white text-neutral-900 font-semibold text-xs rounded-xl shadow-sm hover:bg-neutral-100 transition cursor-pointer"
-                    >
-                      Buka Simulasi Interaktif
-                    </button>
                   </div>
-                </div>
+                ))}
               </div>
             )}
           </div>
