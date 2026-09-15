@@ -645,7 +645,7 @@ export default function LandingPage({ onStartAuth, user, onGoToDashboard }) {
 
           <div className="flex items-center space-x-6">
             <a
-              href="https://github.com/Efrson/Solist"
+              href="https://github.com/Efrson/Ersona"
               target="_blank"
               rel="noreferrer"
               className="hover:text-neutral-900 transition flex items-center space-x-1"
