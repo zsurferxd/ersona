@@ -77,6 +77,8 @@ export default function Dashboard({ onGoToLanding }) {
 
   // State menu navigasi di perangkat mobile
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  // State expand Quick Add form (collapsed by default on mobile)
+  const [quickAddExpanded, setQuickAddExpanded] = useState(false);
 
   // Preferensi Tampilan & Kustomisasi Teks
   const [preferences, setPreferences] = useState(() => {
@@ -1557,221 +1559,232 @@ export default function Dashboard({ onGoToLanding }) {
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-[#FBFBFA] dark:bg-[#191919] text-neutral-800 dark:text-neutral-200 transition-colors duration-200">
-      {/* Mobile Top Header (Hanya di Layar Kecil / HP) */}
-      <div className="md:hidden flex items-center justify-between px-3 py-2.5 bg-[#F7F6F3] dark:bg-[#202020] border-b border-neutral-200/80 dark:border-neutral-800 sticky top-0 z-30 shadow-2xs">
-        <div className="flex items-center space-x-2 min-w-0">
+
+      {/* ─── MOBILE: Fixed Top Bar (Gemini-style) ─── */}
+      <div className="md:hidden fixed top-0 left-0 right-0 z-30 flex items-center px-3 h-12 bg-[#F7F6F3]/95 dark:bg-[#202020]/95 backdrop-blur-sm border-b border-neutral-200/80 dark:border-neutral-800">
+        {/* Hamburger */}
+        <button
+          onClick={() => setIsMobileMenuOpen(true)}
+          className="p-2 -ml-1 rounded-xl text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200/60 dark:hover:bg-neutral-800 transition cursor-pointer"
+          aria-label="Open menu"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+
+        {/* Logo + Section name */}
+        <div className="flex items-center space-x-2 ml-1 min-w-0 flex-1">
           <span className="text-base">🪐</span>
-          <span className="font-semibold text-sm text-neutral-800 dark:text-neutral-100 truncate max-w-[110px]">
-            {user?.email?.split('@')[0]}
-          </span>
-          <span className="text-[10px] bg-neutral-200/70 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400 px-1.5 py-0.5 rounded font-medium shrink-0">
-            {activeTab === 'reminders' ? labels.remindersTab : activeTab === 'todos' ? labels.todosTab : activeTab === 'notes' ? labels.notesTab : activeTab === 'trash' ? labels.trashTab : t('dashboard.allTab')}
+          <span className="text-sm font-semibold text-neutral-800 dark:text-neutral-100 truncate">
+            {activeTab === 'reminders' ? labels.remindersTab
+              : activeTab === 'todos' ? labels.todosTab
+              : activeTab === 'notes' ? labels.notesTab
+              : activeTab === 'trash' ? labels.trashTab
+              : activeTab === 'settings' ? t('dashboard.settingsTab')
+              : 'Ersona'}
           </span>
         </div>
 
-        <div className="flex items-center space-x-1.5 shrink-0">
-          {/* Mobile Theme Toggle */}
-          <button
-            onClick={toggleTheme}
-            className="p-1.5 text-neutral-500 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white bg-white dark:bg-[#282828] border border-neutral-200 dark:border-neutral-700 rounded-lg transition cursor-pointer"
-            title={isDark ? t('common.lightMode') : t('common.darkMode')}
-          >
-            {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-neutral-600 dark:text-neutral-300" />}
-          </button>
-
-          <button
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="p-1.5 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-[#282828] text-neutral-800 dark:text-neutral-200 flex items-center space-x-1.5 text-xs font-medium cursor-pointer shadow-2xs"
-          >
-            {isMobileMenuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
-            <span className="text-xs">{isMobileMenuOpen ? t('common.close') : 'Menu'}</span>
-          </button>
-        </div>
+        {/* Right: theme toggle only */}
+        <button
+          onClick={toggleTheme}
+          className="p-2 rounded-xl text-neutral-500 dark:text-neutral-300 hover:bg-neutral-200/60 dark:hover:bg-neutral-800 transition cursor-pointer"
+          title={isDark ? t('common.lightMode') : t('common.darkMode')}
+        >
+          {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4" />}
+        </button>
       </div>
 
-      {/* Sidebar Khas Notion (Desktop: Selalu Terbuka | Mobile: Dropdown / Tersembunyi saat tidak dipanggil) */}
-      <aside className={`
-        ${isMobileMenuOpen ? 'flex' : 'hidden'} md:flex
-        w-full md:w-64 bg-[#F7F6F3] dark:bg-[#202020] border-b md:border-b-0 md:border-r border-neutral-200/80 dark:border-neutral-800 p-4 flex-col justify-between shrink-0
-        ${isMobileMenuOpen ? 'animate-in fade-in slide-in-from-top-2' : ''}
-      `}>
+      {/* ─── MOBILE: Slide-in Drawer Overlay ─── */}
+      {isMobileMenuOpen && (
+        <div className="md:hidden fixed inset-0 z-40 flex">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/40 backdrop-blur-xs"
+            onClick={() => setIsMobileMenuOpen(false)}
+          />
+          {/* Drawer panel */}
+          <aside className="relative z-50 w-72 max-w-[85vw] h-full bg-[#F7F6F3] dark:bg-[#202020] flex flex-col shadow-2xl animate-in slide-in-from-left duration-200">
+            {/* Drawer header */}
+            <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-neutral-200/60 dark:border-neutral-800">
+              <div className="flex items-center space-x-2">
+                <span className="text-xl">🪐</span>
+                <span className="font-semibold text-sm text-neutral-800 dark:text-neutral-100 truncate max-w-[130px]">
+                  {user?.email?.split('@')[0]}
+                </span>
+              </div>
+              <div className="flex items-center space-x-1">
+                {/* Language toggle inside drawer */}
+                <button
+                  onClick={toggleLanguage}
+                  className="px-2 py-1 text-xs font-bold rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-[#282828] text-neutral-700 dark:text-neutral-200 cursor-pointer transition"
+                >
+                  {language.toUpperCase()}
+                </button>
+                <button
+                  onClick={signOut}
+                  title={t('dashboard.signOut')}
+                  className="text-neutral-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-neutral-200/50 dark:hover:bg-neutral-800 transition cursor-pointer"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Nav tabs */}
+            <nav className="flex-1 overflow-y-auto p-3 space-y-0.5">
+              <button
+                onClick={() => { setActiveTab('all'); setIsMobileMenuOpen(false); }}
+                className={`w-full flex items-center space-x-2 px-2.5 py-2.5 rounded-xl text-sm font-medium transition cursor-pointer ${
+                  activeTab === 'all' ? 'bg-neutral-200/70 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100' : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800/60'
+                }`}
+              >
+                <CheckSquare className="w-4 h-4 text-neutral-500 shrink-0" />
+                <span>{t('dashboard.allTab')}</span>
+              </button>
+
+              <button onClick={() => { setActiveTab('reminders'); setIsMobileMenuOpen(false); }}
+                className={`w-full flex items-center justify-between px-2.5 py-2.5 rounded-xl text-sm font-medium transition cursor-pointer ${activeTab === 'reminders' ? 'bg-amber-100/70 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200' : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800/60'}`}
+              >
+                <div className="flex items-center space-x-2">
+                  <Bell className={`w-4 h-4 shrink-0 ${activeReminders.length > 0 ? 'text-amber-600 animate-pulse' : 'text-neutral-500'}`} />
+                  <span>{labels.remindersTab}</span>
+                </div>
+                {activeReminders.length > 0 && <span className="text-[10px] bg-amber-500 text-white font-bold px-1.5 py-0.5 rounded-full">{activeReminders.length}</span>}
+              </button>
+
+              <button onClick={() => { setActiveTab('todos'); setIsMobileMenuOpen(false); }}
+                className={`w-full flex items-center justify-between px-2.5 py-2.5 rounded-xl text-sm font-medium transition cursor-pointer ${activeTab === 'todos' ? 'bg-neutral-200/70 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100' : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800/60'}`}
+              >
+                <div className="flex items-center space-x-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>{labels.todosTab}</span>
+                </div>
+                <span className="text-xs text-neutral-400 font-mono">{activeTodos.filter(t => !t.is_completed).length}</span>
+              </button>
+
+              <button onClick={() => { setActiveTab('notes'); setIsMobileMenuOpen(false); }}
+                className={`w-full flex items-center justify-between px-2.5 py-2.5 rounded-xl text-sm font-medium transition cursor-pointer ${activeTab === 'notes' ? 'bg-neutral-200/70 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100' : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800/60'}`}
+              >
+                <div className="flex items-center space-x-2">
+                  <FileText className="w-4 h-4 text-blue-600 shrink-0" />
+                  <span>{labels.notesTab}</span>
+                </div>
+                <span className="text-xs text-neutral-400 font-mono">{activeNotes.length}</span>
+              </button>
+
+              <button onClick={() => { setActiveTab('trash'); setIsMobileMenuOpen(false); }}
+                className={`w-full flex items-center justify-between px-2.5 py-2.5 rounded-xl text-sm font-medium transition cursor-pointer ${activeTab === 'trash' ? 'bg-red-50 dark:bg-red-950/30 text-red-900 dark:text-red-300' : 'text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800/60'}`}
+              >
+                <div className="flex items-center space-x-2">
+                  <Trash2 className="w-4 h-4 text-neutral-400 shrink-0" />
+                  <span>{labels.trashTab}</span>
+                </div>
+                {totalTrashCount > 0 && <span className="text-[10px] bg-neutral-200 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 font-mono px-1.5 py-0.5 rounded-full">{totalTrashCount}</span>}
+              </button>
+
+              <div className="my-2 border-t border-neutral-200/60 dark:border-neutral-800" />
+
+              <button onClick={() => { setIsSettingsOpen(true); setIsMobileMenuOpen(false); }}
+                className="w-full flex items-center justify-between px-2.5 py-2.5 rounded-xl text-sm font-medium text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition cursor-pointer"
+              >
+                <div className="flex items-center space-x-2">
+                  <Settings className="w-4 h-4 text-neutral-500 shrink-0" />
+                  <span>{t('dashboard.settingsTab')}</span>
+                </div>
+                <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded font-bold uppercase ${quotaConfig.isUpgraded ? 'bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300' : 'bg-neutral-200 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300'}`}>
+                  {quotaConfig.isUpgraded ? 'PRO' : 'FREE'}
+                </span>
+              </button>
+
+              {onGoToLanding && (
+                <button onClick={() => { onGoToLanding(); setIsMobileMenuOpen(false); }}
+                  className="w-full flex items-center space-x-2 px-2.5 py-2.5 rounded-xl text-sm font-medium text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition cursor-pointer"
+                >
+                  <Globe className="w-4 h-4 text-neutral-400 shrink-0" />
+                  <span>{t('dashboard.homeTab')}</span>
+                </button>
+              )}
+            </nav>
+
+            {/* Drawer Footer */}
+            <div className="p-3 border-t border-neutral-200/60 dark:border-neutral-800 space-y-2">
+              <div onClick={() => { setIsSettingsOpen(true); setIsMobileMenuOpen(false); }}
+                className="p-2.5 bg-neutral-200/40 dark:bg-neutral-800/40 hover:bg-neutral-200/70 dark:hover:bg-neutral-800/70 rounded-xl border border-neutral-200/60 dark:border-neutral-800 transition cursor-pointer group"
+              >
+                <div className="flex items-center justify-between text-[11px] mb-1.5">
+                  <div className="flex items-center space-x-1.5 font-medium text-neutral-700 dark:text-neutral-300">
+                    <HardDrive className="w-3.5 h-3.5 text-neutral-500" />
+                    <span>Storage</span>
+                  </div>
+                  <span className="text-[10px] font-mono text-neutral-500 dark:text-neutral-400">{formatBytes(storageUsage)} / {formatBytes(quotaConfig.maxBytes)}</span>
+                </div>
+                <div className="w-full bg-neutral-200/80 dark:bg-neutral-700 rounded-full h-1.5 overflow-hidden">
+                  <div className={`h-full rounded-full transition-all duration-300 ${(storageUsage / quotaConfig.maxBytes) > 0.9 ? 'bg-red-500' : (storageUsage / quotaConfig.maxBytes) > 0.7 ? 'bg-amber-500' : 'bg-emerald-500'}`}
+                    style={{ width: `${Math.min(100, Math.max(3, (storageUsage / quotaConfig.maxBytes) * 100))}%` }} />
+                </div>
+              </div>
+              <div className="text-[11px] text-neutral-400 dark:text-neutral-500 flex items-center justify-between px-1">
+                <span>Ersona Workspace</span>
+                <span className="bg-emerald-100 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 px-1.5 py-0.5 rounded text-[10px] font-mono">v1.7</span>
+              </div>
+            </div>
+          </aside>
+        </div>
+      )}
+
+      {/* ─── DESKTOP: Sidebar (always visible, md+) ─── */}
+      <aside className="hidden md:flex md:w-64 bg-[#F7F6F3] dark:bg-[#202020] border-r border-neutral-200/80 dark:border-neutral-800 p-4 flex-col justify-between shrink-0">
         <div>
-          {/* User Workspace Info */}
           <div className="flex items-center justify-between pb-4 border-b border-neutral-200/60 dark:border-neutral-800 mb-4">
             <div className="flex items-center space-x-2">
               <span className="text-xl">🪐</span>
-              <span className="font-semibold text-sm text-neutral-800 dark:text-neutral-100 truncate max-w-[130px]">
-                {user?.email?.split('@')[0]}
-              </span>
+              <span className="font-semibold text-sm text-neutral-800 dark:text-neutral-100 truncate max-w-[130px]">{user?.email?.split('@')[0]}</span>
             </div>
-            <button 
-              onClick={signOut}
-              title={t('dashboard.signOut')}
-              className="text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 p-1.5 rounded-md hover:bg-neutral-200/50 dark:hover:bg-neutral-800 transition cursor-pointer"
-            >
+            <button onClick={signOut} title={t('dashboard.signOut')} className="text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 p-1.5 rounded-md hover:bg-neutral-200/50 dark:hover:bg-neutral-800 transition cursor-pointer">
               <LogOut className="w-4 h-4" />
             </button>
           </div>
-
-          {/* Navigasi / Filter */}
           <nav className="space-y-1">
-            <button
-              onClick={() => {
-                setActiveTab('all');
-                setIsMobileMenuOpen(false);
-              }}
-              className={`w-full flex items-center space-x-2 px-2.5 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
-                activeTab === 'all' ? 'bg-neutral-200/70 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 font-semibold' : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200/40 dark:hover:bg-neutral-800/60'
-              }`}
-            >
-              <CheckSquare className="w-4 h-4 text-neutral-500" />
-              <span>{t('dashboard.allTab')}</span>
+            <button onClick={() => setActiveTab('all')} className={`w-full flex items-center space-x-2 px-2.5 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${activeTab === 'all' ? 'bg-neutral-200/70 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 font-semibold' : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200/40 dark:hover:bg-neutral-800/60'}`}>
+              <CheckSquare className="w-4 h-4 text-neutral-500" /><span>{t('dashboard.allTab')}</span>
             </button>
-
-            {/* TAB PENGINGAT (REMINDERS) */}
-            <button
-              onClick={() => {
-                setActiveTab('reminders');
-                setIsMobileMenuOpen(false);
-              }}
-              className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
-                activeTab === 'reminders' ? 'bg-amber-100/70 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 font-semibold' : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200/40 dark:hover:bg-neutral-800/60'
-              }`}
-            >
-              <div className="flex items-center space-x-2">
-                <Bell className={`w-4 h-4 ${activeReminders.length > 0 ? 'text-amber-600 animate-pulse' : 'text-neutral-500'}`} />
-                <span>{labels.remindersTab}</span>
-              </div>
-              {activeReminders.length > 0 && (
-                <span className="text-xs bg-amber-500 text-white font-bold px-1.5 py-0.2 rounded-full text-[10px]">
-                  {activeReminders.length}
-                </span>
-              )}
+            <button onClick={() => setActiveTab('reminders')} className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${activeTab === 'reminders' ? 'bg-amber-100/70 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 font-semibold' : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200/40 dark:hover:bg-neutral-800/60'}`}>
+              <div className="flex items-center space-x-2"><Bell className={`w-4 h-4 ${activeReminders.length > 0 ? 'text-amber-600 animate-pulse' : 'text-neutral-500'}`} /><span>{labels.remindersTab}</span></div>
+              {activeReminders.length > 0 && <span className="text-xs bg-amber-500 text-white font-bold px-1.5 py-0.5 rounded-full text-[10px]">{activeReminders.length}</span>}
             </button>
-
-            <button
-              onClick={() => {
-                setActiveTab('todos');
-                setIsMobileMenuOpen(false);
-              }}
-              className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
-                activeTab === 'todos' ? 'bg-neutral-200/70 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 font-semibold' : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200/40 dark:hover:bg-neutral-800/60'
-              }`}
-            >
-              <div className="flex items-center space-x-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                <span>{labels.todosTab}</span>
-              </div>
-              <span className="text-xs text-neutral-400 font-mono">
-                {activeTodos.filter(t => !t.is_completed).length}
-              </span>
+            <button onClick={() => setActiveTab('todos')} className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${activeTab === 'todos' ? 'bg-neutral-200/70 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 font-semibold' : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200/40 dark:hover:bg-neutral-800/60'}`}>
+              <div className="flex items-center space-x-2"><CheckCircle2 className="w-4 h-4 text-emerald-600" /><span>{labels.todosTab}</span></div>
+              <span className="text-xs text-neutral-400 font-mono">{activeTodos.filter(t => !t.is_completed).length}</span>
             </button>
-
-            <button
-              onClick={() => {
-                setActiveTab('notes');
-                setIsMobileMenuOpen(false);
-              }}
-              className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
-                activeTab === 'notes' ? 'bg-neutral-200/70 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 font-semibold' : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200/40 dark:hover:bg-neutral-800/60'
-              }`}
-            >
-              <div className="flex items-center space-x-2">
-                <FileText className="w-4 h-4 text-blue-600" />
-                <span>{labels.notesTab}</span>
-              </div>
+            <button onClick={() => setActiveTab('notes')} className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${activeTab === 'notes' ? 'bg-neutral-200/70 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 font-semibold' : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200/40 dark:hover:bg-neutral-800/60'}`}>
+              <div className="flex items-center space-x-2"><FileText className="w-4 h-4 text-blue-600" /><span>{labels.notesTab}</span></div>
               <span className="text-xs text-neutral-400 font-mono">{activeNotes.length}</span>
             </button>
-
-            {/* TAB TEMPAT SAMPAH (TRASH) */}
-            <button
-              onClick={() => {
-                setActiveTab('trash');
-                setIsMobileMenuOpen(false);
-              }}
-              className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
-                activeTab === 'trash' ? 'bg-red-50 dark:bg-red-950/30 text-red-900 dark:text-red-300 font-semibold' : 'text-neutral-500 dark:text-neutral-400 hover:bg-neutral-200/40 dark:hover:bg-neutral-800/60'
-              }`}
-            >
-              <div className="flex items-center space-x-2">
-                <Trash2 className="w-4 h-4 text-neutral-400" />
-                <span>{labels.trashTab}</span>
-              </div>
-              {totalTrashCount > 0 && (
-                <span className="text-xs bg-neutral-200 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 font-mono px-1.5 py-0.2 rounded-full text-[10px]">
-                  {totalTrashCount}
-                </span>
-              )}
+            <button onClick={() => setActiveTab('trash')} className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${activeTab === 'trash' ? 'bg-red-50 dark:bg-red-950/30 text-red-900 dark:text-red-300 font-semibold' : 'text-neutral-500 dark:text-neutral-400 hover:bg-neutral-200/40 dark:hover:bg-neutral-800/60'}`}>
+              <div className="flex items-center space-x-2"><Trash2 className="w-4 h-4 text-neutral-400" /><span>{labels.trashTab}</span></div>
+              {totalTrashCount > 0 && <span className="text-xs bg-neutral-200 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 font-mono px-1.5 py-0.5 rounded-full text-[10px]">{totalTrashCount}</span>}
             </button>
-
-            {/* TOMBOL PENGATURAN */}
-            <button
-              onClick={() => {
-                setIsSettingsOpen(true);
-                setIsMobileMenuOpen(false);
-              }}
-              className="w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-sm font-medium text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200/40 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-neutral-100 transition cursor-pointer mt-1"
-            >
-              <div className="flex items-center space-x-2">
-                <Settings className="w-4 h-4 text-neutral-500" />
-                <span>{t('dashboard.settingsTab')}</span>
-              </div>
-              <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded font-bold uppercase ${
-                quotaConfig.isUpgraded ? 'bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300' : 'bg-neutral-200 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300'
-              }`}>
-                {quotaConfig.isUpgraded ? 'PRO' : 'FREE'}
-              </span>
+            <button onClick={() => setIsSettingsOpen(true)} className="w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-sm font-medium text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200/40 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-neutral-100 transition cursor-pointer mt-1">
+              <div className="flex items-center space-x-2"><Settings className="w-4 h-4 text-neutral-500" /><span>{t('dashboard.settingsTab')}</span></div>
+              <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded font-bold uppercase ${quotaConfig.isUpgraded ? 'bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300' : 'bg-neutral-200 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300'}`}>{quotaConfig.isUpgraded ? 'PRO' : 'FREE'}</span>
             </button>
-
-            {/* TOMBOL BERANDA / LANDING PAGE */}
             {onGoToLanding && (
-              <button
-                onClick={() => {
-                  onGoToLanding();
-                  setIsMobileMenuOpen(false);
-                }}
-                className="w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-sm font-medium text-neutral-500 dark:text-neutral-400 hover:bg-neutral-200/40 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-neutral-100 transition cursor-pointer mt-0.5"
-                title={t('dashboard.homeTab')}
-              >
-                <div className="flex items-center space-x-2">
-                  <Globe className="w-4 h-4 text-neutral-400" />
-                  <span>{t('dashboard.homeTab')}</span>
-                </div>
+              <button onClick={onGoToLanding} className="w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-sm font-medium text-neutral-500 dark:text-neutral-400 hover:bg-neutral-200/40 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-neutral-100 transition cursor-pointer mt-0.5">
+                <div className="flex items-center space-x-2"><Globe className="w-4 h-4 text-neutral-400" /><span>{t('dashboard.homeTab')}</span></div>
               </button>
             )}
           </nav>
         </div>
-
-        {/* Footer Sidebar & Mini Storage Widget */}
         <div className="pt-3 border-t border-neutral-200/60 dark:border-neutral-800 space-y-3">
-          <div 
-            onClick={() => {
-              setIsSettingsOpen(true);
-              setIsMobileMenuOpen(false);
-            }}
-            className="p-2.5 bg-neutral-200/40 dark:bg-neutral-800/40 hover:bg-neutral-200/70 dark:hover:bg-neutral-800/70 rounded-xl border border-neutral-200/60 dark:border-neutral-800 transition cursor-pointer group"
-            title="Klik untuk melihat kuota storage di Pengaturan"
-          >
+          <div onClick={() => setIsSettingsOpen(true)} className="p-2.5 bg-neutral-200/40 dark:bg-neutral-800/40 hover:bg-neutral-200/70 dark:hover:bg-neutral-800/70 rounded-xl border border-neutral-200/60 dark:border-neutral-800 transition cursor-pointer group">
             <div className="flex items-center justify-between text-[11px] mb-1.5">
-              <div className="flex items-center space-x-1.5 font-medium text-neutral-700 dark:text-neutral-300">
-                <HardDrive className="w-3.5 h-3.5 text-neutral-500 group-hover:text-neutral-900 dark:group-hover:text-white transition" />
-                <span>Storage</span>
-              </div>
-              <span className="text-[10px] font-mono text-neutral-500 dark:text-neutral-400">
-                {formatBytes(storageUsage)} / {formatBytes(quotaConfig.maxBytes)}
-              </span>
+              <div className="flex items-center space-x-1.5 font-medium text-neutral-700 dark:text-neutral-300"><HardDrive className="w-3.5 h-3.5 text-neutral-500" /><span>Storage</span></div>
+              <span className="text-[10px] font-mono text-neutral-500 dark:text-neutral-400">{formatBytes(storageUsage)} / {formatBytes(quotaConfig.maxBytes)}</span>
             </div>
             <div className="w-full bg-neutral-200/80 dark:bg-neutral-700 rounded-full h-1.5 overflow-hidden">
-              <div 
-                className={`h-full rounded-full transition-all duration-300 ${
-                  (storageUsage / quotaConfig.maxBytes) > 0.9 ? 'bg-red-500' :
-                  (storageUsage / quotaConfig.maxBytes) > 0.7 ? 'bg-amber-500' : 'bg-emerald-500'
-                }`}
-                style={{ width: `${Math.min(100, Math.max(3, (storageUsage / quotaConfig.maxBytes) * 100))}%` }}
-              />
+              <div className={`h-full rounded-full transition-all duration-300 ${(storageUsage / quotaConfig.maxBytes) > 0.9 ? 'bg-red-500' : (storageUsage / quotaConfig.maxBytes) > 0.7 ? 'bg-amber-500' : 'bg-emerald-500'}`} style={{ width: `${Math.min(100, Math.max(3, (storageUsage / quotaConfig.maxBytes) * 100))}%` }} />
             </div>
           </div>
-
           <div className="text-[11px] text-neutral-400 dark:text-neutral-500 flex items-center justify-between px-1">
             <span>Ersona Workspace</span>
             <span className="bg-emerald-100 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 px-1.5 py-0.5 rounded text-[10px] font-mono">v1.7</span>
@@ -1780,68 +1793,79 @@ export default function Dashboard({ onGoToLanding }) {
       </aside>
 
       {/* Konten Utama */}
-      <main className="flex-1 max-w-4xl mx-auto w-full p-3 sm:p-6 md:p-10 space-y-4 sm:space-y-6 overflow-y-auto">
-        {/* Search & Header Bar */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          <div className="hidden md:block">
+      <main className="flex-1 max-w-4xl mx-auto w-full pt-14 md:pt-0 px-3 pb-3 sm:p-6 md:p-10 space-y-4 sm:space-y-6 overflow-y-auto">
+        {/* Search & Header Bar (Desktop Only) */}
+        <div className="hidden md:flex flex-row items-center justify-between gap-3">
+          <div>
             <h1 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100 flex items-center space-x-2">
               <span>{t('dashboard.workspaceTitle')}</span>
               <span className="text-xs bg-neutral-200 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 px-2 py-0.5 rounded-full font-normal">v1.7</span>
             </h1>
             <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">{t('dashboard.workspaceSubtitle')}</p>
           </div>
-
-          <div className="flex items-center space-x-2 w-full sm:w-auto">
-            <div className="relative flex-1 sm:w-64">
+          <div className="flex items-center space-x-2">
+            <div className="relative w-64">
               <Search className="w-4 h-4 text-neutral-400 absolute left-3 top-2.5" />
-              <input
-                type="text"
-                placeholder={t('dashboard.searchPlaceholder')}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 sm:py-1.5 text-xs bg-white dark:bg-[#232323] border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-800 dark:focus:ring-neutral-400"
-              />
+              <input type="text" placeholder={t('dashboard.searchPlaceholder')} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-3 py-1.5 text-xs bg-white dark:bg-[#232323] border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-800 dark:focus:ring-neutral-400" />
             </div>
-
-            {/* Desktop Only: Language + Theme + Settings */}
-            <div className="hidden sm:flex items-center space-x-2">
-              {/* Language Switcher */}
-              <button
-                onClick={toggleLanguage}
-                className="px-2.5 py-1.5 text-xs font-bold rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-[#232323] text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-[#2c2c2c] transition cursor-pointer shrink-0"
-                title="Ganti Bahasa / Switch Language"
-              >
-                {language.toUpperCase()}
-              </button>
-
-              {/* Dark Mode Toggle */}
-              <button
-                onClick={toggleTheme}
-                className="p-1.5 text-neutral-500 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-[#2c2c2c] border border-neutral-200 dark:border-neutral-700 rounded-lg transition cursor-pointer shrink-0 bg-white dark:bg-[#232323]"
-                title={isDark ? t('common.lightMode') : t('common.darkMode')}
-              >
-                {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-neutral-600 dark:text-neutral-300" />}
-              </button>
-
-              <button
-                onClick={() => setIsSettingsOpen(true)}
-                title={t('settings.title')}
-                className="p-1.5 text-neutral-500 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-[#2c2c2c] border border-neutral-200 dark:border-neutral-700 rounded-lg transition cursor-pointer shrink-0 bg-white dark:bg-[#232323]"
-              >
-                <Settings className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Mobile Only: Settings button */}
-            <button
-              onClick={() => setIsSettingsOpen(true)}
-              title={t('settings.title')}
-              className="sm:hidden p-2 text-neutral-500 dark:text-neutral-300 bg-white dark:bg-[#232323] border border-neutral-200 dark:border-neutral-700 rounded-lg transition cursor-pointer shrink-0"
-            >
-              <Settings className="w-4 h-4" />
+            <button onClick={toggleLanguage} className="px-2.5 py-1.5 text-xs font-bold rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-[#232323] text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-[#2c2c2c] transition cursor-pointer shrink-0" title="Switch Language">{language.toUpperCase()}</button>
+            <button onClick={toggleTheme} className="p-1.5 border border-neutral-200 dark:border-neutral-700 rounded-lg transition cursor-pointer shrink-0 bg-white dark:bg-[#232323]" title={isDark ? t('common.lightMode') : t('common.darkMode')}>
+              {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-neutral-600" />}
             </button>
+            <button onClick={() => setIsSettingsOpen(true)} title={t('settings.title')} className="p-1.5 border border-neutral-200 dark:border-neutral-700 rounded-lg transition cursor-pointer shrink-0 bg-white dark:bg-[#232323]"><Settings className="w-4 h-4 text-neutral-500" /></button>
           </div>
         </div>
+
+        {/* Mobile: Search bar only */}
+        <div className="md:hidden">
+          <div className="relative">
+            <Search className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input type="text" placeholder={t('dashboard.searchPlaceholder')} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-3 py-2.5 text-sm bg-white dark:bg-[#232323] border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 rounded-xl focus:outline-none focus:ring-1 focus:ring-neutral-800 dark:focus:ring-neutral-400" />
+          </div>
+        </div>
+
+        {/* Mobile: Compact toolbar for view/group/sort controls — only when relevant tab */}
+        {(activeTab === 'all' || activeTab === 'todos' || activeTab === 'reminders') && (
+          <div className="md:hidden flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+            {/* View Switcher */}
+            <div className="flex items-center bg-neutral-100 dark:bg-neutral-800/80 p-0.5 rounded-lg border border-neutral-200/80 dark:border-neutral-700 text-xs shrink-0">
+              <button type="button" onClick={() => toggleViewMode('list')} className={`flex items-center px-2.5 py-1.5 rounded-md font-medium transition cursor-pointer ${taskViewMode === 'list' ? 'bg-white dark:bg-[#282828] text-neutral-900 dark:text-neutral-100 shadow-xs' : 'text-neutral-500 dark:text-neutral-400'}`} title="List">
+                <List className="w-3.5 h-3.5" />
+              </button>
+              <button type="button" onClick={() => toggleViewMode('board')} className={`flex items-center px-2.5 py-1.5 rounded-md font-medium transition cursor-pointer ${taskViewMode === 'board' ? 'bg-white dark:bg-[#282828] text-neutral-900 dark:text-neutral-100 shadow-xs' : 'text-neutral-500 dark:text-neutral-400'}`} title="Board">
+                <Columns3 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {/* Group by status (list mode only) */}
+            {taskViewMode === 'list' && (
+              <button type="button" onClick={toggleGroupByStatus} className={`flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition cursor-pointer shrink-0 ${isGroupedByStatus ? 'bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 border-neutral-900 dark:border-neutral-100' : 'bg-white dark:bg-[#232323] text-neutral-600 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700'}`} title={t('dashboard.groupByStatus')}>
+                <Layers className="w-3.5 h-3.5" />
+                <span>{t('dashboard.groupByStatus')}</span>
+              </button>
+            )}
+
+            {/* Status Manager */}
+            <button type="button" onClick={() => setIsStatusManagerOpen(true)} className="flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-white dark:bg-[#232323] text-neutral-600 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition cursor-pointer shrink-0" title={t('dashboard.statusBtn')}>
+              <Settings2 className="w-3.5 h-3.5" />
+              <span>{t('dashboard.statusBtn')}</span>
+            </button>
+
+            {/* Sort */}
+            <div className="flex items-center space-x-1 text-xs text-neutral-600 dark:text-neutral-300 bg-white dark:bg-[#232323] border border-neutral-200 dark:border-neutral-700 rounded-lg px-2 py-1.5 shrink-0">
+              <ArrowUpDown className="w-3 h-3 text-neutral-400 shrink-0" />
+              <select value={todoSortBy} onChange={(e) => setTodoSortBy(e.target.value)} className="bg-transparent focus:outline-none cursor-pointer text-xs font-medium text-neutral-700 dark:text-neutral-200 max-w-[90px]">
+                <option value="created_desc" className="dark:bg-[#232323]">{t('dashboard.sortLatest')}</option>
+                <option value="created_asc" className="dark:bg-[#232323]">{t('dashboard.sortOldest')}</option>
+                <option value="due_date_asc" className="dark:bg-[#232323]">{t('dashboard.sortDueNearest')}</option>
+                <option value="due_date_desc" className="dark:bg-[#232323]">{t('dashboard.sortDueFurthest')}</option>
+                <option value="priority_desc" className="dark:bg-[#232323]">{t('dashboard.sortPriorityHighest')}</option>
+              </select>
+            </div>
+          </div>
+        )}
 
         {/* BANNER PENGINGAT PRIORITAS PALING ATAS */}
         {activeReminders.length > 0 && activeTab !== 'notes' && activeTab !== 'trash' && (
@@ -2016,109 +2040,45 @@ export default function Dashboard({ onGoToLanding }) {
             {/* SECTION 1: TO-DO LIST AKTIF */}
             {(activeTab === 'all' || activeTab === 'todos' || activeTab === 'reminders') && (
               <section className="space-y-3">
-                {/* One-line compact header: title + count + view switcher + controls */}
-                <div className="flex items-center justify-between gap-2 pb-2 border-b border-neutral-200 dark:border-neutral-800">
-                  {/* Kiri: Title + Jumlah + View Switcher */}
-                  <div className="flex items-center gap-2 min-w-0 overflow-x-auto no-scrollbar">
+                {/* Section header - desktop shows full controls, mobile is minimal */}
+                <div className="hidden md:flex items-center justify-between gap-2 pb-2 border-b border-neutral-200 dark:border-neutral-800">
+                  {/* Title + Count + View Switcher */}
+                  <div className="flex items-center gap-2">
                     <div className="flex items-center space-x-1.5 shrink-0">
                       <CheckSquare className="w-3.5 h-3.5 text-neutral-500" />
                       <h2 className="text-xs font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-300 whitespace-nowrap">
                         {activeTab === 'reminders' ? labels.remindersTab : labels.todosTab}
                       </h2>
-                      <span className="text-xs bg-neutral-100 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400 px-1.5 py-0.5 rounded-full font-mono font-medium">
-                        {filteredActiveTodos.length}
-                      </span>
+                      <span className="text-xs bg-neutral-100 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400 px-1.5 py-0.5 rounded-full font-mono font-medium">{filteredActiveTodos.length}</span>
                     </div>
-
-                    {/* View Switcher */}
                     <div className="flex items-center bg-neutral-100 dark:bg-neutral-800/80 p-0.5 rounded-lg border border-neutral-200/80 dark:border-neutral-700 text-xs shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => toggleViewMode('list')}
-                        className={`flex items-center space-x-1 px-2 py-1 rounded-md font-medium transition cursor-pointer ${
-                          taskViewMode === 'list'
-                            ? 'bg-white dark:bg-[#282828] text-neutral-900 dark:text-neutral-100 shadow-2xs'
-                            : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200'
-                        }`}
-                        title="List View"
-                      >
-                        <List className="w-3.5 h-3.5" />
-                        <span className="hidden sm:inline">{t('dashboard.viewList')}</span>
+                      <button type="button" onClick={() => toggleViewMode('list')} className={`flex items-center space-x-1 px-2 py-1 rounded-md font-medium transition cursor-pointer ${taskViewMode === 'list' ? 'bg-white dark:bg-[#282828] text-neutral-900 dark:text-neutral-100 shadow-2xs' : 'text-neutral-500 dark:text-neutral-400'}`} title="List View">
+                        <List className="w-3.5 h-3.5" /><span>{t('dashboard.viewList')}</span>
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => toggleViewMode('board')}
-                        className={`flex items-center space-x-1 px-2 py-1 rounded-md font-medium transition cursor-pointer ${
-                          taskViewMode === 'board'
-                            ? 'bg-white dark:bg-[#282828] text-neutral-900 dark:text-neutral-100 shadow-2xs'
-                            : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200'
-                        }`}
-                        title="Board View"
-                      >
-                        <Columns3 className="w-3.5 h-3.5" />
-                        <span className="hidden sm:inline">{t('dashboard.viewBoard')}</span>
+                      <button type="button" onClick={() => toggleViewMode('board')} className={`flex items-center space-x-1 px-2 py-1 rounded-md font-medium transition cursor-pointer ${taskViewMode === 'board' ? 'bg-white dark:bg-[#282828] text-neutral-900 dark:text-neutral-100 shadow-2xs' : 'text-neutral-500 dark:text-neutral-400'}`} title="Board View">
+                        <Columns3 className="w-3.5 h-3.5" /><span>{t('dashboard.viewBoard')}</span>
                       </button>
                     </div>
-
-                    {/* Tombol Geser Kolom Cepat */}
                     {taskViewMode === 'board' && (
                       <div className="flex items-center bg-neutral-100 dark:bg-neutral-800/80 p-0.5 rounded-lg border border-neutral-200/80 dark:border-neutral-700 text-xs shrink-0 space-x-0.5">
-                        <button
-                          type="button"
-                          onClick={() => boardRef.current?.scrollBy({ left: -320, behavior: 'smooth' })}
-                          className="p-1 rounded-md text-neutral-600 dark:text-neutral-300 hover:bg-white dark:hover:bg-[#282828] hover:text-neutral-900 dark:hover:text-white transition cursor-pointer shadow-2xs"
-                        >
-                          <ChevronLeft className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => boardRef.current?.scrollBy({ left: 320, behavior: 'smooth' })}
-                          className="p-1 rounded-md text-neutral-600 dark:text-neutral-300 hover:bg-white dark:hover:bg-[#282828] hover:text-neutral-900 dark:hover:text-white transition cursor-pointer shadow-2xs"
-                        >
-                          <ChevronRight className="w-3.5 h-3.5" />
-                        </button>
+                        <button type="button" onClick={() => boardRef.current?.scrollBy({ left: -320, behavior: 'smooth' })} className="p-1 rounded-md text-neutral-600 dark:text-neutral-300 hover:bg-white dark:hover:bg-[#282828] transition cursor-pointer"><ChevronLeft className="w-3.5 h-3.5" /></button>
+                        <button type="button" onClick={() => boardRef.current?.scrollBy({ left: 320, behavior: 'smooth' })} className="p-1 rounded-md text-neutral-600 dark:text-neutral-300 hover:bg-white dark:hover:bg-[#282828] transition cursor-pointer"><ChevronRight className="w-3.5 h-3.5" /></button>
                       </div>
                     )}
                   </div>
-
-                  {/* Kanan: Group + Statuses + Sort — compact, icon-only on mobile */}
+                  {/* Desktop Controls */}
                   <div className="flex items-center gap-1.5 shrink-0">
-                    {/* Group Toggle */}
                     {taskViewMode === 'list' && (
-                      <button
-                        type="button"
-                        onClick={toggleGroupByStatus}
-                        className={`flex items-center space-x-1 px-2 py-1 rounded-lg text-xs font-medium border transition cursor-pointer ${
-                          isGroupedByStatus
-                            ? 'bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 border-neutral-900 dark:border-neutral-100 shadow-2xs'
-                            : 'bg-white dark:bg-[#232323] text-neutral-600 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-800'
-                        }`}
-                        title={t('dashboard.groupByStatus')}
-                      >
-                        <Layers className="w-3.5 h-3.5" />
-                        <span className="hidden sm:inline">{t('dashboard.groupByStatus')}</span>
+                      <button type="button" onClick={toggleGroupByStatus} className={`flex items-center space-x-1 px-2 py-1 rounded-lg text-xs font-medium border transition cursor-pointer ${isGroupedByStatus ? 'bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 border-neutral-900 dark:border-neutral-100 shadow-2xs' : 'bg-white dark:bg-[#232323] text-neutral-600 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-800'}`} title={t('dashboard.groupByStatus')}>
+                        <Layers className="w-3.5 h-3.5" /><span>{t('dashboard.groupByStatus')}</span>
                       </button>
                     )}
-
-                    {/* Status Manager */}
-                    <button
-                      type="button"
-                      onClick={() => setIsStatusManagerOpen(true)}
-                      className="flex items-center space-x-1 px-2 py-1 rounded-lg text-xs font-medium bg-white dark:bg-[#232323] text-neutral-600 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition cursor-pointer"
-                      title={t('dashboard.statusBtn')}
-                    >
-                      <Settings2 className="w-3.5 h-3.5 text-neutral-500" />
-                      <span className="hidden sm:inline">{t('dashboard.statusBtn')}</span>
+                    <button type="button" onClick={() => setIsStatusManagerOpen(true)} className="flex items-center space-x-1 px-2 py-1 rounded-lg text-xs font-medium bg-white dark:bg-[#232323] text-neutral-600 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition cursor-pointer" title={t('dashboard.statusBtn')}>
+                      <Settings2 className="w-3.5 h-3.5 text-neutral-500" /><span>{t('dashboard.statusBtn')}</span>
                     </button>
-
-                    {/* Sort Dropdown */}
                     <div className="flex items-center space-x-1 text-xs text-neutral-600 dark:text-neutral-300 bg-white dark:bg-[#232323] border border-neutral-200 dark:border-neutral-700 rounded-lg px-2 py-1">
                       <ArrowUpDown className="w-3 h-3 text-neutral-400 shrink-0" />
-                      <select
-                        value={todoSortBy}
-                        onChange={(e) => setTodoSortBy(e.target.value)}
-                        className="bg-transparent focus:outline-none cursor-pointer text-xs font-medium text-neutral-700 dark:text-neutral-200 max-w-[80px] sm:max-w-none"
-                      >
+                      <select value={todoSortBy} onChange={(e) => setTodoSortBy(e.target.value)} className="bg-transparent focus:outline-none cursor-pointer text-xs font-medium text-neutral-700 dark:text-neutral-200">
                         <option value="created_desc" className="dark:bg-[#232323]">{t('dashboard.sortLatest')}</option>
                         <option value="created_asc" className="dark:bg-[#232323]">{t('dashboard.sortOldest')}</option>
                         <option value="due_date_asc" className="dark:bg-[#232323]">{t('dashboard.sortDueNearest')}</option>
@@ -2129,33 +2089,53 @@ export default function Dashboard({ onGoToLanding }) {
                   </div>
                 </div>
 
-                {/* Quick Add Bar - Compact on mobile */}
+                {/* Mobile: minimal section header - just title + count */}
+                <div className="md:hidden flex items-center space-x-2 pb-2 border-b border-neutral-200 dark:border-neutral-800">
+                  <CheckSquare className="w-3.5 h-3.5 text-neutral-500" />
+                  <h2 className="text-xs font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-300">{activeTab === 'reminders' ? labels.remindersTab : labels.todosTab}</h2>
+                  <span className="text-xs bg-neutral-100 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400 px-1.5 py-0.5 rounded-full font-mono">{filteredActiveTodos.length}</span>
+                </div>
+
+                {/* Quick Add Bar - Collapsible on mobile */}
                 {activeTab !== 'reminders' && (
-                  <form onSubmit={handleAddTodo} className="bg-white dark:bg-[#202020] p-3 rounded-xl border border-neutral-200/90 dark:border-neutral-800 shadow-2xs space-y-2.5">
-                    {/* Baris 1: Input Judul Tugas Full-Width */}
-                    <div className="w-full">
+                  <form onSubmit={handleAddTodo} className="bg-white dark:bg-[#202020] rounded-xl border border-neutral-200/90 dark:border-neutral-800 shadow-2xs overflow-hidden">
+                    {/* Baris 1: Input + Add button (always visible) */}
+                    <div className="flex items-center gap-2 px-3 py-2.5">
                       <input
                         type="text"
                         maxLength={200}
-                        placeholder={t('dashboard.quickAddPlaceholder')}
+                        placeholder={isEn ? '+ Add a task...' : '+ Tambah tugas...'}
                         value={newTaskTitle}
-                        onChange={(e) => setNewTaskTitle(e.target.value)}
-                        className="w-full px-2 py-1 text-sm bg-transparent focus:outline-none placeholder:text-neutral-400 dark:placeholder:text-neutral-500 font-medium text-neutral-800 dark:text-neutral-100"
+                        onFocus={() => setQuickAddExpanded(true)}
+                        onChange={(e) => { setNewTaskTitle(e.target.value); if (e.target.value) setQuickAddExpanded(true); }}
+                        className="flex-1 text-sm bg-transparent focus:outline-none placeholder:text-neutral-400 dark:placeholder:text-neutral-500 font-medium text-neutral-800 dark:text-neutral-100"
                       />
+                      {/* Expand toggle on mobile when not expanded */}
+                      {!quickAddExpanded && (
+                        <button type="button" onClick={() => setQuickAddExpanded(true)}
+                          className="md:hidden p-1.5 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 transition cursor-pointer shrink-0"
+                          title={t('dashboard.advancedOptions')}
+                        >
+                          <ChevronDown className="w-4 h-4" />
+                        </button>
+                      )}
+                      <button
+                        type="submit"
+                        disabled={isSubmittingTask || !newTaskTitle.trim()}
+                        className="bg-neutral-900 hover:bg-neutral-800 dark:bg-white dark:hover:bg-neutral-100 dark:text-neutral-900 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition flex items-center space-x-1 disabled:opacity-40 cursor-pointer shadow-xs shrink-0"
+                      >
+                        {isSubmittingTask ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+                        <span className="hidden sm:inline">{t('dashboard.saveTaskBtn')}</span>
+                      </button>
                     </div>
 
-                    {/* Baris 2: Toolbar Chip Opsi (Prioritas, Status, Jatuh Tempo, Foto) & Tombol Simpan */}
-                    <div className="flex items-center justify-between gap-2 pt-2 border-t border-neutral-100 dark:border-neutral-800">
+                    {/* Baris 2: Options - collapsed by default on mobile, always visible on desktop */}
+                    <div className={`${quickAddExpanded ? 'flex' : 'hidden md:flex'} items-center justify-between gap-2 px-3 pb-3 pt-0.5 border-t border-neutral-100 dark:border-neutral-800`}>
                       <div className="flex flex-wrap items-center gap-1.5">
                         {/* Prioritas Chip */}
                         <div className="flex items-center space-x-1 bg-neutral-50 dark:bg-[#282828] hover:bg-neutral-100 dark:hover:bg-[#323232] border border-neutral-200/80 dark:border-neutral-700 rounded-lg px-2 py-1 text-xs transition">
                           <Flag className="w-3 h-3 text-neutral-400 shrink-0" />
-                          <select
-                            value={newTaskPriority}
-                            onChange={(e) => setNewTaskPriority(e.target.value)}
-                            className="bg-transparent focus:outline-none text-xs font-medium text-neutral-700 dark:text-neutral-200 cursor-pointer max-w-[80px] sm:max-w-none"
-                            title={t('dashboard.priorityChip')}
-                          >
+                          <select value={newTaskPriority} onChange={(e) => setNewTaskPriority(e.target.value)} className="bg-transparent focus:outline-none text-xs font-medium text-neutral-700 dark:text-neutral-200 cursor-pointer max-w-[70px] sm:max-w-none" title={t('dashboard.priorityChip')}>
                             <option value="urgent" className="dark:bg-[#282828]">{t('dashboard.priorityUrgent')}</option>
                             <option value="high" className="dark:bg-[#282828]">{t('dashboard.priorityHigh')}</option>
                             <option value="medium" className="dark:bg-[#282828]">{t('dashboard.priorityMedium')}</option>
@@ -2166,46 +2146,26 @@ export default function Dashboard({ onGoToLanding }) {
                         {/* Jatuh Tempo Chip */}
                         <div className="flex items-center space-x-1 bg-neutral-50 dark:bg-[#282828] hover:bg-neutral-100 dark:hover:bg-[#323232] border border-neutral-200/80 dark:border-neutral-700 rounded-lg px-2 py-1 text-xs transition">
                           <Calendar className="w-3 h-3 text-neutral-400 shrink-0" />
-                          <input
-                            type="date"
-                            value={newTaskDate}
-                            title={t('dashboard.dueDateChip')}
-                            onChange={(e) => setNewTaskDate(e.target.value)}
-                            className="bg-transparent focus:outline-none text-xs text-neutral-700 dark:text-neutral-200 cursor-pointer w-[100px] sm:w-auto"
-                          />
+                          <input type="date" value={newTaskDate} title={t('dashboard.dueDateChip')} onChange={(e) => setNewTaskDate(e.target.value)}
+                            className="bg-transparent focus:outline-none text-xs text-neutral-700 dark:text-neutral-200 cursor-pointer w-[90px] sm:w-auto" />
                         </div>
 
-                        {/* Tombol Opsi Catatan & Pengingat */}
-                        <button
-                          type="button"
-                          onClick={() => setShowTodoAdvanced(!showTodoAdvanced)}
-                          className={`text-xs px-2 py-1 rounded-lg border transition cursor-pointer flex items-center space-x-1 ${
-                            showTodoAdvanced || newTaskDesc || newTaskReminderDate || todoFile
-                              ? 'bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 border-neutral-900 dark:border-neutral-100'
-                              : 'bg-neutral-50 dark:bg-[#282828] hover:bg-neutral-100 dark:hover:bg-[#323232] text-neutral-600 dark:text-neutral-300 border-neutral-200/80 dark:border-neutral-700'
-                          }`}
+                        {/* Tombol Opsi Catatan */}
+                        <button type="button" onClick={() => setShowTodoAdvanced(!showTodoAdvanced)}
+                          className={`text-xs px-2 py-1 rounded-lg border transition cursor-pointer flex items-center space-x-1 ${showTodoAdvanced || newTaskDesc || newTaskReminderDate || todoFile ? 'bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 border-neutral-900 dark:border-neutral-100' : 'bg-neutral-50 dark:bg-[#282828] hover:bg-neutral-100 dark:hover:bg-[#323232] text-neutral-600 dark:text-neutral-300 border-neutral-200/80 dark:border-neutral-700'}`}
                           title={t('dashboard.advancedOptions')}
                         >
                           <Paperclip className="w-3 h-3 shrink-0" />
-                          <span className="hidden sm:inline">{showTodoAdvanced ? t('dashboard.closeDetails') : t('dashboard.advancedOptions')}</span>
+                          <span>{showTodoAdvanced ? t('dashboard.closeDetails') : t('dashboard.advancedOptions')}</span>
                         </button>
                       </div>
 
-                      {/* Tombol Simpan */}
-                      <button
-                        type="submit"
-                        disabled={isSubmittingTask || !newTaskTitle.trim()}
-                        className="bg-neutral-900 hover:bg-neutral-800 dark:bg-white dark:hover:bg-neutral-100 dark:text-neutral-900 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition flex items-center space-x-1.5 disabled:opacity-50 cursor-pointer shadow-xs shrink-0"
+                      {/* Collapse button on mobile */}
+                      <button type="button" onClick={() => setQuickAddExpanded(false)}
+                        className="md:hidden p-1 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 cursor-pointer shrink-0"
+                        title="Collapse"
                       >
-                        {isSubmittingTask ? (
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        ) : (
-                          <>
-                            <Plus className="w-3.5 h-3.5" />
-                            <span className="hidden sm:inline">{t('dashboard.saveTaskBtn')}</span>
-                            <span className="sm:hidden">{isEn ? 'Add' : 'Tambah'}</span>
-                          </>
-                        )}
+                        <ChevronUp className="w-3.5 h-3.5" />
                       </button>
                     </div>
 
