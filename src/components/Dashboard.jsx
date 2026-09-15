@@ -1144,7 +1144,7 @@ export default function Dashboard() {
   const renderPriorityBadge = (priority) => {
     if (priority === 'urgent') {
       return (
-        <span className="inline-flex items-center space-x-1 text-[10px] px-2 py-0.5 rounded-md bg-red-100 text-red-700 border border-red-300 font-bold shadow-2xs">
+        <span className="inline-flex items-center space-x-1 text-[10px] px-2 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-300 font-bold shadow-2xs">
           <Flame className="w-3 h-3 text-red-600 fill-red-500 animate-pulse" />
           <span>Mendesak</span>
         </span>
@@ -1152,7 +1152,7 @@ export default function Dashboard() {
     }
     if (priority === 'high') {
       return (
-        <span className="inline-flex items-center space-x-1 text-[10px] px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 border border-rose-200 font-medium">
+        <span className="inline-flex items-center space-x-1 text-[10px] px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 font-medium">
           <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
           <span>Tinggi</span>
         </span>
@@ -1160,14 +1160,14 @@ export default function Dashboard() {
     }
     if (priority === 'low') {
       return (
-        <span className="inline-flex items-center space-x-1 text-[10px] px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200 font-medium">
+        <span className="inline-flex items-center space-x-1 text-[10px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 font-medium">
           <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
           <span>Rendah</span>
         </span>
       );
     }
     return (
-      <span className="inline-flex items-center space-x-1 text-[10px] px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200 font-medium">
+      <span className="inline-flex items-center space-x-1 text-[10px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 font-medium">
         <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
         <span>Sedang</span>
       </span>
@@ -1179,15 +1179,15 @@ export default function Dashboard() {
     const statusObj = getStatusObj(currentStatusId);
 
     return (
-      <div className="relative inline-block" onClick={(e) => e.stopPropagation()}>
+      <div className="relative inline-flex items-center" onClick={(e) => e.stopPropagation()}>
         <select
           value={currentStatusId}
           onChange={(e) => handleUpdateTaskStatus(todo.id, e.target.value)}
-          className={`text-[10px] font-medium px-2 py-0.5 rounded-md border cursor-pointer focus:outline-none transition appearance-none pr-3.5 ${statusObj.color}`}
-          title="Ubah Status Tugas"
+          className={`cursor-pointer text-[11px] font-medium px-2.5 py-0.5 rounded-full border transition hover:opacity-85 focus:outline-none ${statusObj.color}`}
+          title="Ubah status tugas"
         >
           {taskStatuses.map((s) => (
-            <option key={s.id} value={s.id}>
+            <option key={s.id} value={s.id} className="bg-white text-neutral-800 font-normal">
               {s.label}
             </option>
           ))}
@@ -1218,7 +1218,7 @@ export default function Dashboard() {
     });
   };
 
-  const renderTaskRow = (todo) => {
+  const renderTaskRow = (todo, hideStatus = false) => {
     const reminderActive = isReminderActive(todo);
     return (
       <div
@@ -1229,7 +1229,7 @@ export default function Dashboard() {
             : 'border-neutral-200/80 hover:border-neutral-300'
         }`}
       >
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3">
           <div className="flex items-center space-x-3 flex-1 min-w-0">
             <button
               onClick={() => handleToggleTodo(todo.id, todo.is_completed)}
@@ -1245,32 +1245,30 @@ export default function Dashboard() {
 
             <div 
               onClick={() => openEditTodoModal(todo)}
-              className="flex-1 min-w-0 cursor-pointer"
+              className="flex items-center space-x-2 flex-1 min-w-0 cursor-pointer"
             >
-              <div className="flex items-center flex-wrap gap-1.5">
-                <span className={`text-sm truncate font-medium hover:underline ${todo.is_completed ? 'line-through text-neutral-400' : 'text-neutral-800'}`}>
-                  {todo.title}
+              <span className={`text-sm truncate font-medium hover:underline ${todo.is_completed ? 'line-through text-neutral-400' : 'text-neutral-800'}`}>
+                {todo.title}
+              </span>
+
+              {todo.description && (
+                <span title="Tugas ini memiliki catatan" className="text-neutral-400 shrink-0">
+                  <MessageSquare className="w-3.5 h-3.5" />
                 </span>
+              )}
 
-                {renderPriorityBadge(todo.priority)}
-                {renderStatusBadge(todo)}
-
-                {todo.description && (
-                  <span title="Tugas ini memiliki catatan" className="text-neutral-400">
-                    <MessageSquare className="w-3.5 h-3.5" />
-                  </span>
-                )}
-
-                {todo.media_url && (
-                  <span title="Tugas ini memiliki lampiran foto" className="text-blue-500">
-                    <Image className="w-3.5 h-3.5" />
-                  </span>
-                )}
-              </div>
+              {todo.media_url && (
+                <span title="Tugas ini memiliki lampiran foto" className="text-blue-500 shrink-0">
+                  <Image className="w-3.5 h-3.5" />
+                </span>
+              )}
             </div>
           </div>
 
           <div className="flex items-center space-x-2 shrink-0 ml-3">
+            {renderPriorityBadge(todo.priority)}
+            {!hideStatus && renderStatusBadge(todo)}
+
             {todo.reminder_date && (
               <span className={`inline-flex items-center space-x-1 text-[10px] px-2 py-0.5 rounded-md font-mono ${
                 reminderActive 
@@ -1895,90 +1893,110 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                {/* Quick Add Bar */}
+                {/* Quick Add Bar - Rapi, Lega & 2-Baris */}
                 {activeTab !== 'reminders' && (
-                  <form onSubmit={handleAddTodo} className="bg-white p-3 rounded-2xl border border-neutral-200/90 shadow-2xs space-y-2.5">
-                    <div className="flex flex-col sm:flex-row gap-2">
+                  <form onSubmit={handleAddTodo} className="bg-white p-3.5 rounded-2xl border border-neutral-200/90 shadow-2xs space-y-3">
+                    {/* Baris 1: Input Judul Tugas Full-Width */}
+                    <div className="w-full">
                       <input
                         type="text"
                         maxLength={200}
-                        placeholder="+ Tambah tugas baru (maks 200 huruf)..."
+                        placeholder="+ Tambah tugas baru... (tekan Enter untuk menyimpan)"
                         value={newTaskTitle}
                         onChange={(e) => setNewTaskTitle(e.target.value)}
-                        className="flex-1 px-3 py-1.5 text-sm bg-transparent focus:outline-none placeholder:text-neutral-400"
+                        className="w-full px-2 py-1 text-sm bg-transparent focus:outline-none placeholder:text-neutral-400 font-medium text-neutral-800"
                       />
-                      <div className="flex items-center flex-wrap gap-2">
-                        <select
-                          value={newTaskPriority}
-                          onChange={(e) => setNewTaskPriority(e.target.value)}
-                          className="text-xs bg-neutral-50 border border-neutral-200 text-neutral-700 rounded-lg px-2 py-1.5 focus:outline-none font-medium cursor-pointer"
-                          title="Prioritas Tugas"
-                        >
-                          <option value="urgent">🔥 Mendesak</option>
-                          <option value="high">🔴 Tinggi</option>
-                          <option value="medium">🟡 Sedang</option>
-                          <option value="low">🔵 Rendah</option>
-                        </select>
+                    </div>
 
-                        <select
-                          value={newTaskStatus}
-                          onChange={(e) => setNewTaskStatus(e.target.value)}
-                          className="text-xs bg-neutral-50 border border-neutral-200 text-neutral-700 rounded-lg px-2 py-1.5 focus:outline-none font-medium cursor-pointer"
-                          title="Status Tugas"
-                        >
-                          {taskStatuses.map(s => (
-                            <option key={s.id} value={s.id}>{s.label}</option>
-                          ))}
-                        </select>
+                    {/* Baris 2: Toolbar Chip Opsi (Prioritas, Status, Jatuh Tempo, Foto) & Tombol Simpan */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-neutral-100">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {/* Prioritas Chip */}
+                        <div className="flex items-center space-x-1.5 bg-neutral-50 hover:bg-neutral-100 border border-neutral-200/80 rounded-lg px-2.5 py-1 text-xs transition">
+                          <Flag className="w-3 h-3 text-neutral-400" />
+                          <select
+                            value={newTaskPriority}
+                            onChange={(e) => setNewTaskPriority(e.target.value)}
+                            className="bg-transparent focus:outline-none text-xs font-medium text-neutral-700 cursor-pointer"
+                            title="Prioritas Tugas"
+                          >
+                            <option value="urgent">🔥 Mendesak</option>
+                            <option value="high">🔴 Tinggi</option>
+                            <option value="medium">🟡 Sedang</option>
+                            <option value="low">🔵 Rendah</option>
+                          </select>
+                        </div>
 
-                        <input
-                          type="date"
-                          value={newTaskDate}
-                          title="Tanggal Jatuh Tempo"
-                          onChange={(e) => setNewTaskDate(e.target.value)}
-                          className="text-xs bg-neutral-50 border border-neutral-200 text-neutral-600 rounded-lg px-2.5 py-1.5 focus:outline-none"
-                        />
+                        {/* Status Chip */}
+                        <div className="flex items-center space-x-1.5 bg-neutral-50 hover:bg-neutral-100 border border-neutral-200/80 rounded-lg px-2.5 py-1 text-xs transition">
+                          <Layers className="w-3 h-3 text-neutral-400" />
+                          <select
+                            value={newTaskStatus}
+                            onChange={(e) => setNewTaskStatus(e.target.value)}
+                            className="bg-transparent focus:outline-none text-xs font-medium text-neutral-700 cursor-pointer"
+                            title="Status Awal"
+                          >
+                            {taskStatuses.map(s => (
+                              <option key={s.id} value={s.id}>{s.label}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {/* Jatuh Tempo Chip */}
+                        <div className="flex items-center space-x-1.5 bg-neutral-50 hover:bg-neutral-100 border border-neutral-200/80 rounded-lg px-2.5 py-1 text-xs transition">
+                          <Calendar className="w-3 h-3 text-neutral-400" />
+                          <input
+                            type="date"
+                            value={newTaskDate}
+                            title="Tanggal Jatuh Tempo"
+                            onChange={(e) => setNewTaskDate(e.target.value)}
+                            className="bg-transparent focus:outline-none text-xs text-neutral-700 cursor-pointer"
+                          />
+                        </div>
+
+                        {/* Tombol Opsi Catatan & Pengingat */}
                         <button
                           type="button"
                           onClick={() => setShowTodoAdvanced(!showTodoAdvanced)}
-                          title="Tambah catatan atau pengingat"
-                          className={`text-xs p-1.5 rounded-lg border transition cursor-pointer flex items-center space-x-1 ${
+                          className={`text-xs px-2.5 py-1 rounded-lg border transition cursor-pointer flex items-center space-x-1.5 ${
                             showTodoAdvanced || newTaskDesc || newTaskReminderDate || todoFile
                               ? 'bg-neutral-900 text-white border-neutral-900'
-                              : 'bg-neutral-50 text-neutral-600 border-neutral-200 hover:bg-neutral-100'
+                              : 'bg-neutral-50 hover:bg-neutral-100 text-neutral-600 border-neutral-200/80'
                           }`}
+                          title="Buka opsi catatan bantuan, pengingat, dan foto"
                         >
-                          <Bell className="w-3.5 h-3.5" />
-                          <Paperclip className="w-3.5 h-3.5" />
-                          {showTodoAdvanced ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                        </button>
-                        <button
-                          type="submit"
-                          disabled={isSubmittingTask || !newTaskTitle.trim()}
-                          className="bg-neutral-900 hover:bg-neutral-800 text-white text-xs font-medium px-4 py-1.5 rounded-lg transition flex items-center space-x-1 disabled:opacity-50 cursor-pointer"
-                        >
-                          {isSubmittingTask ? (
-                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          ) : (
-                            <>
-                              <Plus className="w-3.5 h-3.5" />
-                              <span>Simpan</span>
-                            </>
-                          )}
+                          <Paperclip className="w-3 h-3" />
+                          <span>{showTodoAdvanced ? 'Tutup Detail' : '+ Catatan / Foto'}</span>
                         </button>
                       </div>
+
+                      {/* Tombol Simpan */}
+                      <button
+                        type="submit"
+                        disabled={isSubmittingTask || !newTaskTitle.trim()}
+                        className="bg-neutral-900 hover:bg-neutral-800 text-white text-xs font-medium px-4 py-1.5 rounded-lg transition flex items-center space-x-1.5 disabled:opacity-50 cursor-pointer shadow-xs ml-auto"
+                      >
+                        {isSubmittingTask ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <>
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>Simpan Tugas</span>
+                          </>
+                        )}
+                      </button>
                     </div>
 
                     {showTodoAdvanced && (
-                      <div className="pt-2.5 border-t border-neutral-100 space-y-2 animate-in fade-in">
+                      <div className="pt-2.5 border-t border-neutral-100 space-y-2.5 animate-in fade-in">
                         <div>
                           <textarea
                             rows={2}
                             maxLength={2000}
-                            placeholder="Tulis catatan bantuan untuk tugas ini..."
+                            placeholder="Tulis catatan bantuan atau checklist untuk tugas ini..."
                             value={newTaskDesc}
                             onChange={(e) => setNewTaskDesc(e.target.value)}
-                            className="w-full px-3 py-1.5 text-xs bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-800"
+                            className="w-full px-3 py-2 text-xs bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-800 leading-relaxed"
                           />
                         </div>
 
@@ -2033,7 +2051,7 @@ export default function Dashboard() {
                 {/* TAMPILAN TUGAS: KOLOM (BOARD) VS BARIS (LIST) */}
                 {taskViewMode === 'board' ? (
                   /* MODE KOLOM BERSIH (KANBAN BOARD) */
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-start pb-4 overflow-x-auto">
+                  <div className="flex gap-4 overflow-x-auto pb-4 pt-1 items-start min-h-[420px]">
                     {taskStatuses.map((status) => {
                       const todosInStatus = filteredActiveTodos.filter(t => {
                         const sId = t.status || (t.is_completed ? 'completed' : 'todo');
@@ -2041,11 +2059,14 @@ export default function Dashboard() {
                       });
 
                       return (
-                        <div key={status.id} className="bg-neutral-100/70 border border-neutral-200/80 rounded-2xl p-3 flex flex-col space-y-3 min-w-[250px]">
+                        <div
+                          key={status.id}
+                          className="w-72 shrink-0 bg-[#F7F6F3]/90 border border-neutral-200/80 rounded-2xl p-3 flex flex-col space-y-3 shadow-2xs"
+                        >
                           {/* Header Kolom */}
                           <div className="flex items-center justify-between px-1">
                             <div className="flex items-center space-x-2">
-                              <span className={`px-2.5 py-0.5 rounded-md text-xs font-semibold border ${status.color}`}>
+                              <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${status.color}`}>
                                 {status.label}
                               </span>
                               <span className="text-xs text-neutral-400 font-mono font-medium">
@@ -2058,7 +2079,7 @@ export default function Dashboard() {
                                 setNewTaskStatus(status.id);
                                 window.scrollTo({ top: 0, behavior: 'smooth' });
                               }}
-                              className="text-neutral-400 hover:text-neutral-700 p-1 rounded hover:bg-neutral-200/50 transition cursor-pointer"
+                              className="text-neutral-400 hover:text-neutral-700 p-1 rounded-md hover:bg-neutral-200/50 transition cursor-pointer"
                               title={`Tambah tugas ke ${status.label}`}
                             >
                               <Plus className="w-3.5 h-3.5" />
@@ -2068,7 +2089,7 @@ export default function Dashboard() {
                           {/* Kartu dalam Kolom */}
                           <div className="space-y-2.5">
                             {todosInStatus.length === 0 ? (
-                              <div className="py-8 text-center text-xs text-neutral-400 border border-dashed border-neutral-200/80 rounded-xl bg-white/50">
+                              <div className="py-10 text-center text-xs text-neutral-400 border border-dashed border-neutral-200/80 rounded-xl bg-white/40">
                                 Belum ada tugas
                               </div>
                             ) : (
@@ -2081,11 +2102,28 @@ export default function Dashboard() {
                                       reminderActive ? 'border-amber-300 bg-amber-50/20' : 'border-neutral-200/80 hover:border-neutral-300'
                                     }`}
                                   >
+                                    {/* Card Header: Prioritas di kiri & Selector Pindah di kanan */}
                                     <div className="flex items-center justify-between">
-                                      {renderPriorityBadge(todo.priority)}
-                                      {renderStatusBadge(todo)}
+                                      <div>
+                                        {renderPriorityBadge(todo.priority)}
+                                      </div>
+                                      <div className="relative" onClick={(e) => e.stopPropagation()}>
+                                        <select
+                                          value={status.id}
+                                          onChange={(e) => handleUpdateTaskStatus(todo.id, e.target.value)}
+                                          className="text-[10px] text-neutral-500 hover:text-neutral-800 bg-neutral-50 hover:bg-neutral-100 border border-neutral-200/70 rounded-md px-1.5 py-0.5 cursor-pointer focus:outline-none transition"
+                                          title="Pindahkan ke status lain"
+                                        >
+                                          {taskStatuses.map(s => (
+                                            <option key={s.id} value={s.id}>
+                                              {s.id === status.id ? s.label : `→ ${s.label}`}
+                                            </option>
+                                          ))}
+                                        </select>
+                                      </div>
                                     </div>
 
+                                    {/* Card Title & Checkbox */}
                                     <div className="flex items-start space-x-2.5">
                                       <button
                                         onClick={() => handleToggleTodo(todo.id, todo.is_completed)}
@@ -2119,6 +2157,7 @@ export default function Dashboard() {
                                       </p>
                                     )}
 
+                                    {/* Lampiran Foto */}
                                     {todo.media_url && (
                                       <div 
                                         onClick={() => setLightboxMedia({ url: todo.media_url, type: todo.media_type, title: todo.title })}
@@ -2131,6 +2170,7 @@ export default function Dashboard() {
                                       </div>
                                     )}
 
+                                    {/* Card Footer */}
                                     <div className="flex items-center justify-between pt-1 border-t border-neutral-100 text-[11px]">
                                       <div className="flex items-center space-x-1.5 flex-wrap gap-y-1">
                                         {todo.due_date && renderDateBadge(todo.due_date)}
@@ -2182,7 +2222,7 @@ export default function Dashboard() {
                         <div key={status.id} className="space-y-2">
                           <div className="flex items-center justify-between px-1 pb-1 border-b border-neutral-200/60">
                             <div className="flex items-center space-x-2">
-                              <span className={`px-2.5 py-0.5 rounded-md text-xs font-semibold border ${status.color}`}>
+                              <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${status.color}`}>
                                 {status.label}
                               </span>
                               <span className="text-xs text-neutral-400 font-mono font-medium">({todosInGroup.length})</span>
@@ -2206,7 +2246,7 @@ export default function Dashboard() {
                                 Tidak ada tugas berstatus "{status.label}"
                               </div>
                             ) : (
-                              todosInGroup.map(todo => renderTaskRow(todo))
+                              todosInGroup.map(todo => renderTaskRow(todo, true))
                             )}
                           </div>
                         </div>
@@ -2223,7 +2263,7 @@ export default function Dashboard() {
                           : 'Belum ada tugas yang perlu diselesaikan.'}
                       </div>
                     ) : (
-                      filteredActiveTodos.map(todo => renderTaskRow(todo))
+                      filteredActiveTodos.map(todo => renderTaskRow(todo, false))
                     )}
                   </div>
                 )}
