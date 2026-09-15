@@ -3,23 +3,23 @@
  * Memberikan kapasitas penyimpanan 10 GB gratis dengan zero egress fee.
  */
 
-export const R2_PUBLIC_DEV_URL = 'https://pub-019510e7914f42e4ad614f3df51f087b.r2.dev';
-
-export function getR2PublicBaseUrl() {
-  const envUrl = import.meta.env.VITE_R2_PUBLIC_URL;
-  if (envUrl && envUrl.trim() !== '') {
-    return envUrl.trim().replace(/\/+$/, '');
-  }
-  return R2_PUBLIC_DEV_URL;
-}
+export const R2_WORKER_BASE_URL = 'https://ersona.efraimtoby.workers.dev';
 
 export function getR2ApiUrl() {
   const envApi = import.meta.env.VITE_R2_API_URL;
   if (envApi && envApi.trim() !== '') {
     return envApi.trim().replace(/\/+$/, '');
   }
-  // Default: relatif ke domain saat ini (di Cloudflare Worker: /api/upload)
-  return '/api/upload';
+  return `${R2_WORKER_BASE_URL}/api/upload`;
+}
+
+export function getR2PublicBaseUrl() {
+  const envUrl = import.meta.env.VITE_R2_PUBLIC_URL;
+  if (envUrl && envUrl.trim() !== '') {
+    return envUrl.trim().replace(/\/+$/, '');
+  }
+  // Default: streaming langsung lewat Worker R2 (stabil & bebas blokir)
+  return `${R2_WORKER_BASE_URL}/api/upload`;
 }
 
 /**
@@ -27,13 +27,16 @@ export function getR2ApiUrl() {
  */
 export function isR2Url(url) {
   if (!url || typeof url !== 'string') return false;
-  const baseUrl = getR2PublicBaseUrl();
-  return url.startsWith(baseUrl) || url.includes('.r2.dev') || url.includes('.r2.cloudflarestorage.com');
+  return (
+    url.includes('ersona.efraimtoby.workers.dev') ||
+    url.includes('.r2.dev') ||
+    url.includes('.r2.cloudflarestorage.com')
+  );
 }
 
 /**
  * Unggah berkas ke Cloudflare R2 melalui Worker endpoint
- * Fallback ke Supabase Storage jika R2 tidak tersedia (misal di localhost tanpa proxy)
+ * Fallback ke Supabase Storage jika R2 tidak tersedia
  */
 export async function uploadMediaToR2OrSupabase({ file, userId, supabase, folder = 'attachments' }) {
   if (!file) throw new Error('File tidak ditemukan');
@@ -67,6 +70,9 @@ export async function uploadMediaToR2OrSupabase({ file, userId, supabase, folder
         storage: 'r2',
         key: safeKey,
       };
+    } else {
+      const errText = await res.text();
+      console.warn('Respon R2 tidak OK:', res.status, errText);
     }
   } catch (r2Err) {
     console.warn('Gagal unggah ke Cloudflare R2, mencoba fallback ke Supabase Storage:', r2Err);
@@ -99,10 +105,11 @@ export async function deleteMediaByUrl(url, supabase) {
   // Jika URL adalah Cloudflare R2
   if (isR2Url(url)) {
     try {
-      const baseUrl = getR2PublicBaseUrl();
-      let key = url.replace(baseUrl, '').replace(/^\/+/, '');
-      if (!key && url.includes('.r2.dev/')) {
-        key = url.split('.r2.dev/')[1];
+      let key = null;
+      if (url.includes('/api/upload/')) {
+        key = url.split('/api/upload/')[1]?.split('?')[0];
+      } else if (url.includes('.r2.dev/')) {
+        key = url.split('.r2.dev/')[1]?.split('?')[0];
       }
 
       if (key) {

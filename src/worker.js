@@ -1,7 +1,7 @@
 /**
  * Cloudflare Worker for Ersona
  * Handles:
- * 1. Cloudflare R2 Object Storage uploads & deletions (/api/upload)
+ * 1. Cloudflare R2 Object Storage uploads, streaming & deletions (/api/upload)
  * 2. Serving React SPA frontend via Assets binding
  */
 
@@ -29,7 +29,34 @@ export default {
         );
       }
 
-      // DELETE /api/upload?key=... atau DELETE /api/upload/...
+      // GET: Sajikan file langsung dari R2 (Streaming gambar & video tanpa blokir dev domain)
+      if (request.method === 'GET') {
+        const key = url.searchParams.get('key') || url.pathname.replace(/^\/api\/upload\/?/, '');
+        if (!key) {
+          return new Response(JSON.stringify({ error: 'File key diperlukan' }), {
+            status: 400,
+            headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+          });
+        }
+
+        try {
+          const object = await env.BUCKET.get(key);
+          if (!object) {
+            return new Response('File tidak ditemukan di R2', { status: 404, headers: CORS_HEADERS });
+          }
+
+          const headers = new Headers(CORS_HEADERS);
+          object.writeHttpMetadata(headers);
+          headers.set('etag', object.httpEtag);
+          headers.set('cache-control', 'public, max-age=31536000, immutable');
+
+          return new Response(object.body, { headers });
+        } catch (err) {
+          return new Response('Gagal membaca file dari R2: ' + err.message, { status: 500, headers: CORS_HEADERS });
+        }
+      }
+
+      // DELETE: Hapus file dari R2
       if (request.method === 'DELETE') {
         const key = url.searchParams.get('key') || url.pathname.replace(/^\/api\/upload\/?/, '');
         if (!key) {
@@ -54,7 +81,7 @@ export default {
 
       // POST / PUT: Upload file ke R2
       if (request.method === 'POST' || request.method === 'PUT') {
-        const key = url.searchParams.get('key') || url.pathname.replace(/^\/api\/upload\/?/, '') || `uploads/${Date.now()}-${crypto.randomUUID()}`;
+        const key = url.searchParams.get('key') || url.pathname.replace(/^\/api\/upload\/?/, '') || `attachments/${Date.now()}-${crypto.randomUUID()}`;
         const contentType = request.headers.get('content-type') || 'application/octet-stream';
 
         try {
@@ -68,6 +95,7 @@ export default {
             JSON.stringify({
               success: true,
               key,
+              url: `/api/upload/${key}`,
             }),
             {
               headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
