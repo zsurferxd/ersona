@@ -171,8 +171,21 @@ export default function Dashboard() {
     }
   };
 
+  // Mengambil status ID yang valid untuk sebuah todo, auto-fallback jika status telah dihapus
+  const getTaskStatusId = (todo) => {
+    if (todo.is_completed) return 'completed';
+    if (todo.status && taskStatuses.some(s => s.id === todo.status)) {
+      return todo.status;
+    }
+    const fallback = taskStatuses.find(s => s.id !== 'completed') || taskStatuses[0];
+    return fallback?.id || 'completed';
+  };
+
   const getStatusObj = (statusId) => {
-    return taskStatuses.find(s => s.id === statusId) || taskStatuses[0] || { id: 'todo', label: 'To Do', color: 'bg-neutral-100 text-neutral-700 border-neutral-200' };
+    return taskStatuses.find(s => s.id === statusId) || 
+      taskStatuses.find(s => s.id !== 'completed') || 
+      taskStatuses[0] || 
+      { id: 'todo', label: 'To Do', color: 'bg-neutral-100 text-neutral-700 border-neutral-200' };
   };
 
   const [taskViewMode, setTaskViewMode] = useState(() => {
@@ -231,11 +244,28 @@ export default function Dashboard() {
       alert('Status "Complete" adalah status wajib dan tidak dapat dihapus.');
       return;
     }
-    if (!confirm('Hapus status ini? Semua tugas dengan status ini akan dipindahkan ke status awal ("To Do").')) return;
-    
-    setTodos(todos.map(t => t.status === statusId ? { ...t, status: 'todo' } : t));
-    supabase.from('todos').update({ status: 'todo' }).eq('status', statusId).then();
-    
+
+    const remainingActive = taskStatuses.filter(s => s.id !== 'completed' && s.id !== statusId);
+    if (remainingActive.length === 0) {
+      alert('Tidak dapat menghapus status ini. Minimal harus ada satu status aktif selain "Complete".');
+      return;
+    }
+
+    const targetStatus = remainingActive[0];
+    const statusToDelete = getStatusObj(statusId);
+
+    if (!confirm(`Hapus status "${statusToDelete.label}"? Semua tugas dengan status ini akan otomatis dipindahkan ke status "${targetStatus.label}".`)) {
+      return;
+    }
+
+    // Pindahkan tugas secara lokal di state
+    setTodos(prev => prev.map(t => (t.status === statusId) ? { ...t, status: targetStatus.id } : t));
+
+    // Pindahkan tugas di Supabase
+    supabase.from('todos').update({ status: targetStatus.id, updated_at: new Date().toISOString() }).eq('status', statusId).then(({ error }) => {
+      if (error) console.warn('Gagal memindahkan status tugas di Supabase:', error);
+    });
+
     const updated = taskStatuses.filter(s => s.id !== statusId);
     saveTaskStatuses(updated);
   };
@@ -384,6 +414,34 @@ export default function Dashboard() {
     refreshStorageUsage();
   }, []);
 
+  // Auto-heal: Deteksi dan sinkronkan tugas yang memiliki status yatim (status yang sudah dihapus dari daftar status)
+  useEffect(() => {
+    if (loading || todos.length === 0 || taskStatuses.length === 0) return;
+
+    const validStatusIds = new Set(taskStatuses.map(s => s.id));
+    const fallbackStatusId = taskStatuses.find(s => s.id !== 'completed')?.id || taskStatuses[0]?.id || 'completed';
+
+    const orphaned = todos.filter(t => !t.is_completed && t.status && !validStatusIds.has(t.status));
+
+    if (orphaned.length > 0) {
+      setTodos(prev => prev.map(t => {
+        if (!t.is_completed && t.status && !validStatusIds.has(t.status)) {
+          return { ...t, status: fallbackStatusId };
+        }
+        return t;
+      }));
+
+      const orphanedIds = orphaned.map(t => t.id);
+      supabase
+        .from('todos')
+        .update({ status: fallbackStatusId, updated_at: new Date().toISOString() })
+        .in('id', orphanedIds)
+        .then(({ error }) => {
+          if (error) console.warn('Gagal migrasi tugas berstatus yatim di Supabase:', error);
+        });
+    }
+  }, [loading, taskStatuses]);
+
   // Filter Data Aktif vs Sampah
   const activeTodos = todos.filter(t => !t.deleted_at);
   const activeNotes = notes.filter(n => !n.deleted_at);
@@ -481,7 +539,7 @@ export default function Dashboard() {
     setEditDueDate(todo.due_date ? todo.due_date.substring(0, 10) : '');
     setEditReminderDate(todo.reminder_date ? todo.reminder_date.substring(0, 10) : '');
     setEditPriority(todo.priority || 'medium');
-    setEditStatus(todo.status || (todo.is_completed ? 'completed' : 'todo'));
+    setEditStatus(getTaskStatusId(todo));
     setEditMediaUrl(todo.media_url || null);
     setEditMediaType(todo.media_type || null);
     setEditFile(null);
@@ -581,13 +639,14 @@ export default function Dashboard() {
       }
     }
 
+    const initialStatus = taskStatuses.find(s => s.id !== 'completed')?.id || taskStatuses[0]?.id || 'todo';
     const payload = {
       title: cleanTitle,
       description: newTaskDesc.trim() || null,
       due_date: newTaskDate ? new Date(newTaskDate).toISOString() : null,
       reminder_date: newTaskReminderDate ? new Date(newTaskReminderDate).toISOString() : null,
       priority: newTaskPriority,
-      status: 'todo',
+      status: initialStatus,
       is_completed: false,
       media_url: uploadedMediaUrl,
       media_type: uploadedMediaType,
@@ -604,7 +663,7 @@ export default function Dashboard() {
       setNewTaskReminderDate('');
       setNewTaskDesc('');
       setNewTaskPriority(preferences.defaultPriority !== 'none' ? preferences.defaultPriority : 'medium');
-      setNewTaskStatus('todo');
+      setNewTaskStatus(initialStatus);
       clearTodoFile();
       setShowTodoAdvanced(false);
     } else {
@@ -614,7 +673,8 @@ export default function Dashboard() {
 
   const handleToggleTodo = async (id, currentStatus) => {
     const newCompleted = !currentStatus;
-    const newStatus = newCompleted ? 'completed' : (taskStatuses[0]?.id || 'todo');
+    const defaultActiveStatus = taskStatuses.find(s => s.id !== 'completed')?.id || taskStatuses[0]?.id || 'todo';
+    const newStatus = newCompleted ? 'completed' : defaultActiveStatus;
     setTodos(todos.map(t => t.id === id ? { ...t, is_completed: newCompleted, status: newStatus } : t));
     const { error } = await supabase
       .from('todos')
@@ -1174,7 +1234,7 @@ export default function Dashboard() {
   };
 
   const renderStatusBadge = (todo) => {
-    const currentStatusId = todo.status || (todo.is_completed ? 'completed' : 'todo');
+    const currentStatusId = getTaskStatusId(todo);
     const statusObj = getStatusObj(currentStatusId);
 
     return (
@@ -2041,7 +2101,7 @@ export default function Dashboard() {
                   <div className="flex gap-4 overflow-x-auto pb-4 pt-1 items-start min-h-[420px]">
                     {taskStatuses.map((status) => {
                       const todosInStatus = filteredActiveTodos.filter(t => {
-                        const sId = t.status || (t.is_completed ? 'completed' : 'todo');
+                        const sId = getTaskStatusId(t);
                         return sId === status.id;
                       });
 
@@ -2181,7 +2241,7 @@ export default function Dashboard() {
                   <div className="space-y-6">
                     {taskStatuses.map(status => {
                       const todosInGroup = filteredActiveTodos.filter(t => {
-                        const sId = t.status || (t.is_completed ? 'completed' : 'todo');
+                        const sId = getTaskStatusId(t);
                         return sId === status.id;
                       });
 
@@ -3049,9 +3109,18 @@ export default function Dashboard() {
                     {!s.isLocked && (
                       <button
                         type="button"
+                        disabled={taskStatuses.filter(st => !st.isLocked).length <= 1}
                         onClick={() => handleDeleteCustomStatus(s.id)}
-                        className="text-neutral-400 hover:text-red-600 p-1 transition cursor-pointer"
-                        title="Hapus status ini"
+                        className={`p-1 transition ${
+                          taskStatuses.filter(st => !st.isLocked).length <= 1
+                            ? 'text-neutral-300 cursor-not-allowed'
+                            : 'text-neutral-400 hover:text-red-600 cursor-pointer'
+                        }`}
+                        title={
+                          taskStatuses.filter(st => !st.isLocked).length <= 1
+                            ? 'Minimal harus ada satu status aktif'
+                            : `Hapus status ${s.label}`
+                        }
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
