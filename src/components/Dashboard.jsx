@@ -1,16 +1,18 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../context/AuthContext';
+import { useThemeLanguage } from '../context/ThemeLanguageContext';
 import { 
   CheckCircle2, Circle, Calendar, Trash2, Plus, LogOut, 
   FileText, CheckSquare, Search, Tag, AlertCircle, Clock, Loader2,
   Sparkles, X, Image, Video, Paperclip, Link, ExternalLink, Bell,
   ArrowUpDown, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, ZoomIn, Eye, MessageSquare,
   Edit3, Flag, Check, RotateCcw, AlertTriangle, Film, Settings,
-  HardDrive, Flame, Columns3, List, Layers, Settings2, ArrowRight, Menu, Globe
+  HardDrive, Flame, Columns3, List, Layers, Settings2, ArrowRight, Menu, Globe,
+  Sun, Moon
 } from 'lucide-react';
 import { format, isPast, isToday, parseISO, differenceInDays } from 'date-fns';
-import { id as localeId } from 'date-fns/locale';
+import { id as localeId, enUS as localeEn } from 'date-fns/locale';
 import { compressImage } from '../utils/compressor';
 import { parseMediaUrl } from '../utils/embedHelper';
 import SettingsModal from './SettingsModal';
@@ -47,6 +49,7 @@ const DEFAULT_PREFERENCES = {
 
 export default function Dashboard({ onGoToLanding }) {
   const { user, signOut } = useAuth();
+  const { theme, toggleTheme, isDark, language, setLanguage, toggleLanguage, isEn, t } = useThemeLanguage();
   const notePhotoInputRef = useRef(null);
   const noteVideoInputRef = useRef(null);
   const editNotePhotoInputRef = useRef(null);
@@ -87,8 +90,16 @@ export default function Dashboard({ onGoToLanding }) {
     }
   };
 
+  const currentLocale = isEn ? localeEn : localeId;
+
   const labels = {
     ...DEFAULT_PREFERENCES.customLabels,
+    trashTab: t('dashboard.trashTab'),
+    remindersTab: t('dashboard.remindersTab'),
+    todosTab: t('dashboard.todosTab'),
+    notesTab: t('dashboard.notesTab'),
+    moveToTrash: t('dashboard.moveToTrash'),
+    emptyTrash: t('dashboard.emptyTrash'),
     ...(preferences?.customLabels || {}),
   };
 
@@ -1190,12 +1201,12 @@ export default function Dashboard({ onGoToLanding }) {
 
       return (
         <span className={`inline-flex items-center space-x-1 text-xs px-2 py-0.5 rounded-md ${
-          past ? 'bg-red-50 text-red-600 border border-red-200' :
-          today ? 'bg-amber-50 text-amber-700 border border-amber-200' :
-          'bg-neutral-100 text-neutral-600'
+          past ? 'bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900/60' :
+          today ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60' :
+          'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300'
         }`}>
           <Calendar className="w-3 h-3" />
-          <span>{format(date, 'dd MMM yyyy', { locale: localeId })}</span>
+          <span>{format(date, 'dd MMM yyyy', { locale: currentLocale })}</span>
         </span>
       );
     } catch {
@@ -1206,32 +1217,32 @@ export default function Dashboard({ onGoToLanding }) {
   const renderPriorityBadge = (priority) => {
     if (priority === 'urgent') {
       return (
-        <span className="inline-flex items-center space-x-1 text-[10px] px-2 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-300 font-bold shadow-2xs">
-          <Flame className="w-3 h-3 text-red-600 fill-red-500 animate-pulse" />
-          <span>Mendesak</span>
+        <span className="inline-flex items-center space-x-1 text-[10px] px-2 py-0.5 rounded-full bg-red-100 dark:bg-red-950/50 text-red-700 dark:text-red-300 border border-red-300 dark:border-red-800 font-bold shadow-2xs">
+          <Flame className="w-3 h-3 text-red-600 dark:text-red-400 fill-red-500 animate-pulse" />
+          <span>{t('dashboard.priorityUrgent').replace('🔥 ', '')}</span>
         </span>
       );
     }
     if (priority === 'high') {
       return (
-        <span className="inline-flex items-center space-x-1 text-[10px] px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 font-medium">
+        <span className="inline-flex items-center space-x-1 text-[10px] px-2 py-0.5 rounded-full bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900/60 font-medium">
           <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
-          <span>Tinggi</span>
+          <span>{t('dashboard.priorityHigh').replace('🔴 ', '')}</span>
         </span>
       );
     }
     if (priority === 'low') {
       return (
-        <span className="inline-flex items-center space-x-1 text-[10px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 font-medium">
+        <span className="inline-flex items-center space-x-1 text-[10px] px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-900/60 font-medium">
           <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
-          <span>Rendah</span>
+          <span>{t('dashboard.priorityLow').replace('🔵 ', '')}</span>
         </span>
       );
     }
     return (
-      <span className="inline-flex items-center space-x-1 text-[10px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 font-medium">
+      <span className="inline-flex items-center space-x-1 text-[10px] px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-900/60 font-medium">
         <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
-        <span>Sedang</span>
+        <span>{t('dashboard.priorityMedium').replace('🟡 ', '')}</span>
       </span>
     );
   };
@@ -1246,10 +1257,10 @@ export default function Dashboard({ onGoToLanding }) {
           value={currentStatusId}
           onChange={(e) => handleUpdateTaskStatus(todo.id, e.target.value)}
           className={`cursor-pointer text-[11px] font-medium px-2.5 py-0.5 rounded-full border transition hover:opacity-85 focus:outline-none ${statusObj.color}`}
-          title="Ubah status tugas"
+          title={t('dashboard.statusLabel')}
         >
           {taskStatuses.map((s) => (
-            <option key={s.id} value={s.id} className="bg-white text-neutral-800 font-normal">
+            <option key={s.id} value={s.id} className="bg-white dark:bg-[#202020] text-neutral-800 dark:text-neutral-200 font-normal">
               {s.label}
             </option>
           ))}
@@ -1285,10 +1296,10 @@ export default function Dashboard({ onGoToLanding }) {
     return (
       <div
         key={todo.id}
-        className={`group flex flex-col ${preferences.viewDensity === 'compact' ? 'p-2' : 'p-2.5 sm:p-3'} bg-white border rounded-xl hover:shadow-2xs transition ${
+        className={`group flex flex-col ${preferences.viewDensity === 'compact' ? 'p-2' : 'p-2.5 sm:p-3'} bg-white dark:bg-[#232323] border rounded-xl hover:shadow-2xs transition ${
           reminderActive 
-            ? 'border-amber-300/80 bg-amber-50/20' 
-            : 'border-neutral-200/80 hover:border-neutral-300'
+            ? 'border-amber-300/80 dark:border-amber-700/80 bg-amber-50/20 dark:bg-amber-950/20' 
+            : 'border-neutral-200/80 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-700'
         }`}
       >
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3">
@@ -1296,7 +1307,7 @@ export default function Dashboard({ onGoToLanding }) {
           <div className="flex items-center space-x-2.5 flex-1 min-w-0">
             <button
               onClick={() => handleToggleTodo(todo.id, todo.is_completed)}
-              className="text-neutral-400 hover:text-neutral-800 transition cursor-pointer shrink-0"
+              className="text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200 transition cursor-pointer shrink-0"
               title={todo.is_completed ? 'Tandai belum selesai' : 'Tandai selesai'}
             >
               {todo.is_completed ? (
@@ -1312,12 +1323,12 @@ export default function Dashboard({ onGoToLanding }) {
               onClick={() => openEditTodoModal(todo)}
               className="flex items-center space-x-2 flex-1 min-w-0 cursor-pointer"
             >
-              <span className={`text-sm truncate font-medium hover:underline ${todo.is_completed ? 'line-through text-neutral-400' : 'text-neutral-800'}`}>
+              <span className={`text-sm truncate font-medium hover:underline ${todo.is_completed ? 'line-through text-neutral-400 dark:text-neutral-500' : 'text-neutral-800 dark:text-neutral-100'}`}>
                 {todo.title}
               </span>
 
               {todo.description && (
-                <span title="Tugas ini memiliki catatan" className="text-neutral-400 shrink-0">
+                <span title="Tugas ini memiliki catatan" className="text-neutral-400 dark:text-neutral-500 shrink-0">
                   <MessageSquare className="w-3.5 h-3.5" />
                 </span>
               )}
@@ -1338,11 +1349,11 @@ export default function Dashboard({ onGoToLanding }) {
               {todo.reminder_date && (
                 <span className={`inline-flex items-center space-x-1 text-[10px] px-2 py-0.5 rounded-md font-mono ${
                   reminderActive 
-                    ? 'bg-amber-100 text-amber-800 border border-amber-300 font-semibold' 
-                    : 'bg-neutral-100 text-neutral-500'
+                    ? 'bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-200 border border-amber-300 dark:border-amber-800 font-semibold' 
+                    : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400'
                 }`}>
                   <Bell className="w-2.5 h-2.5" />
-                  <span>{format(parseISO(todo.reminder_date), 'dd MMM', { locale: localeId })}</span>
+                  <span>{format(parseISO(todo.reminder_date), 'dd MMM', { locale: currentLocale })}</span>
                 </span>
               )}
 
@@ -1351,7 +1362,7 @@ export default function Dashboard({ onGoToLanding }) {
               {todo.media_url && (
                 <button
                   onClick={() => setLightboxMedia({ url: todo.media_url, type: todo.media_type, title: todo.title })}
-                  className="relative group/thumb w-6 h-6 sm:w-7 sm:h-7 rounded-md overflow-hidden border border-neutral-200 shrink-0 cursor-pointer"
+                  className="relative group/thumb w-6 h-6 sm:w-7 sm:h-7 rounded-md overflow-hidden border border-neutral-200 dark:border-neutral-700 shrink-0 cursor-pointer"
                   title="Klik untuk perbesar foto"
                 >
                   <img src={todo.media_url} alt="Thumb" className="w-full h-full object-cover" />
@@ -1362,7 +1373,7 @@ export default function Dashboard({ onGoToLanding }) {
               )}
             </div>
 
-            {/* Tombol Hapus: di mobile terlihat opacity-70, di desktop muncul saat hover */}
+            {/* Tombol Hapus */}
             <button
               onClick={() => handleSoftDeleteTodo(todo.id)}
               className="opacity-70 sm:opacity-0 sm:group-hover:opacity-100 text-neutral-400 hover:text-red-600 transition p-1 cursor-pointer"
@@ -1376,7 +1387,7 @@ export default function Dashboard({ onGoToLanding }) {
         {todo.description && (
           <div 
             onClick={() => openEditTodoModal(todo)}
-            className="mt-2 text-xs text-neutral-500 pl-8 line-clamp-1 cursor-pointer hover:text-neutral-700 transition"
+            className="mt-2 text-xs text-neutral-500 dark:text-neutral-400 pl-8 line-clamp-1 cursor-pointer hover:text-neutral-700 dark:hover:text-neutral-300 transition"
           >
             💬 {todo.description}
           </div>
@@ -1512,33 +1523,51 @@ export default function Dashboard({ onGoToLanding }) {
   const filteredTrashNotes = trashNotes.filter(n => n.title.toLowerCase().includes(searchQuery.toLowerCase()));
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row bg-[#FBFBFA]">
+    <div className="min-h-screen flex flex-col md:flex-row bg-[#FBFBFA] dark:bg-[#191919] text-neutral-800 dark:text-neutral-200 transition-colors duration-200">
       {/* Mobile Top Header (Hanya di Layar Kecil / HP) */}
-      <div className="md:hidden flex items-center justify-between px-4 py-3 bg-[#F7F6F3] border-b border-neutral-200/80 sticky top-0 z-30 shadow-2xs">
+      <div className="md:hidden flex items-center justify-between px-4 py-3 bg-[#F7F6F3] dark:bg-[#202020] border-b border-neutral-200/80 dark:border-neutral-800 sticky top-0 z-30 shadow-2xs">
         <div className="flex items-center space-x-2 min-w-0">
           <span className="text-lg">🪐</span>
-          <span className="font-bold text-sm text-neutral-800 truncate">
+          <span className="font-bold text-sm text-neutral-800 dark:text-neutral-100 truncate">
             {user?.email?.split('@')[0]}
           </span>
-          <span className="text-[10px] bg-neutral-200/70 text-neutral-600 px-1.5 py-0.5 rounded font-medium shrink-0">
-            {activeTab === 'reminders' ? labels.remindersTab : activeTab === 'todos' ? labels.todosTab : activeTab === 'notes' ? labels.notesTab : activeTab === 'trash' ? labels.trashTab : 'Semua'}
+          <span className="text-[10px] bg-neutral-200/70 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 px-1.5 py-0.5 rounded font-medium shrink-0">
+            {activeTab === 'reminders' ? labels.remindersTab : activeTab === 'todos' ? labels.todosTab : activeTab === 'notes' ? labels.notesTab : activeTab === 'trash' ? labels.trashTab : (isEn ? 'All' : 'Semua')}
           </span>
         </div>
 
         <div className="flex items-center space-x-1.5 shrink-0">
+          {/* Mobile Language Switcher */}
+          <button
+            onClick={toggleLanguage}
+            className="px-2 py-1 text-xs font-bold rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-[#282828] text-neutral-700 dark:text-neutral-200 cursor-pointer transition"
+            title="Ganti Bahasa / Switch Language"
+          >
+            {language.toUpperCase()}
+          </button>
+
+          {/* Mobile Theme Toggle */}
+          <button
+            onClick={toggleTheme}
+            className="p-1.5 text-neutral-500 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white bg-white dark:bg-[#282828] border border-neutral-200 dark:border-neutral-700 rounded-lg transition cursor-pointer"
+            title={isDark ? t('common.lightMode') : t('common.darkMode')}
+          >
+            {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-neutral-600 dark:text-neutral-300" />}
+          </button>
+
           <button
             onClick={() => setIsSettingsOpen(true)}
-            className="p-1.5 text-neutral-500 hover:text-neutral-900 bg-white border border-neutral-200 rounded-lg transition"
-            title="Pengaturan"
+            className="p-1.5 text-neutral-500 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white bg-white dark:bg-[#282828] border border-neutral-200 dark:border-neutral-700 rounded-lg transition cursor-pointer"
+            title={t('settings.title')}
           >
             <Settings className="w-4 h-4" />
           </button>
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="p-1.5 rounded-lg border border-neutral-200 bg-white text-neutral-800 flex items-center space-x-1 text-xs font-medium cursor-pointer shadow-2xs"
+            className="p-1.5 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-[#282828] text-neutral-800 dark:text-neutral-200 flex items-center space-x-1 text-xs font-medium cursor-pointer shadow-2xs"
           >
             {isMobileMenuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
-            <span className="text-xs">{isMobileMenuOpen ? 'Tutup' : 'Menu'}</span>
+            <span className="text-xs">{isMobileMenuOpen ? t('common.close') : 'Menu'}</span>
           </button>
         </div>
       </div>
@@ -1546,22 +1575,22 @@ export default function Dashboard({ onGoToLanding }) {
       {/* Sidebar Khas Notion (Desktop: Selalu Terbuka | Mobile: Dropdown / Tersembunyi saat tidak dipanggil) */}
       <aside className={`
         ${isMobileMenuOpen ? 'flex' : 'hidden'} md:flex
-        w-full md:w-64 bg-[#F7F6F3] border-b md:border-b-0 md:border-r border-neutral-200/80 p-4 flex-col justify-between shrink-0
+        w-full md:w-64 bg-[#F7F6F3] dark:bg-[#202020] border-b md:border-b-0 md:border-r border-neutral-200/80 dark:border-neutral-800 p-4 flex-col justify-between shrink-0
         ${isMobileMenuOpen ? 'animate-in fade-in slide-in-from-top-2' : ''}
       `}>
         <div>
           {/* User Workspace Info */}
-          <div className="flex items-center justify-between pb-4 border-b border-neutral-200/60 mb-4">
+          <div className="flex items-center justify-between pb-4 border-b border-neutral-200/60 dark:border-neutral-800 mb-4">
             <div className="flex items-center space-x-2">
               <span className="text-xl">🪐</span>
-              <span className="font-semibold text-sm text-neutral-800 truncate max-w-[130px]">
+              <span className="font-semibold text-sm text-neutral-800 dark:text-neutral-100 truncate max-w-[130px]">
                 {user?.email?.split('@')[0]}
               </span>
             </div>
             <button 
               onClick={signOut}
-              title="Keluar / Logout"
-              className="text-neutral-400 hover:text-neutral-700 p-1.5 rounded-md hover:bg-neutral-200/50 transition cursor-pointer"
+              title={t('dashboard.signOut')}
+              className="text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 p-1.5 rounded-md hover:bg-neutral-200/50 dark:hover:bg-neutral-800 transition cursor-pointer"
             >
               <LogOut className="w-4 h-4" />
             </button>
@@ -1575,11 +1604,11 @@ export default function Dashboard({ onGoToLanding }) {
                 setIsMobileMenuOpen(false);
               }}
               className={`w-full flex items-center space-x-2 px-2.5 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
-                activeTab === 'all' ? 'bg-neutral-200/70 text-neutral-900' : 'text-neutral-600 hover:bg-neutral-200/40'
+                activeTab === 'all' ? 'bg-neutral-200/70 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 font-semibold' : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200/40 dark:hover:bg-neutral-800/60'
               }`}
             >
               <CheckSquare className="w-4 h-4 text-neutral-500" />
-              <span>Semua Workspace</span>
+              <span>{isEn ? 'All Workspace' : 'Semua Workspace'}</span>
             </button>
 
             {/* TAB PENGINGAT (REMINDERS) */}
@@ -1589,7 +1618,7 @@ export default function Dashboard({ onGoToLanding }) {
                 setIsMobileMenuOpen(false);
               }}
               className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
-                activeTab === 'reminders' ? 'bg-amber-100/70 text-amber-900 font-semibold' : 'text-neutral-600 hover:bg-neutral-200/40'
+                activeTab === 'reminders' ? 'bg-amber-100/70 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 font-semibold' : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200/40 dark:hover:bg-neutral-800/60'
               }`}
             >
               <div className="flex items-center space-x-2">
@@ -1609,7 +1638,7 @@ export default function Dashboard({ onGoToLanding }) {
                 setIsMobileMenuOpen(false);
               }}
               className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
-                activeTab === 'todos' ? 'bg-neutral-200/70 text-neutral-900' : 'text-neutral-600 hover:bg-neutral-200/40'
+                activeTab === 'todos' ? 'bg-neutral-200/70 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 font-semibold' : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200/40 dark:hover:bg-neutral-800/60'
               }`}
             >
               <div className="flex items-center space-x-2">
@@ -1627,7 +1656,7 @@ export default function Dashboard({ onGoToLanding }) {
                 setIsMobileMenuOpen(false);
               }}
               className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
-                activeTab === 'notes' ? 'bg-neutral-200/70 text-neutral-900' : 'text-neutral-600 hover:bg-neutral-200/40'
+                activeTab === 'notes' ? 'bg-neutral-200/70 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 font-semibold' : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200/40 dark:hover:bg-neutral-800/60'
               }`}
             >
               <div className="flex items-center space-x-2">
@@ -1644,7 +1673,7 @@ export default function Dashboard({ onGoToLanding }) {
                 setIsMobileMenuOpen(false);
               }}
               className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
-                activeTab === 'trash' ? 'bg-red-50 text-red-900 font-semibold' : 'text-neutral-500 hover:bg-neutral-200/40'
+                activeTab === 'trash' ? 'bg-red-50 dark:bg-red-950/30 text-red-900 dark:text-red-300 font-semibold' : 'text-neutral-500 dark:text-neutral-400 hover:bg-neutral-200/40 dark:hover:bg-neutral-800/60'
               }`}
             >
               <div className="flex items-center space-x-2">
@@ -1652,7 +1681,7 @@ export default function Dashboard({ onGoToLanding }) {
                 <span>{labels.trashTab}</span>
               </div>
               {totalTrashCount > 0 && (
-                <span className="text-xs bg-neutral-200 text-neutral-700 font-mono px-1.5 py-0.2 rounded-full text-[10px]">
+                <span className="text-xs bg-neutral-200 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 font-mono px-1.5 py-0.2 rounded-full text-[10px]">
                   {totalTrashCount}
                 </span>
               )}
@@ -1664,14 +1693,14 @@ export default function Dashboard({ onGoToLanding }) {
                 setIsSettingsOpen(true);
                 setIsMobileMenuOpen(false);
               }}
-              className="w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-sm font-medium text-neutral-600 hover:bg-neutral-200/40 hover:text-neutral-900 transition cursor-pointer mt-1"
+              className="w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-sm font-medium text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200/40 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-neutral-100 transition cursor-pointer mt-1"
             >
               <div className="flex items-center space-x-2">
                 <Settings className="w-4 h-4 text-neutral-500" />
-                <span>Pengaturan</span>
+                <span>{t('dashboard.settingsTab')}</span>
               </div>
               <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded font-bold uppercase ${
-                quotaConfig.isUpgraded ? 'bg-amber-100 text-amber-800' : 'bg-neutral-200 text-neutral-700'
+                quotaConfig.isUpgraded ? 'bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300' : 'bg-neutral-200 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300'
               }`}>
                 {quotaConfig.isUpgraded ? 'PRO' : 'FREE'}
               </span>
@@ -1684,12 +1713,12 @@ export default function Dashboard({ onGoToLanding }) {
                   onGoToLanding();
                   setIsMobileMenuOpen(false);
                 }}
-                className="w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-sm font-medium text-neutral-500 hover:bg-neutral-200/40 hover:text-neutral-900 transition cursor-pointer mt-0.5"
-                title="Buka Halaman Beranda & Pengenalan Ersona"
+                className="w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-sm font-medium text-neutral-500 dark:text-neutral-400 hover:bg-neutral-200/40 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-neutral-100 transition cursor-pointer mt-0.5"
+                title={t('dashboard.homeTab')}
               >
                 <div className="flex items-center space-x-2">
                   <Globe className="w-4 h-4 text-neutral-400" />
-                  <span>Halaman Beranda</span>
+                  <span>{t('dashboard.homeTab')}</span>
                 </div>
               </button>
             )}
@@ -1697,25 +1726,25 @@ export default function Dashboard({ onGoToLanding }) {
         </div>
 
         {/* Footer Sidebar & Mini Storage Widget */}
-        <div className="pt-3 border-t border-neutral-200/60 space-y-3">
+        <div className="pt-3 border-t border-neutral-200/60 dark:border-neutral-800 space-y-3">
           <div 
             onClick={() => {
               setIsSettingsOpen(true);
               setIsMobileMenuOpen(false);
             }}
-            className="p-2.5 bg-neutral-200/40 hover:bg-neutral-200/70 rounded-xl border border-neutral-200/60 transition cursor-pointer group"
+            className="p-2.5 bg-neutral-200/40 dark:bg-neutral-800/40 hover:bg-neutral-200/70 dark:hover:bg-neutral-800/70 rounded-xl border border-neutral-200/60 dark:border-neutral-800 transition cursor-pointer group"
             title="Klik untuk melihat kuota storage di Pengaturan"
           >
             <div className="flex items-center justify-between text-[11px] mb-1.5">
-              <div className="flex items-center space-x-1.5 font-medium text-neutral-700">
-                <HardDrive className="w-3.5 h-3.5 text-neutral-500 group-hover:text-neutral-900 transition" />
+              <div className="flex items-center space-x-1.5 font-medium text-neutral-700 dark:text-neutral-300">
+                <HardDrive className="w-3.5 h-3.5 text-neutral-500 group-hover:text-neutral-900 dark:group-hover:text-white transition" />
                 <span>Storage</span>
               </div>
-              <span className="text-[10px] font-mono text-neutral-500">
+              <span className="text-[10px] font-mono text-neutral-500 dark:text-neutral-400">
                 {formatBytes(storageUsage)} / {formatBytes(quotaConfig.maxBytes)}
               </span>
             </div>
-            <div className="w-full bg-neutral-200/80 rounded-full h-1.5 overflow-hidden">
+            <div className="w-full bg-neutral-200/80 dark:bg-neutral-700 rounded-full h-1.5 overflow-hidden">
               <div 
                 className={`h-full rounded-full transition-all duration-300 ${
                   (storageUsage / quotaConfig.maxBytes) > 0.9 ? 'bg-red-500' :
@@ -1726,9 +1755,9 @@ export default function Dashboard({ onGoToLanding }) {
             </div>
           </div>
 
-          <div className="text-[11px] text-neutral-400 flex items-center justify-between px-1">
+          <div className="text-[11px] text-neutral-400 dark:text-neutral-500 flex items-center justify-between px-1">
             <span>Ersona Workspace</span>
-            <span className="bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded text-[10px] font-mono">v1.7</span>
+            <span className="bg-emerald-100 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 px-1.5 py-0.5 rounded text-[10px] font-mono">v1.7</span>
           </div>
         </div>
       </aside>
@@ -1738,11 +1767,11 @@ export default function Dashboard({ onGoToLanding }) {
         {/* Search & Header Bar */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-neutral-900 flex items-center space-x-2">
-              <span>Ersona Workspace</span>
-              <span className="text-xs bg-neutral-200 text-neutral-700 px-2 py-0.5 rounded-full font-normal">v1.7</span>
+            <h1 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100 flex items-center space-x-2">
+              <span>{t('dashboard.workspaceTitle')}</span>
+              <span className="text-xs bg-neutral-200 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 px-2 py-0.5 rounded-full font-normal">v1.7</span>
             </h1>
-            <p className="text-xs text-neutral-500 mt-1">To-do list interaktif, galeri foto catatan, pengingat, dan sistem sampah.</p>
+            <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">{t('dashboard.workspaceSubtitle')}</p>
           </div>
 
           <div className="flex items-center space-x-2 w-full sm:w-auto">
@@ -1750,16 +1779,35 @@ export default function Dashboard({ onGoToLanding }) {
               <Search className="w-4 h-4 text-neutral-400 absolute left-3 top-2.5" />
               <input
                 type="text"
-                placeholder="Cari tugas atau catatan..."
+                placeholder={t('dashboard.searchPlaceholder')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-1.5 text-xs bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-800"
+                className="w-full pl-9 pr-3 py-1.5 text-xs bg-white dark:bg-[#232323] border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-800 dark:focus:ring-neutral-400"
               />
             </div>
+
+            {/* Language Switcher */}
+            <button
+              onClick={toggleLanguage}
+              className="px-2.5 py-1.5 text-xs font-bold rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-[#232323] text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-[#2c2c2c] transition cursor-pointer shrink-0"
+              title="Ganti Bahasa / Switch Language"
+            >
+              {language.toUpperCase()}
+            </button>
+
+            {/* Dark Mode Toggle */}
+            <button
+              onClick={toggleTheme}
+              className="p-1.5 text-neutral-500 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-[#2c2c2c] border border-neutral-200 dark:border-neutral-700 rounded-lg transition cursor-pointer shrink-0 bg-white dark:bg-[#232323]"
+              title={isDark ? t('common.lightMode') : t('common.darkMode')}
+            >
+              {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-neutral-600 dark:text-neutral-300" />}
+            </button>
+
             <button
               onClick={() => setIsSettingsOpen(true)}
-              title="Buka Pengaturan Akun & Tampilan"
-              className="p-1.5 text-neutral-500 hover:text-neutral-900 hover:bg-neutral-200/50 border border-neutral-200 rounded-lg transition cursor-pointer shrink-0"
+              title={t('settings.title')}
+              className="p-1.5 text-neutral-500 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-[#2c2c2c] border border-neutral-200 dark:border-neutral-700 rounded-lg transition cursor-pointer shrink-0 bg-white dark:bg-[#232323]"
             >
               <Settings className="w-4 h-4" />
             </button>
@@ -1768,33 +1816,33 @@ export default function Dashboard({ onGoToLanding }) {
 
         {/* BANNER PENGINGAT PRIORITAS PALING ATAS */}
         {activeReminders.length > 0 && activeTab !== 'notes' && activeTab !== 'trash' && (
-          <div className="p-4 bg-amber-50 border border-amber-200/90 rounded-2xl shadow-xs space-y-2 animate-in fade-in">
+          <div className="p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200/90 dark:border-amber-800/60 rounded-2xl shadow-xs space-y-2 animate-in fade-in">
             <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2 text-amber-900 font-semibold text-xs">
-                <Bell className="w-4 h-4 text-amber-600 animate-bounce" />
-                <span>🔔 {labels.remindersTab} Aktif ({activeReminders.length} Tugas Membutuhkan Perhatian Anda)</span>
+              <div className="flex items-center space-x-2 text-amber-900 dark:text-amber-200 font-semibold text-xs">
+                <Bell className="w-4 h-4 text-amber-600 dark:text-amber-400 animate-bounce" />
+                <span>🔔 {labels.remindersTab} {t('common.active')} ({activeReminders.length} {isEn ? 'tasks need your attention' : 'Tugas Membutuhkan Perhatian Anda'})</span>
               </div>
               <button
                 onClick={() => setActiveTab('reminders')}
-                className="text-[11px] text-amber-800 underline hover:text-amber-950 font-medium cursor-pointer"
+                className="text-[11px] text-amber-800 dark:text-amber-300 underline hover:text-amber-950 dark:hover:text-amber-100 font-medium cursor-pointer"
               >
-                Lihat Semua {labels.remindersTab}
+                {isEn ? `View All ${labels.remindersTab}` : `Lihat Semua ${labels.remindersTab}`}
               </button>
             </div>
 
             <div className="space-y-1.5">
               {activeReminders.slice(0, 3).map(rem => (
-                <div key={rem.id} className="flex items-center justify-between bg-white/80 p-2 rounded-lg border border-amber-200 text-xs">
+                <div key={rem.id} className="flex items-center justify-between bg-white/80 dark:bg-[#232323] p-2 rounded-lg border border-amber-200 dark:border-amber-800/50 text-xs">
                   <div className="flex items-center space-x-2 truncate">
                     <button
                       onClick={() => handleToggleTodo(rem.id, rem.is_completed)}
-                      className="text-neutral-400 hover:text-neutral-700 cursor-pointer"
+                      className="text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 cursor-pointer"
                     >
                       <Circle className="w-4 h-4" />
                     </button>
                     <span 
                       onClick={() => openEditTodoModal(rem)}
-                      className="font-medium text-neutral-800 truncate cursor-pointer hover:underline"
+                      className="font-medium text-neutral-800 dark:text-neutral-200 truncate cursor-pointer hover:underline"
                     >
                       {rem.title}
                     </span>
@@ -1804,7 +1852,7 @@ export default function Dashboard({ onGoToLanding }) {
                     {rem.due_date && renderDateBadge(rem.due_date)}
                     <button 
                       onClick={() => openEditTodoModal(rem)}
-                      className="text-neutral-400 hover:text-neutral-700 p-1"
+                      className="text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 p-1"
                       title="Edit Tugas"
                     >
                       <Edit3 className="w-3.5 h-3.5" />
@@ -1827,22 +1875,22 @@ export default function Dashboard({ onGoToLanding }) {
             {/* VIEW TEMPAT SAMPAH (TRASH TAB) */}
             {activeTab === 'trash' && (
               <section className="space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-neutral-200">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-neutral-200 dark:border-neutral-800">
                   <div>
-                    <h2 className="text-sm font-semibold uppercase tracking-wider text-neutral-600 flex items-center space-x-2">
+                    <h2 className="text-sm font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-300 flex items-center space-x-2">
                       <Trash2 className="w-4 h-4 text-red-600" />
                       <span>{labels.trashTab}</span>
-                      <span className="text-xs text-neutral-400 font-mono">({totalTrashCount} item)</span>
+                      <span className="text-xs text-neutral-400 font-mono">({totalTrashCount} {isEn ? 'items' : 'item'})</span>
                     </h2>
-                    <p className="text-xs text-neutral-400 mt-0.5">
-                      Item di sampah akan <strong>otomatis terhapus permanen setiap 5 hari</strong>.
+                    <p className="text-xs text-neutral-400 dark:text-neutral-500 mt-0.5">
+                      {t('dashboard.trashHeaderDesc')}
                     </p>
                   </div>
 
                   {totalTrashCount > 0 && (
                     <button
                       onClick={handleEmptyTrash}
-                      className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-lg text-xs font-medium transition cursor-pointer flex items-center space-x-1.5 self-start sm:self-auto"
+                      className="px-3 py-1.5 bg-red-50 dark:bg-red-950/40 hover:bg-red-100 dark:hover:bg-red-900/60 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800 rounded-lg text-xs font-medium transition cursor-pointer flex items-center space-x-1.5 self-start sm:self-auto"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                       <span>{labels.emptyTrash}</span>
@@ -1851,8 +1899,8 @@ export default function Dashboard({ onGoToLanding }) {
                 </div>
 
                 {totalTrashCount === 0 ? (
-                  <div className="text-center py-16 text-neutral-400 text-xs italic bg-white/40 rounded-xl border border-dashed border-neutral-200">
-                    Tempat sampah kosong. Tidak ada tugas atau catatan yang dihapus.
+                  <div className="text-center py-16 text-neutral-400 dark:text-neutral-500 text-xs italic bg-white/40 dark:bg-[#202020]/40 rounded-xl border border-dashed border-neutral-200 dark:border-neutral-800">
+                    {t('dashboard.emptyTrash')}
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -1860,32 +1908,32 @@ export default function Dashboard({ onGoToLanding }) {
                       const daysOld = differenceInDays(new Date(), parseISO(todo.deleted_at));
                       const daysLeft = Math.max(0, 5 - daysOld);
                       return (
-                        <div key={todo.id} className="p-3 bg-white border border-neutral-200 rounded-xl flex items-center justify-between gap-3">
+                        <div key={todo.id} className="p-3 bg-white dark:bg-[#232323] border border-neutral-200 dark:border-neutral-800 rounded-xl flex items-center justify-between gap-3">
                           <div className="flex items-center space-x-2.5 min-w-0">
-                            <span className="text-xs px-2 py-0.5 bg-neutral-100 text-neutral-600 rounded font-medium shrink-0">
-                              Tugas
+                            <span className="text-xs px-2 py-0.5 bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 rounded font-medium shrink-0">
+                              {isEn ? 'Task' : 'Tugas'}
                             </span>
-                            <span className="text-sm text-neutral-800 font-medium truncate line-through opacity-75">
+                            <span className="text-sm text-neutral-800 dark:text-neutral-300 font-medium truncate line-through opacity-75">
                               {todo.title}
                             </span>
                           </div>
 
                           <div className="flex items-center space-x-2 shrink-0">
-                            <span className="text-[10px] text-neutral-400 hidden sm:inline">
-                              Sisa {daysLeft} hari
+                            <span className="text-[10px] text-neutral-400 dark:text-neutral-500 hidden sm:inline">
+                              {t('dashboard.daysLeft', { days: daysLeft })}
                             </span>
                             <button
                               onClick={() => handleRestoreTodo(todo.id)}
-                              className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg text-xs font-medium transition cursor-pointer flex items-center space-x-1"
-                              title="Pulihkan tugas ke workspace"
+                              className="px-2.5 py-1 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-lg text-xs font-medium transition cursor-pointer flex items-center space-x-1"
+                              title={t('dashboard.restore')}
                             >
                               <RotateCcw className="w-3 h-3" />
-                              <span>Pulihkan</span>
+                              <span>{t('dashboard.restore')}</span>
                             </button>
                             <button
                               onClick={() => handlePermanentDeleteTodo(todo.id, todo.media_url)}
                               className="p-1 text-neutral-400 hover:text-red-600 transition cursor-pointer"
-                              title="Hapus selamanya"
+                              title={t('dashboard.deletePermanently')}
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
@@ -1898,32 +1946,32 @@ export default function Dashboard({ onGoToLanding }) {
                       const daysOld = differenceInDays(new Date(), parseISO(note.deleted_at));
                       const daysLeft = Math.max(0, 5 - daysOld);
                       return (
-                        <div key={note.id} className="p-3 bg-white border border-neutral-200 rounded-xl flex items-center justify-between gap-3">
+                        <div key={note.id} className="p-3 bg-white dark:bg-[#232323] border border-neutral-200 dark:border-neutral-800 rounded-xl flex items-center justify-between gap-3">
                           <div className="flex items-center space-x-2.5 min-w-0">
-                            <span className="text-xs px-2 py-0.5 bg-blue-50 text-blue-700 rounded font-medium shrink-0">
-                              Catatan {note.icon_emoji}
+                            <span className="text-xs px-2 py-0.5 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 rounded font-medium shrink-0">
+                              {isEn ? 'Note' : 'Catatan'} {note.icon_emoji}
                             </span>
-                            <span className="text-sm text-neutral-800 font-medium truncate opacity-75">
+                            <span className="text-sm text-neutral-800 dark:text-neutral-300 font-medium truncate opacity-75">
                               {note.title}
                             </span>
                           </div>
 
                           <div className="flex items-center space-x-2 shrink-0">
-                            <span className="text-[10px] text-neutral-400 hidden sm:inline">
-                              Sisa {daysLeft} hari
+                            <span className="text-[10px] text-neutral-400 dark:text-neutral-500 hidden sm:inline">
+                              {t('dashboard.daysLeft', { days: daysLeft })}
                             </span>
                             <button
                               onClick={() => handleRestoreNote(note.id)}
-                              className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg text-xs font-medium transition cursor-pointer flex items-center space-x-1"
-                              title="Pulihkan catatan ke workspace"
+                              className="px-2.5 py-1 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-lg text-xs font-medium transition cursor-pointer flex items-center space-x-1"
+                              title={t('dashboard.restore')}
                             >
                               <RotateCcw className="w-3 h-3" />
-                              <span>Pulihkan</span>
+                              <span>{t('dashboard.restore')}</span>
                             </button>
                             <button
                               onClick={() => handlePermanentDeleteNote(note)}
                               className="p-1 text-neutral-400 hover:text-red-600 transition cursor-pointer"
-                              title="Hapus selamanya"
+                              title={t('dashboard.deletePermanently')}
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
@@ -1939,56 +1987,56 @@ export default function Dashboard({ onGoToLanding }) {
             {/* SECTION 1: TO-DO LIST AKTIF */}
             {(activeTab === 'all' || activeTab === 'todos' || activeTab === 'reminders') && (
               <section className="space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-neutral-200">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-neutral-200 dark:border-neutral-800">
                   {/* Kiri: Judul Tab + Pill Jumlah + Notion-style View Tabs (Baris & Kolom) */}
                   <div className="flex items-center gap-3">
                     <div className="flex items-center space-x-2 shrink-0">
-                      <h2 className="text-sm font-semibold uppercase tracking-wider text-neutral-600 flex items-center space-x-1.5 whitespace-nowrap">
+                      <h2 className="text-sm font-semibold uppercase tracking-wider text-neutral-600 dark:text-neutral-300 flex items-center space-x-1.5 whitespace-nowrap">
                         <CheckSquare className="w-4 h-4 text-neutral-500" />
-                        <span>{activeTab === 'reminders' ? `Daftar ${labels.remindersTab}` : `${labels.todosTab} & Jadwal`}</span>
+                        <span>{activeTab === 'reminders' ? (isEn ? `${labels.remindersTab} List` : `Daftar ${labels.remindersTab}`) : (isEn ? `${labels.todosTab} & Schedule` : `${labels.todosTab} & Jadwal`)}</span>
                       </h2>
-                      <span className="text-xs bg-neutral-100 text-neutral-600 px-2 py-0.5 rounded-full font-mono font-medium">
+                      <span className="text-xs bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 px-2 py-0.5 rounded-full font-mono font-medium">
                         {filteredActiveTodos.length}
                       </span>
                     </div>
 
                     {/* 1-Click View Switcher (Baris vs Kolom) */}
-                    <div className="flex items-center bg-neutral-100 p-0.5 rounded-lg border border-neutral-200/80 text-xs shrink-0">
+                    <div className="flex items-center bg-neutral-100 dark:bg-neutral-800/80 p-0.5 rounded-lg border border-neutral-200/80 dark:border-neutral-700 text-xs shrink-0">
                       <button
                         type="button"
                         onClick={() => toggleViewMode('list')}
                         className={`flex items-center space-x-1 px-2.5 py-1 rounded-md font-medium transition cursor-pointer ${
                           taskViewMode === 'list'
-                            ? 'bg-white text-neutral-900 shadow-2xs'
-                            : 'text-neutral-500 hover:text-neutral-800'
+                            ? 'bg-white dark:bg-[#282828] text-neutral-900 dark:text-neutral-100 shadow-2xs'
+                            : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200'
                         }`}
                         title="Tampilan Baris (List)"
                       >
                         <List className="w-3.5 h-3.5" />
-                        <span>Baris</span>
+                        <span>{t('dashboard.viewList')}</span>
                       </button>
                       <button
                         type="button"
                         onClick={() => toggleViewMode('board')}
                         className={`flex items-center space-x-1 px-2.5 py-1 rounded-md font-medium transition cursor-pointer ${
                           taskViewMode === 'board'
-                            ? 'bg-white text-neutral-900 shadow-2xs'
-                            : 'text-neutral-500 hover:text-neutral-800'
+                            ? 'bg-white dark:bg-[#282828] text-neutral-900 dark:text-neutral-100 shadow-2xs'
+                            : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200'
                         }`}
                         title="Tampilan Kolom Bersih (Kanban Board)"
                       >
                         <Columns3 className="w-3.5 h-3.5" />
-                        <span>Kolom</span>
+                        <span>{t('dashboard.viewBoard')}</span>
                       </button>
                     </div>
 
                     {/* Tombol Geser Kolom Cepat (Scroll Kiri/Kanan di Mode Kolom) */}
                     {taskViewMode === 'board' && (
-                      <div className="flex items-center bg-neutral-100 p-0.5 rounded-lg border border-neutral-200/80 text-xs shrink-0 space-x-0.5">
+                      <div className="flex items-center bg-neutral-100 dark:bg-neutral-800/80 p-0.5 rounded-lg border border-neutral-200/80 dark:border-neutral-700 text-xs shrink-0 space-x-0.5">
                         <button
                           type="button"
                           onClick={() => boardRef.current?.scrollBy({ left: -320, behavior: 'smooth' })}
-                          className="p-1 rounded-md text-neutral-600 hover:bg-white hover:text-neutral-900 transition cursor-pointer shadow-2xs"
+                          className="p-1 rounded-md text-neutral-600 dark:text-neutral-300 hover:bg-white dark:hover:bg-[#282828] hover:text-neutral-900 dark:hover:text-white transition cursor-pointer shadow-2xs"
                           title="Geser status ke kiri"
                         >
                           <ChevronLeft className="w-3.5 h-3.5" />
@@ -1996,7 +2044,7 @@ export default function Dashboard({ onGoToLanding }) {
                         <button
                           type="button"
                           onClick={() => boardRef.current?.scrollBy({ left: 320, behavior: 'smooth' })}
-                          className="p-1 rounded-md text-neutral-600 hover:bg-white hover:text-neutral-900 transition cursor-pointer shadow-2xs"
+                          className="p-1 rounded-md text-neutral-600 dark:text-neutral-300 hover:bg-white dark:hover:bg-[#282828] hover:text-neutral-900 dark:hover:text-white transition cursor-pointer shadow-2xs"
                           title="Geser status ke kanan"
                         >
                           <ChevronRight className="w-3.5 h-3.5" />
@@ -2014,13 +2062,13 @@ export default function Dashboard({ onGoToLanding }) {
                         onClick={toggleGroupByStatus}
                         className={`flex items-center space-x-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border transition cursor-pointer ${
                           isGroupedByStatus
-                            ? 'bg-neutral-900 text-white border-neutral-900 shadow-2xs'
-                            : 'bg-white text-neutral-600 border-neutral-200 hover:bg-neutral-50'
+                            ? 'bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 border-neutral-900 dark:border-neutral-100 shadow-2xs'
+                            : 'bg-white dark:bg-[#232323] text-neutral-600 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-800'
                         }`}
                         title="Kelompokkan tugas berdasarkan status"
                       >
                         <Layers className="w-3.5 h-3.5" />
-                        <span>Kelompokkan</span>
+                        <span>{t('dashboard.groupByStatus')}</span>
                       </button>
                     )}
 
@@ -2028,26 +2076,26 @@ export default function Dashboard({ onGoToLanding }) {
                     <button
                       type="button"
                       onClick={() => setIsStatusManagerOpen(true)}
-                      className="flex items-center space-x-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-white text-neutral-600 border border-neutral-200 hover:bg-neutral-50 transition cursor-pointer"
+                      className="flex items-center space-x-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-white dark:bg-[#232323] text-neutral-600 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition cursor-pointer"
                       title="Kustomisasi Status Tugas"
                     >
                       <Settings2 className="w-3.5 h-3.5 text-neutral-500" />
-                      <span>Status</span>
+                      <span>{t('dashboard.statusBtn')}</span>
                     </button>
 
                     {/* DROP DOWN SORTING TO-DO */}
-                    <div className="flex items-center space-x-1 text-xs text-neutral-600 bg-white border border-neutral-200 rounded-lg px-2 py-1">
+                    <div className="flex items-center space-x-1 text-xs text-neutral-600 dark:text-neutral-300 bg-white dark:bg-[#232323] border border-neutral-200 dark:border-neutral-700 rounded-lg px-2 py-1">
                       <ArrowUpDown className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
                       <select
                         value={todoSortBy}
                         onChange={(e) => setTodoSortBy(e.target.value)}
-                        className="bg-transparent focus:outline-none cursor-pointer text-xs font-medium text-neutral-700 pr-1"
+                        className="bg-transparent focus:outline-none cursor-pointer text-xs font-medium text-neutral-700 dark:text-neutral-200 pr-1"
                       >
-                        <option value="created_desc">Terbaru</option>
-                        <option value="created_asc">Terlama</option>
-                        <option value="due_date_asc">Jatuh Tempo Terdekat</option>
-                        <option value="due_date_desc">Jatuh Tempo Terjauh</option>
-                        <option value="priority_desc">Prioritas Tertinggi</option>
+                        <option value="created_desc" className="dark:bg-[#232323]">{t('dashboard.sortLatest')}</option>
+                        <option value="created_asc" className="dark:bg-[#232323]">{t('dashboard.sortOldest')}</option>
+                        <option value="due_date_asc" className="dark:bg-[#232323]">{t('dashboard.sortDueNearest')}</option>
+                        <option value="due_date_desc" className="dark:bg-[#232323]">{t('dashboard.sortDueFurthest')}</option>
+                        <option value="priority_desc" className="dark:bg-[#232323]">{t('dashboard.sortPriorityHighest')}</option>
                       </select>
                     </div>
                   </div>
@@ -2055,48 +2103,48 @@ export default function Dashboard({ onGoToLanding }) {
 
                 {/* Quick Add Bar - Rapi, Lega & 2-Baris */}
                 {activeTab !== 'reminders' && (
-                  <form onSubmit={handleAddTodo} className="bg-white p-3.5 rounded-2xl border border-neutral-200/90 shadow-2xs space-y-3">
+                  <form onSubmit={handleAddTodo} className="bg-white dark:bg-[#202020] p-3.5 rounded-2xl border border-neutral-200/90 dark:border-neutral-800 shadow-2xs space-y-3">
                     {/* Baris 1: Input Judul Tugas Full-Width */}
                     <div className="w-full">
                       <input
                         type="text"
                         maxLength={200}
-                        placeholder="+ Tambah tugas baru... (tekan Enter untuk menyimpan)"
+                        placeholder={t('dashboard.quickAddPlaceholder')}
                         value={newTaskTitle}
                         onChange={(e) => setNewTaskTitle(e.target.value)}
-                        className="w-full px-2 py-1 text-sm bg-transparent focus:outline-none placeholder:text-neutral-400 font-medium text-neutral-800"
+                        className="w-full px-2 py-1 text-sm bg-transparent focus:outline-none placeholder:text-neutral-400 dark:placeholder:text-neutral-500 font-medium text-neutral-800 dark:text-neutral-100"
                       />
                     </div>
 
                     {/* Baris 2: Toolbar Chip Opsi (Prioritas, Status, Jatuh Tempo, Foto) & Tombol Simpan */}
-                    <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-neutral-100">
+                    <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-neutral-100 dark:border-neutral-800">
                       <div className="flex flex-wrap items-center gap-2">
                         {/* Prioritas Chip */}
-                        <div className="flex items-center space-x-1.5 bg-neutral-50 hover:bg-neutral-100 border border-neutral-200/80 rounded-lg px-2.5 py-1 text-xs transition">
+                        <div className="flex items-center space-x-1.5 bg-neutral-50 dark:bg-[#282828] hover:bg-neutral-100 dark:hover:bg-[#323232] border border-neutral-200/80 dark:border-neutral-700 rounded-lg px-2.5 py-1 text-xs transition">
                           <Flag className="w-3 h-3 text-neutral-400" />
                           <select
                             value={newTaskPriority}
                             onChange={(e) => setNewTaskPriority(e.target.value)}
-                            className="bg-transparent focus:outline-none text-xs font-medium text-neutral-700 cursor-pointer"
-                            title="Prioritas Tugas"
+                            className="bg-transparent focus:outline-none text-xs font-medium text-neutral-700 dark:text-neutral-200 cursor-pointer"
+                            title={t('dashboard.priorityChip')}
                           >
-                            <option value="urgent">🔥 Mendesak</option>
-                            <option value="high">🔴 Tinggi</option>
-                            <option value="medium">🟡 Sedang</option>
-                            <option value="low">🔵 Rendah</option>
+                            <option value="urgent" className="dark:bg-[#282828]">{t('dashboard.priorityUrgent')}</option>
+                            <option value="high" className="dark:bg-[#282828]">{t('dashboard.priorityHigh')}</option>
+                            <option value="medium" className="dark:bg-[#282828]">{t('dashboard.priorityMedium')}</option>
+                            <option value="low" className="dark:bg-[#282828]">{t('dashboard.priorityLow')}</option>
                           </select>
                         </div>
 
 
                         {/* Jatuh Tempo Chip */}
-                        <div className="flex items-center space-x-1.5 bg-neutral-50 hover:bg-neutral-100 border border-neutral-200/80 rounded-lg px-2.5 py-1 text-xs transition">
+                        <div className="flex items-center space-x-1.5 bg-neutral-50 dark:bg-[#282828] hover:bg-neutral-100 dark:hover:bg-[#323232] border border-neutral-200/80 dark:border-neutral-700 rounded-lg px-2.5 py-1 text-xs transition">
                           <Calendar className="w-3 h-3 text-neutral-400" />
                           <input
                             type="date"
                             value={newTaskDate}
-                            title="Tanggal Jatuh Tempo"
+                            title={t('dashboard.dueDateChip')}
                             onChange={(e) => setNewTaskDate(e.target.value)}
-                            className="bg-transparent focus:outline-none text-xs text-neutral-700 cursor-pointer"
+                            className="bg-transparent focus:outline-none text-xs text-neutral-700 dark:text-neutral-200 cursor-pointer"
                           />
                         </div>
 
@@ -2106,13 +2154,13 @@ export default function Dashboard({ onGoToLanding }) {
                           onClick={() => setShowTodoAdvanced(!showTodoAdvanced)}
                           className={`text-xs px-2.5 py-1 rounded-lg border transition cursor-pointer flex items-center space-x-1.5 ${
                             showTodoAdvanced || newTaskDesc || newTaskReminderDate || todoFile
-                              ? 'bg-neutral-900 text-white border-neutral-900'
-                              : 'bg-neutral-50 hover:bg-neutral-100 text-neutral-600 border-neutral-200/80'
+                              ? 'bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 border-neutral-900 dark:border-neutral-100'
+                              : 'bg-neutral-50 dark:bg-[#282828] hover:bg-neutral-100 dark:hover:bg-[#323232] text-neutral-600 dark:text-neutral-300 border-neutral-200/80 dark:border-neutral-700'
                           }`}
                           title="Buka opsi catatan bantuan, pengingat, dan foto"
                         >
                           <Paperclip className="w-3 h-3" />
-                          <span>{showTodoAdvanced ? 'Tutup Detail' : '+ Catatan / Foto'}</span>
+                          <span>{showTodoAdvanced ? t('dashboard.closeDetails') : t('dashboard.advancedOptions')}</span>
                         </button>
                       </div>
 
@@ -2120,43 +2168,43 @@ export default function Dashboard({ onGoToLanding }) {
                       <button
                         type="submit"
                         disabled={isSubmittingTask || !newTaskTitle.trim()}
-                        className="bg-neutral-900 hover:bg-neutral-800 text-white text-xs font-medium px-4 py-1.5 rounded-lg transition flex items-center space-x-1.5 disabled:opacity-50 cursor-pointer shadow-xs ml-auto"
+                        className="bg-neutral-900 hover:bg-neutral-800 dark:bg-white dark:hover:bg-neutral-100 dark:text-neutral-900 text-white text-xs font-medium px-4 py-1.5 rounded-lg transition flex items-center space-x-1.5 disabled:opacity-50 cursor-pointer shadow-xs ml-auto"
                       >
                         {isSubmittingTask ? (
                           <Loader2 className="w-3.5 h-3.5 animate-spin" />
                         ) : (
                           <>
                             <Plus className="w-3.5 h-3.5" />
-                            <span>Simpan Tugas</span>
+                            <span>{t('dashboard.saveTaskBtn')}</span>
                           </>
                         )}
                       </button>
                     </div>
 
                     {showTodoAdvanced && (
-                      <div className="pt-2.5 border-t border-neutral-100 space-y-2.5 animate-in fade-in">
+                      <div className="pt-2.5 border-t border-neutral-100 dark:border-neutral-800 space-y-2.5 animate-in fade-in">
                         <div>
                           <textarea
                             rows={2}
                             maxLength={2000}
-                            placeholder="Tulis catatan bantuan atau checklist untuk tugas ini..."
+                            placeholder={t('dashboard.notesChecklistPlaceholder')}
                             value={newTaskDesc}
                             onChange={(e) => setNewTaskDesc(e.target.value)}
-                            className="w-full px-3 py-2 text-xs bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-800 leading-relaxed"
+                            className="w-full px-3 py-2 text-xs bg-neutral-50 dark:bg-[#282828] border border-neutral-200 dark:border-neutral-700 text-neutral-800 dark:text-neutral-100 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-800 dark:focus:ring-neutral-400 leading-relaxed"
                           />
                         </div>
 
                         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
                           <div className="flex items-center space-x-2">
-                            <label className="text-xs text-neutral-600 font-medium flex items-center space-x-1">
+                            <label className="text-xs text-neutral-600 dark:text-neutral-300 font-medium flex items-center space-x-1">
                               <Bell className="w-3.5 h-3.5 text-amber-600" />
-                              <span>Ingatkan Aku:</span>
+                              <span>{t('dashboard.remindMe')}</span>
                             </label>
                             <input
                               type="date"
                               value={newTaskReminderDate}
                               onChange={(e) => setNewTaskReminderDate(e.target.value)}
-                              className="text-xs bg-neutral-50 border border-neutral-200 text-neutral-600 rounded-lg px-2 py-1 focus:outline-none"
+                              className="text-xs bg-neutral-50 dark:bg-[#282828] border border-neutral-200 dark:border-neutral-700 text-neutral-600 dark:text-neutral-200 rounded-lg px-2 py-1 focus:outline-none"
                             />
                           </div>
 
@@ -2171,17 +2219,17 @@ export default function Dashboard({ onGoToLanding }) {
                             />
                             <label
                               htmlFor="todo-file-input"
-                              className="text-xs text-neutral-600 hover:text-neutral-900 bg-neutral-100 hover:bg-neutral-200 px-2.5 py-1 rounded-lg cursor-pointer transition flex items-center space-x-1"
+                              className="text-xs text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white bg-neutral-100 dark:bg-[#282828] hover:bg-neutral-200 dark:hover:bg-[#323232] border border-neutral-200/60 dark:border-neutral-700 px-2.5 py-1 rounded-lg cursor-pointer transition flex items-center space-x-1"
                             >
                               <Paperclip className="w-3 h-3" />
-                              <span>{todoFile ? 'Ganti Foto' : 'Lampirkan Foto'}</span>
+                              <span>{todoFile ? t('dashboard.changePhoto') : t('dashboard.attachPhoto')}</span>
                             </label>
                             {todoFile && (
                               <div className="flex items-center space-x-1">
                                 {todoFileType === 'image' && (
                                   <img src={todoFilePreview} alt="Preview" className="w-6 h-6 rounded object-cover" />
                                 )}
-                                <span className="text-[10px] text-neutral-500 truncate max-w-[80px]">{todoFile.name}</span>
+                                <span className="text-[10px] text-neutral-500 dark:text-neutral-400 truncate max-w-[80px]">{todoFile.name}</span>
                                 <button type="button" onClick={clearTodoFile} className="text-neutral-400 hover:text-red-500">
                                   <X className="w-3 h-3" />
                                 </button>
@@ -2210,10 +2258,10 @@ export default function Dashboard({ onGoToLanding }) {
                       return (
                         <div
                           key={status.id}
-                          className="w-[82vw] max-w-[300px] sm:w-72 shrink-0 bg-[#F7F6F3]/90 border border-neutral-200/80 rounded-2xl p-3 flex flex-col shadow-2xs max-h-[calc(100vh-270px)] min-h-[420px] snap-center sm:snap-align-none"
+                          className="w-[82vw] max-w-[300px] sm:w-72 shrink-0 bg-[#F7F6F3]/90 dark:bg-[#202020] border border-neutral-200/80 dark:border-neutral-800 rounded-2xl p-3 flex flex-col shadow-2xs max-h-[calc(100vh-270px)] min-h-[420px] snap-center sm:snap-align-none"
                         >
                           {/* Header Kolom - Pinned di Atas */}
-                          <div className="flex items-center space-x-2 px-1 pb-2.5 mb-2 border-b border-neutral-200/60 shrink-0">
+                          <div className="flex items-center space-x-2 px-1 pb-2.5 mb-2 border-b border-neutral-200/60 dark:border-neutral-800 shrink-0">
                             <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${status.color}`}>
                               {status.label}
                             </span>
@@ -2225,8 +2273,8 @@ export default function Dashboard({ onGoToLanding }) {
                           {/* Kartu dalam Kolom - Scroll Vertikal Mandiri */}
                           <div className="flex-1 overflow-y-auto space-y-2.5 pr-1 focus:outline-none">
                             {todosInStatus.length === 0 ? (
-                              <div className="h-32 flex items-center justify-center text-xs text-neutral-400 border border-dashed border-neutral-200/80 rounded-xl bg-white/40">
-                                Belum ada tugas
+                              <div className="h-32 flex items-center justify-center text-xs text-neutral-400 dark:text-neutral-500 border border-dashed border-neutral-200/80 dark:border-neutral-800 rounded-xl bg-white/40 dark:bg-[#252525]/40">
+                                {t('dashboard.noTasksInStatus')}
                               </div>
                             ) : (
                               todosInStatus.map(todo => {
@@ -2234,8 +2282,10 @@ export default function Dashboard({ onGoToLanding }) {
                                 return (
                                   <div
                                     key={todo.id}
-                                    className={`group/card bg-white border rounded-xl p-3 shadow-2xs hover:shadow-xs transition space-y-2.5 ${
-                                      reminderActive ? 'border-amber-300 bg-amber-50/20' : 'border-neutral-200/80 hover:border-neutral-300'
+                                    className={`group/card bg-white dark:bg-[#262626] border rounded-xl p-3 shadow-2xs hover:shadow-xs transition space-y-2.5 ${
+                                      reminderActive 
+                                        ? 'border-amber-300 dark:border-amber-700 bg-amber-50/20 dark:bg-amber-950/20' 
+                                        : 'border-neutral-200/80 dark:border-neutral-700/80 hover:border-neutral-300 dark:hover:border-neutral-600'
                                     }`}
                                   >
                                     {/* Card Header: Prioritas di kiri & Selector Pindah di kanan */}
@@ -2247,11 +2297,11 @@ export default function Dashboard({ onGoToLanding }) {
                                         <select
                                           value={status.id}
                                           onChange={(e) => handleUpdateTaskStatus(todo.id, e.target.value)}
-                                          className="text-[10px] text-neutral-500 hover:text-neutral-800 bg-neutral-50 hover:bg-neutral-100 border border-neutral-200/70 rounded-md px-1.5 py-0.5 cursor-pointer focus:outline-none transition"
+                                          className="text-[10px] text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200 bg-neutral-50 dark:bg-[#303030] hover:bg-neutral-100 dark:hover:bg-[#383838] border border-neutral-200/70 dark:border-neutral-700 rounded-md px-1.5 py-0.5 cursor-pointer focus:outline-none transition"
                                           title="Pindahkan ke status lain"
                                         >
                                           {taskStatuses.map(s => (
-                                            <option key={s.id} value={s.id}>
+                                            <option key={s.id} value={s.id} className="dark:bg-[#303030]">
                                               {s.id === status.id ? s.label : `→ ${s.label}`}
                                             </option>
                                           ))}
@@ -2263,7 +2313,7 @@ export default function Dashboard({ onGoToLanding }) {
                                     <div className="flex items-start space-x-2.5">
                                       <button
                                         onClick={() => handleToggleTodo(todo.id, todo.is_completed)}
-                                        className="text-neutral-400 hover:text-neutral-800 transition cursor-pointer shrink-0 mt-0.5"
+                                        className="text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200 transition cursor-pointer shrink-0 mt-0.5"
                                         title={todo.is_completed ? 'Tandai belum selesai' : 'Tandai selesai'}
                                       >
                                         {todo.is_completed ? (
@@ -2277,7 +2327,7 @@ export default function Dashboard({ onGoToLanding }) {
                                         className="cursor-pointer flex-1 min-w-0"
                                       >
                                         <h4 className={`text-xs font-semibold leading-snug line-clamp-2 hover:underline ${
-                                          todo.is_completed ? 'line-through text-neutral-400' : 'text-neutral-800'
+                                          todo.is_completed ? 'line-through text-neutral-400 dark:text-neutral-500' : 'text-neutral-800 dark:text-neutral-100'
                                         }`}>
                                           {todo.title}
                                         </h4>
@@ -2287,7 +2337,7 @@ export default function Dashboard({ onGoToLanding }) {
                                     {todo.description && (
                                       <p
                                         onClick={() => openEditTodoModal(todo)}
-                                        className="text-[11px] text-neutral-500 line-clamp-2 cursor-pointer hover:text-neutral-700 pl-6"
+                                        className="text-[11px] text-neutral-500 dark:text-neutral-400 line-clamp-2 cursor-pointer hover:text-neutral-700 dark:hover:text-neutral-300 pl-6"
                                       >
                                         💬 {todo.description}
                                       </p>
@@ -2297,7 +2347,7 @@ export default function Dashboard({ onGoToLanding }) {
                                     {todo.media_url && (
                                       <div 
                                         onClick={() => setLightboxMedia({ url: todo.media_url, type: todo.media_type, title: todo.title })}
-                                        className="relative h-24 rounded-lg overflow-hidden border border-neutral-100 cursor-zoom-in group/media"
+                                        className="relative h-24 rounded-lg overflow-hidden border border-neutral-100 dark:border-neutral-800 cursor-zoom-in group/media"
                                       >
                                         <img src={todo.media_url} alt="Attachment" className="w-full h-full object-cover group-hover/media:scale-105 transition" />
                                         <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/media:opacity-100 flex items-center justify-center text-white text-xs transition">
@@ -2307,15 +2357,15 @@ export default function Dashboard({ onGoToLanding }) {
                                     )}
 
                                     {/* Card Footer */}
-                                    <div className="flex items-center justify-between pt-1 border-t border-neutral-100 text-[11px]">
+                                    <div className="flex items-center justify-between pt-1 border-t border-neutral-100 dark:border-neutral-800 text-[11px]">
                                       <div className="flex items-center space-x-1.5 flex-wrap gap-y-1">
                                         {todo.due_date && renderDateBadge(todo.due_date)}
                                         {todo.reminder_date && (
                                           <span className={`inline-flex items-center space-x-1 text-[10px] px-1.5 py-0.5 rounded font-mono ${
-                                            reminderActive ? 'bg-amber-100 text-amber-800 font-semibold' : 'bg-neutral-100 text-neutral-500'
+                                            reminderActive ? 'bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-200 font-semibold' : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400'
                                           }`}>
                                             <Bell className="w-2.5 h-2.5" />
-                                            <span>{format(parseISO(todo.reminder_date), 'dd MMM', { locale: localeId })}</span>
+                                            <span>{format(parseISO(todo.reminder_date), 'dd MMM', { locale: currentLocale })}</span>
                                           </span>
                                         )}
                                       </div>
@@ -2349,7 +2399,7 @@ export default function Dashboard({ onGoToLanding }) {
 
                       return (
                         <div key={status.id} className="space-y-2">
-                          <div className="flex items-center space-x-2 px-1 pb-1.5 border-b border-neutral-200/60">
+                          <div className="flex items-center space-x-2 px-1 pb-1.5 border-b border-neutral-200/60 dark:border-neutral-800">
                             <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${status.color}`}>
                               {status.label}
                             </span>
@@ -2358,8 +2408,8 @@ export default function Dashboard({ onGoToLanding }) {
 
                           <div className="space-y-2">
                             {todosInGroup.length === 0 ? (
-                              <div className="text-xs text-neutral-400 italic py-3 px-4 bg-white/40 rounded-xl border border-dashed border-neutral-200">
-                                Tidak ada tugas berstatus "{status.label}"
+                              <div className="text-xs text-neutral-400 dark:text-neutral-500 italic py-3 px-4 bg-white/40 dark:bg-[#202020]/40 rounded-xl border border-dashed border-neutral-200 dark:border-neutral-800">
+                                {isEn ? `No tasks with status "${status.label}"` : `Tidak ada tugas berstatus "${status.label}"`}
                               </div>
                             ) : (
                               todosInGroup.map(todo => renderTaskRow(todo, true))
@@ -2373,10 +2423,10 @@ export default function Dashboard({ onGoToLanding }) {
                   /* MODE BARIS STANDAR (FLAT LIST) */
                   <div className="space-y-2">
                     {filteredActiveTodos.length === 0 ? (
-                      <div className="text-center py-6 text-neutral-400 text-xs italic bg-white/40 rounded-xl border border-dashed border-neutral-200">
+                      <div className="text-center py-6 text-neutral-400 dark:text-neutral-500 text-xs italic bg-white/40 dark:bg-[#202020]/40 rounded-xl border border-dashed border-neutral-200 dark:border-neutral-800">
                         {activeTab === 'reminders' 
-                          ? 'Tidak ada tugas yang membutuhkan pengingat saat ini.' 
-                          : 'Belum ada tugas yang perlu diselesaikan.'}
+                          ? t('dashboard.emptyReminders')
+                          : t('dashboard.emptyTodos')}
                       </div>
                     ) : (
                       filteredActiveTodos.map(todo => renderTaskRow(todo, false))
@@ -2389,8 +2439,8 @@ export default function Dashboard({ onGoToLanding }) {
             {/* SECTION 2: CATATAN & MEDIA AKTIF (MULTI-MEDIA GRID) */}
             {(activeTab === 'all' || activeTab === 'notes') && (
               <section className="space-y-4 pt-4">
-                <div className="flex items-center justify-between pb-2 border-b border-neutral-200">
-                  <h2 className="text-sm font-semibold uppercase tracking-wider text-neutral-500 flex items-center space-x-2">
+                <div className="flex items-center justify-between pb-2 border-b border-neutral-200 dark:border-neutral-800">
+                  <h2 className="text-sm font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 flex items-center space-x-2">
                     <FileText className="w-4 h-4" />
                     <span>{labels.notesTab}</span>
                   </h2>
@@ -2399,18 +2449,18 @@ export default function Dashboard({ onGoToLanding }) {
                       clearNoteCreateModal();
                       setShowNoteModal(true);
                     }}
-                    className="text-xs font-medium text-neutral-700 bg-neutral-200/60 hover:bg-neutral-200 px-3 py-1.5 rounded-lg flex items-center space-x-1 transition cursor-pointer"
+                    className="text-xs font-medium text-neutral-700 dark:text-neutral-200 bg-neutral-200/60 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 px-3 py-1.5 rounded-lg flex items-center space-x-1 transition cursor-pointer"
                   >
                     <Plus className="w-3.5 h-3.5" />
-                    <span>+ {labels.notesTab} Baru</span>
+                    <span>+ {labels.notesTab} {isEn ? 'New' : 'Baru'}</span>
                   </button>
                 </div>
 
                 {/* Grid Catatan */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                   {filteredActiveNotes.length === 0 ? (
-                    <div className="col-span-full text-center py-8 text-neutral-400 text-xs italic bg-white/40 rounded-xl border border-dashed border-neutral-200">
-                      Belum ada catatan. Klik "+ Catatan Baru" untuk membuat catatan baru.
+                    <div className="col-span-full text-center py-8 text-neutral-400 dark:text-neutral-500 text-xs italic bg-white/40 dark:bg-[#202020]/40 rounded-xl border border-dashed border-neutral-200 dark:border-neutral-800">
+                      {t('dashboard.emptyNotes')}
                     </div>
                   ) : (
                     filteredActiveNotes.map((note) => {
@@ -2418,7 +2468,7 @@ export default function Dashboard({ onGoToLanding }) {
                       return (
                         <div
                           key={note.id}
-                          className="group bg-white border border-neutral-200/80 rounded-xl overflow-hidden flex flex-col justify-between hover:shadow-md hover:border-neutral-300 transition"
+                          className="group bg-white dark:bg-[#232323] border border-neutral-200/80 dark:border-neutral-800 rounded-xl overflow-hidden flex flex-col justify-between hover:shadow-md hover:border-neutral-300 dark:hover:border-neutral-700 transition"
                         >
                           {/* Render Galeri Media Catatan */}
                           {renderNoteCardMedia(note)}
@@ -2437,7 +2487,7 @@ export default function Dashboard({ onGoToLanding }) {
                                     e.stopPropagation();
                                     openEditNoteModal(note);
                                   }}
-                                  className="opacity-70 sm:opacity-0 sm:group-hover:opacity-100 text-neutral-400 hover:text-neutral-800 transition p-1 cursor-pointer"
+                                  className="opacity-70 sm:opacity-0 sm:group-hover:opacity-100 text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200 transition p-1 cursor-pointer"
                                   title="Edit catatan"
                                 >
                                   <Edit3 className="w-3.5 h-3.5" />
@@ -2455,18 +2505,18 @@ export default function Dashboard({ onGoToLanding }) {
                                 </button>
                               </div>
                             </div>
-                            <h3 className="font-semibold text-sm text-neutral-900 mb-1 line-clamp-1 hover:underline">
+                            <h3 className="font-semibold text-sm text-neutral-900 dark:text-neutral-100 mb-1 line-clamp-1 hover:underline">
                               {note.title}
                             </h3>
-                            <p className="text-xs text-neutral-600 line-clamp-3 whitespace-pre-wrap leading-relaxed">
-                              {note.content || 'Tidak ada teks tambahan.'}
+                            <p className="text-xs text-neutral-600 dark:text-neutral-300 line-clamp-3 whitespace-pre-wrap leading-relaxed">
+                              {note.content || t('dashboard.noExtraText')}
                             </p>
                           </div>
 
-                          <div className="px-4 pb-3 pt-1 border-t border-neutral-100 text-[10px] text-neutral-400 flex items-center justify-between">
-                            <span>{format(parseISO(note.created_at), 'dd MMM yyyy', { locale: localeId })}</span>
+                          <div className="px-4 pb-3 pt-1 border-t border-neutral-100 dark:border-neutral-800 text-[10px] text-neutral-400 dark:text-neutral-500 flex items-center justify-between">
+                            <span>{format(parseISO(note.created_at), 'dd MMM yyyy', { locale: currentLocale })}</span>
                             {mediaCount > 0 && (
-                              <span className="inline-flex items-center space-x-1 text-neutral-500 font-mono text-[9px] bg-neutral-100 px-1.5 py-0.5 rounded">
+                              <span className="inline-flex items-center space-x-1 text-neutral-500 dark:text-neutral-400 font-mono text-[9px] bg-neutral-100 dark:bg-neutral-800 px-1.5 py-0.5 rounded">
                                 <Paperclip className="w-2.5 h-2.5" />
                                 <span>{mediaCount} media</span>
                               </span>
@@ -2486,12 +2536,12 @@ export default function Dashboard({ onGoToLanding }) {
       {/* 1. MODAL EDIT CATATAN (MULTI-MEDIA: MAKS 5 FOTO & 1 VIDEO) */}
       {editingNote && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in">
-          <div className="bg-white border border-neutral-200 rounded-2xl max-w-lg w-full p-6 shadow-xl space-y-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-2 border-b border-neutral-100">
-              <h3 className="text-base font-semibold text-neutral-900">Edit Catatan</h3>
+          <div className="bg-white dark:bg-[#202020] border border-neutral-200 dark:border-neutral-800 rounded-2xl max-w-lg w-full p-6 shadow-xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-2 border-b border-neutral-100 dark:border-neutral-800">
+              <h3 className="text-base font-semibold text-neutral-900 dark:text-neutral-100">{t('dashboard.editNoteTitle')}</h3>
               <button 
                 onClick={() => setEditingNote(null)}
-                className="text-neutral-400 hover:text-neutral-600 p-1 rounded-md cursor-pointer"
+                className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 p-1 rounded-md cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -2503,7 +2553,7 @@ export default function Dashboard({ onGoToLanding }) {
                   type="text"
                   value={editNoteEmoji}
                   onChange={(e) => setEditNoteEmoji(e.target.value)}
-                  className="w-12 text-center text-xl bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-800"
+                  className="w-12 text-center text-xl bg-neutral-50 dark:bg-[#282828] border border-neutral-200 dark:border-neutral-700 text-neutral-800 dark:text-neutral-100 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-800 dark:focus:ring-neutral-400"
                   title="Ganti emoji"
                   maxLength={2}
                 />
@@ -2513,8 +2563,8 @@ export default function Dashboard({ onGoToLanding }) {
                   maxLength={200}
                   value={editNoteTitle}
                   onChange={(e) => setEditNoteTitle(e.target.value)}
-                  placeholder="Judul catatan..."
-                  className="flex-1 px-3 py-2 text-sm bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-800 font-medium"
+                  placeholder={t('dashboard.noteTitlePlaceholder')}
+                  className="flex-1 px-3 py-2 text-sm bg-neutral-50 dark:bg-[#282828] border border-neutral-200 dark:border-neutral-700 text-neutral-800 dark:text-neutral-100 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-800 dark:focus:ring-neutral-400 font-medium"
                 />
               </div>
 
@@ -2524,22 +2574,22 @@ export default function Dashboard({ onGoToLanding }) {
                   maxLength={30000}
                   value={editNoteContent}
                   onChange={(e) => setEditNoteContent(e.target.value)}
-                  placeholder="Isi catatan..."
-                  className="w-full px-3 py-2 text-sm bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-800 leading-relaxed"
+                  placeholder={t('dashboard.noteContentPlaceholder')}
+                  className="w-full px-3 py-2 text-sm bg-neutral-50 dark:bg-[#282828] border border-neutral-200 dark:border-neutral-700 text-neutral-800 dark:text-neutral-100 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-800 dark:focus:ring-neutral-400 leading-relaxed"
                 />
-                <div className="text-[10px] text-neutral-400 text-right">
+                <div className="text-[10px] text-neutral-400 dark:text-neutral-500 text-right">
                   {editNoteContent.length} / 30.000 karakter
                 </div>
               </div>
 
               {/* Lampiran Media (5 Foto + 1 Video) */}
-              <div className="p-3 bg-neutral-50 border border-neutral-200/90 rounded-xl space-y-2.5">
+              <div className="p-3 bg-neutral-50 dark:bg-[#262626] border border-neutral-200/90 dark:border-neutral-700 rounded-xl space-y-2.5">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-medium text-neutral-700 flex items-center space-x-1.5">
+                  <label className="text-xs font-medium text-neutral-700 dark:text-neutral-300 flex items-center space-x-1.5">
                     <Paperclip className="w-3.5 h-3.5 text-neutral-500" />
-                    <span>Lampiran Foto & Video (Maks 5 Foto, 1 Video)</span>
+                    <span>{t('dashboard.mediaAttachmentTitle')}</span>
                   </label>
-                  <span className="text-[10px] text-neutral-400">
+                  <span className="text-[10px] text-neutral-400 dark:text-neutral-500">
                     {editExistingMedia.length + editNewPhotos.length + (editNewVideo ? 1 : 0)} media
                   </span>
                 </div>
@@ -2547,10 +2597,10 @@ export default function Dashboard({ onGoToLanding }) {
                 {/* Galeri Media yang Sudah Ada */}
                 {editExistingMedia.length > 0 && (
                   <div className="space-y-1">
-                    <span className="text-[10px] text-neutral-400">Media tersimpan saat ini:</span>
+                    <span className="text-[10px] text-neutral-400 dark:text-neutral-500">{t('dashboard.currentMedia')}</span>
                     <div className="grid grid-cols-4 gap-2">
                       {editExistingMedia.map((m, idx) => (
-                        <div key={idx} className="relative rounded-lg overflow-hidden border border-neutral-200 h-16 group/thumb">
+                        <div key={idx} className="relative rounded-lg overflow-hidden border border-neutral-200 dark:border-neutral-700 h-16 group/thumb">
                           {m.type === 'video' ? (
                             <div className="w-full h-full bg-neutral-900 flex items-center justify-center text-white text-[10px]">
                               🎬 Video
@@ -2575,10 +2625,10 @@ export default function Dashboard({ onGoToLanding }) {
                 {/* Preview Foto Baru yang Ditambahkan */}
                 {editNewPhotos.length > 0 && (
                   <div className="space-y-1">
-                    <span className="text-[10px] text-neutral-400">Foto baru yang akan diunggah:</span>
+                    <span className="text-[10px] text-neutral-400 dark:text-neutral-500">{t('dashboard.newPhotosToUpload')}</span>
                     <div className="grid grid-cols-4 gap-2">
                       {editNewPhotos.map((p, idx) => (
-                        <div key={idx} className="relative rounded-lg overflow-hidden border border-neutral-200 h-16">
+                        <div key={idx} className="relative rounded-lg overflow-hidden border border-neutral-200 dark:border-neutral-700 h-16">
                           <img src={p.preview} alt="New" className="w-full h-full object-cover" />
                           <button
                             type="button"
@@ -2595,10 +2645,10 @@ export default function Dashboard({ onGoToLanding }) {
 
                 {/* Preview Video Baru yang Ditambahkan */}
                 {editNewVideo && (
-                  <div className="flex items-center justify-between p-2 bg-white rounded-lg border border-neutral-200 text-xs">
+                  <div className="flex items-center justify-between p-2 bg-white dark:bg-[#202020] rounded-lg border border-neutral-200 dark:border-neutral-700 text-xs">
                     <div className="flex items-center space-x-1.5 truncate">
                       <Film className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                      <span className="truncate">{editNewVideo.name}</span>
+                      <span className="truncate text-neutral-800 dark:text-neutral-200">{editNewVideo.name}</span>
                     </div>
                     <button type="button" onClick={() => setEditNewVideo(null)} className="text-neutral-400 hover:text-red-600">
                       <X className="w-3.5 h-3.5" />
@@ -2619,10 +2669,10 @@ export default function Dashboard({ onGoToLanding }) {
                   />
                   <label
                     htmlFor="edit-note-photos-input"
-                    className="text-xs bg-white hover:bg-neutral-100 text-neutral-700 border border-neutral-200 px-3 py-1.5 rounded-lg cursor-pointer transition flex items-center space-x-1 shadow-2xs"
+                    className="text-xs bg-white dark:bg-[#282828] hover:bg-neutral-100 dark:hover:bg-[#323232] text-neutral-700 dark:text-neutral-200 border border-neutral-200 dark:border-neutral-700 px-3 py-1.5 rounded-lg cursor-pointer transition flex items-center space-x-1 shadow-2xs"
                   >
                     <Image className="w-3.5 h-3.5 text-blue-600" />
-                    <span>+ Tambah Foto</span>
+                    <span>+ {t('dashboard.uploadPhoto')}</span>
                   </label>
 
                   <input
@@ -2635,10 +2685,10 @@ export default function Dashboard({ onGoToLanding }) {
                   />
                   <label
                     htmlFor="edit-note-video-input"
-                    className="text-xs bg-white hover:bg-neutral-100 text-neutral-700 border border-neutral-200 px-3 py-1.5 rounded-lg cursor-pointer transition flex items-center space-x-1 shadow-2xs"
+                    className="text-xs bg-white dark:bg-[#282828] hover:bg-neutral-100 dark:hover:bg-[#323232] text-neutral-700 dark:text-neutral-200 border border-neutral-200 dark:border-neutral-700 px-3 py-1.5 rounded-lg cursor-pointer transition flex items-center space-x-1 shadow-2xs"
                   >
                     <Film className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>+ Tambah Video</span>
+                    <span>+ {t('dashboard.uploadVideo')}</span>
                   </label>
 
                   {isCompressingEditPhotos && (
@@ -2651,38 +2701,38 @@ export default function Dashboard({ onGoToLanding }) {
               </div>
 
               {/* Action Buttons */}
-              <div className="flex items-center justify-between pt-3 border-t border-neutral-100">
+              <div className="flex items-center justify-between pt-3 border-t border-neutral-100 dark:border-neutral-800">
                 <button
                   type="button"
                   onClick={() => handleSoftDeleteNote(editingNote.id)}
-                  className="px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 rounded-lg transition flex items-center space-x-1 cursor-pointer"
+                  className="px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg transition flex items-center space-x-1 cursor-pointer"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
-                  <span>Ke Tempat Sampah</span>
+                  <span>{t('dashboard.moveToTrash')}</span>
                 </button>
 
                 <div className="flex items-center space-x-2">
                   <button
                     type="button"
                     onClick={() => setEditingNote(null)}
-                    className="px-3.5 py-1.5 text-xs font-medium text-neutral-600 hover:bg-neutral-100 rounded-lg transition cursor-pointer"
+                    className="px-3.5 py-1.5 text-xs font-medium text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg transition cursor-pointer"
                   >
-                    Batal
+                    {t('common.cancel')}
                   </button>
                   <button
                     type="submit"
                     disabled={isUpdatingNote || isCompressingEditPhotos}
-                    className="px-4 py-1.5 text-xs font-medium bg-neutral-900 hover:bg-neutral-800 text-white rounded-lg transition disabled:opacity-50 cursor-pointer flex items-center space-x-1.5"
+                    className="px-4 py-1.5 text-xs font-medium bg-neutral-900 hover:bg-neutral-800 dark:bg-white dark:hover:bg-neutral-100 text-white dark:text-neutral-900 rounded-lg transition disabled:opacity-50 cursor-pointer flex items-center space-x-1.5"
                   >
                     {isUpdatingNote ? (
                       <>
                         <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        <span>Menyimpan...</span>
+                        <span>{t('common.saving')}</span>
                       </>
                     ) : (
                       <>
                         <Check className="w-3.5 h-3.5" />
-                        <span>Simpan Catatan</span>
+                        <span>{t('dashboard.saveNoteBtn')}</span>
                       </>
                     )}
                   </button>
@@ -2696,12 +2746,12 @@ export default function Dashboard({ onGoToLanding }) {
       {/* 2. MODAL EDIT TUGAS */}
       {editingTodo && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in">
-          <div className="bg-white border border-neutral-200 rounded-2xl max-w-lg w-full p-4 sm:p-6 shadow-xl space-y-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-neutral-100">
-              <span className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">Detail & Edit Tugas</span>
+          <div className="bg-white dark:bg-[#202020] border border-neutral-200 dark:border-neutral-800 rounded-2xl max-w-lg w-full p-4 sm:p-6 shadow-xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-neutral-100 dark:border-neutral-800">
+              <span className="text-xs font-semibold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider">{t('dashboard.editTaskModalTitle')}</span>
               <button 
                 onClick={() => setEditingTodo(null)}
-                className="text-neutral-400 hover:text-neutral-600 p-1 rounded-md cursor-pointer"
+                className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 p-1 rounded-md cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -2709,27 +2759,27 @@ export default function Dashboard({ onGoToLanding }) {
 
             <form onSubmit={handleUpdateTodo} className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-neutral-600 mb-1">Judul Tugas</label>
+                <label className="block text-xs font-medium text-neutral-600 dark:text-neutral-300 mb-1">{t('dashboard.taskTitleLabel')}</label>
                 <input
                   type="text"
                   required
                   maxLength={200}
                   value={editTitle}
                   onChange={(e) => setEditTitle(e.target.value)}
-                  className="w-full px-3 py-2 text-sm bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-800 font-medium"
+                  className="w-full px-3 py-2 text-sm bg-neutral-50 dark:bg-[#282828] border border-neutral-200 dark:border-neutral-700 text-neutral-800 dark:text-neutral-100 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-800 dark:focus:ring-neutral-400 font-medium"
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 p-3 bg-neutral-50/80 rounded-xl border border-neutral-200/80">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 p-3 bg-neutral-50/80 dark:bg-[#262626] rounded-xl border border-neutral-200/80 dark:border-neutral-700">
                 <div>
-                  <label className="block text-[11px] font-medium text-neutral-600 mb-1 flex items-center space-x-1">
+                  <label className="block text-[11px] font-medium text-neutral-600 dark:text-neutral-300 mb-1 flex items-center space-x-1">
                     <Layers className="w-3 h-3 text-neutral-500" />
-                    <span>Status</span>
+                    <span>{t('dashboard.statusLabel')}</span>
                   </label>
                   <select
                     value={editStatus}
                     onChange={(e) => setEditStatus(e.target.value)}
-                    className="w-full text-xs bg-white border border-neutral-200 text-neutral-800 rounded-lg p-1.5 focus:outline-none font-medium cursor-pointer"
+                    className="w-full text-xs bg-white dark:bg-[#202020] border border-neutral-200 dark:border-neutral-700 text-neutral-800 dark:text-neutral-200 rounded-lg p-1.5 focus:outline-none font-medium cursor-pointer"
                   >
                     {taskStatuses.map(s => (
                       <option key={s.id} value={s.id}>{s.label}</option>
@@ -2738,75 +2788,75 @@ export default function Dashboard({ onGoToLanding }) {
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-medium text-neutral-600 mb-1 flex items-center space-x-1">
+                  <label className="block text-[11px] font-medium text-neutral-600 dark:text-neutral-300 mb-1 flex items-center space-x-1">
                     <Flag className="w-3 h-3 text-neutral-500" />
-                    <span>Prioritas</span>
+                    <span>{t('dashboard.priorityChip')}</span>
                   </label>
                   <select
                     value={editPriority}
                     onChange={(e) => setEditPriority(e.target.value)}
-                    className="w-full text-xs bg-white border border-neutral-200 text-neutral-800 rounded-lg p-1.5 focus:outline-none font-medium cursor-pointer"
+                    className="w-full text-xs bg-white dark:bg-[#202020] border border-neutral-200 dark:border-neutral-700 text-neutral-800 dark:text-neutral-200 rounded-lg p-1.5 focus:outline-none font-medium cursor-pointer"
                   >
-                    <option value="urgent">🔥 Mendesak</option>
-                    <option value="high">🔴 Tinggi</option>
-                    <option value="medium">🟡 Sedang</option>
-                    <option value="low">🔵 Rendah</option>
+                    <option value="urgent">{t('dashboard.priorityUrgent')}</option>
+                    <option value="high">{t('dashboard.priorityHigh')}</option>
+                    <option value="medium">{t('dashboard.priorityMedium')}</option>
+                    <option value="low">{t('dashboard.priorityLow')}</option>
                   </select>
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-medium text-neutral-600 mb-1 flex items-center space-x-1">
+                  <label className="block text-[11px] font-medium text-neutral-600 dark:text-neutral-300 mb-1 flex items-center space-x-1">
                     <Calendar className="w-3 h-3 text-neutral-500" />
-                    <span>Jatuh Tempo</span>
+                    <span>{t('dashboard.dueDateChip')}</span>
                   </label>
                   <input
                     type="date"
                     value={editDueDate}
                     onChange={(e) => setEditDueDate(e.target.value)}
-                    className="w-full text-xs bg-white border border-neutral-200 text-neutral-700 rounded-lg p-1.5 focus:outline-none"
+                    className="w-full text-xs bg-white dark:bg-[#202020] border border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-200 rounded-lg p-1.5 focus:outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-medium text-neutral-600 mb-1 flex items-center space-x-1">
+                  <label className="block text-[11px] font-medium text-neutral-600 dark:text-neutral-300 mb-1 flex items-center space-x-1">
                     <Bell className="w-3 h-3 text-amber-600" />
-                    <span>Ingatkan Aku</span>
+                    <span>{t('dashboard.remindMe')}</span>
                   </label>
                   <input
                     type="date"
                     value={editReminderDate}
                     onChange={(e) => setEditReminderDate(e.target.value)}
-                    className="w-full text-xs bg-white border border-neutral-200 text-neutral-700 rounded-lg p-1.5 focus:outline-none"
+                    className="w-full text-xs bg-white dark:bg-[#202020] border border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-200 rounded-lg p-1.5 focus:outline-none"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-neutral-600 mb-1 flex items-center space-x-1">
+                <label className="block text-xs font-medium text-neutral-600 dark:text-neutral-300 mb-1 flex items-center space-x-1">
                   <MessageSquare className="w-3 h-3" />
-                  <span>Catatan Tambahan untuk Tugas Ini</span>
+                  <span>{t('dashboard.notesLabel')}</span>
                 </label>
                 <textarea
                   rows={4}
                   maxLength={2000}
-                  placeholder="Tulis catatan detail, nomor tiket, checklist, atau teks bantuan pengingat..."
+                  placeholder={t('dashboard.notesPlaceholder')}
                   value={editDesc}
                   onChange={(e) => setEditDesc(e.target.value)}
-                  className="w-full px-3 py-2 text-xs bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-800 leading-relaxed"
+                  className="w-full px-3 py-2 text-xs bg-neutral-50 dark:bg-[#282828] border border-neutral-200 dark:border-neutral-700 text-neutral-800 dark:text-neutral-100 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-800 dark:focus:ring-neutral-400 leading-relaxed"
                 />
-                <div className="text-[10px] text-neutral-400 text-right">
+                <div className="text-[10px] text-neutral-400 dark:text-neutral-500 text-right">
                   {editDesc.length} / 2.000 karakter
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-neutral-600 mb-1 flex items-center space-x-1">
+                <label className="block text-xs font-medium text-neutral-600 dark:text-neutral-300 mb-1 flex items-center space-x-1">
                   <Paperclip className="w-3 h-3" />
-                  <span>Foto / Lampiran Tugas</span>
+                  <span>{t('dashboard.photoAttachmentLabel')}</span>
                 </label>
 
                 {(editFilePreview || editMediaUrl) && (
-                  <div className="relative mb-2 rounded-xl overflow-hidden border border-neutral-200 bg-neutral-50 p-2">
+                  <div className="relative mb-2 rounded-xl overflow-hidden border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-[#262626] p-2">
                     <button
                       type="button"
                       onClick={() => {
@@ -2825,7 +2875,7 @@ export default function Dashboard({ onGoToLanding }) {
                       onClick={() => setLightboxMedia({ url: editFilePreview || editMediaUrl, type: 'image', title: editTitle })}
                       className="w-full max-h-40 object-cover rounded-lg cursor-zoom-in" 
                     />
-                    <span className="text-[10px] text-neutral-400 block mt-1">Klik gambar untuk perbesar</span>
+                    <span className="text-[10px] text-neutral-400 dark:text-neutral-500 block mt-1">Klik gambar untuk perbesar</span>
                   </div>
                 )}
 
@@ -2840,10 +2890,10 @@ export default function Dashboard({ onGoToLanding }) {
                   />
                   <label
                     htmlFor="edit-todo-file"
-                    className="text-xs text-neutral-700 bg-neutral-100 hover:bg-neutral-200 px-3 py-1.5 rounded-lg cursor-pointer transition flex items-center space-x-1"
+                    className="text-xs text-neutral-700 dark:text-neutral-200 bg-neutral-100 dark:bg-[#282828] hover:bg-neutral-200 dark:hover:bg-[#323232] border border-neutral-200/60 dark:border-neutral-700 px-3 py-1.5 rounded-lg cursor-pointer transition flex items-center space-x-1"
                   >
                     <Image className="w-3.5 h-3.5 text-blue-600" />
-                    <span>{editFile || editMediaUrl ? 'Ganti Foto' : 'Unggah Foto Bantuan'}</span>
+                    <span>{editFile || editMediaUrl ? t('dashboard.changePhoto') : t('dashboard.attachPhoto')}</span>
                   </label>
                   {isCompressingEditFile && (
                     <span className="text-xs text-neutral-400 flex items-center space-x-1">
@@ -2854,38 +2904,38 @@ export default function Dashboard({ onGoToLanding }) {
                 </div>
               </div>
 
-              <div className="flex items-center justify-between pt-3 border-t border-neutral-100">
+              <div className="flex items-center justify-between pt-3 border-t border-neutral-100 dark:border-neutral-800">
                 <button
                   type="button"
                   onClick={() => handleSoftDeleteTodo(editingTodo.id)}
-                  className="px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 rounded-lg transition flex items-center space-x-1 cursor-pointer"
+                  className="px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg transition flex items-center space-x-1 cursor-pointer"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
-                  <span>Ke Tempat Sampah</span>
+                  <span>{t('dashboard.moveToTrash')}</span>
                 </button>
 
                 <div className="flex items-center space-x-2">
                   <button
                     type="button"
                     onClick={() => setEditingTodo(null)}
-                    className="px-3.5 py-1.5 text-xs font-medium text-neutral-600 hover:bg-neutral-100 rounded-lg transition cursor-pointer"
+                    className="px-3.5 py-1.5 text-xs font-medium text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg transition cursor-pointer"
                   >
-                    Batal
+                    {t('common.cancel')}
                   </button>
                   <button
                     type="submit"
                     disabled={isUpdatingTodo || isCompressingEditFile}
-                    className="px-4 py-1.5 text-xs font-medium bg-neutral-900 hover:bg-neutral-800 text-white rounded-lg transition disabled:opacity-50 cursor-pointer flex items-center space-x-1.5"
+                    className="px-4 py-1.5 text-xs font-medium bg-neutral-900 hover:bg-neutral-800 dark:bg-white dark:hover:bg-neutral-100 text-white dark:text-neutral-900 rounded-lg transition disabled:opacity-50 cursor-pointer flex items-center space-x-1.5"
                   >
                     {isUpdatingTodo ? (
                       <>
                         <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        <span>Menyimpan...</span>
+                        <span>{t('common.saving')}</span>
                       </>
                     ) : (
                       <>
                         <Check className="w-3.5 h-3.5" />
-                        <span>Simpan Perubahan</span>
+                        <span>{t('dashboard.saveChanges')}</span>
                       </>
                     )}
                   </button>
@@ -2944,19 +2994,19 @@ export default function Dashboard({ onGoToLanding }) {
       {/* 4. MODAL BUAT CATATAN BARU (MULTI-MEDIA: MAKS 5 FOTO & 1 VIDEO) */}
       {showNoteModal && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white border border-neutral-200 rounded-2xl max-w-lg w-full p-4 sm:p-6 shadow-xl animate-in fade-in zoom-in-95 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-semibold text-neutral-900">Buat Catatan & Galeri Media</h3>
+          <div className="bg-white dark:bg-[#202020] border border-neutral-200 dark:border-neutral-800 rounded-2xl max-w-lg w-full p-4 sm:p-6 shadow-xl animate-in fade-in zoom-in-95 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4 pb-2 border-b border-neutral-100 dark:border-neutral-800">
+              <h3 className="text-base font-semibold text-neutral-900 dark:text-neutral-100">{t('dashboard.createNoteTitle')}</h3>
               <button 
                 onClick={clearNoteCreateModal}
-                className="text-neutral-400 hover:text-neutral-600 p-1 rounded-md"
+                className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 p-1 rounded-md cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             {uploadError && (
-              <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl flex items-center space-x-2">
+              <div className="mb-4 p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 text-red-700 dark:text-red-300 text-xs rounded-xl flex items-center space-x-2">
                 <AlertCircle className="w-4 h-4 shrink-0" />
                 <span>{uploadError}</span>
               </div>
@@ -2968,7 +3018,7 @@ export default function Dashboard({ onGoToLanding }) {
                   type="text"
                   value={newNoteEmoji}
                   onChange={(e) => setNewNoteEmoji(e.target.value)}
-                  className="w-12 text-center text-xl bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-800"
+                  className="w-12 text-center text-xl bg-neutral-50 dark:bg-[#282828] border border-neutral-200 dark:border-neutral-700 text-neutral-800 dark:text-neutral-100 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-800 dark:focus:ring-neutral-400"
                   title="Pilih emoji"
                   maxLength={2}
                 />
@@ -2976,10 +3026,10 @@ export default function Dashboard({ onGoToLanding }) {
                   type="text"
                   required
                   maxLength={200}
-                  placeholder="Judul catatan (maks 200 karakter)..."
+                  placeholder={t('dashboard.noteTitlePlaceholder')}
                   value={newNoteTitle}
                   onChange={(e) => setNewNoteTitle(e.target.value)}
-                  className="flex-1 px-3 py-2 text-sm bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-800 font-medium"
+                  className="flex-1 px-3 py-2 text-sm bg-neutral-50 dark:bg-[#282828] border border-neutral-200 dark:border-neutral-700 text-neutral-800 dark:text-neutral-100 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-800 dark:focus:ring-neutral-400 font-medium"
                 />
               </div>
 
@@ -2987,19 +3037,19 @@ export default function Dashboard({ onGoToLanding }) {
                 <textarea
                   rows={4}
                   maxLength={30000}
-                  placeholder="Tulis pemikiran, ringkasan, atau isi catatan Anda..."
+                  placeholder={t('dashboard.noteContentPlaceholder')}
                   value={newNoteContent}
                   onChange={(e) => setNewNoteContent(e.target.value)}
-                  className="w-full px-3 py-2 text-sm bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-800 leading-relaxed"
+                  className="w-full px-3 py-2 text-sm bg-neutral-50 dark:bg-[#282828] border border-neutral-200 dark:border-neutral-700 text-neutral-800 dark:text-neutral-100 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-800 dark:focus:ring-neutral-400 leading-relaxed"
                 />
-                <div className="text-[10px] text-neutral-400 text-right">
+                <div className="text-[10px] text-neutral-400 dark:text-neutral-500 text-right">
                   {newNoteContent.length} / 30.000 karakter
                 </div>
               </div>
 
               {/* Pilihan Lampiran Media */}
-              <div className="p-3 bg-neutral-50 border border-neutral-200/90 rounded-xl space-y-3">
-                <div className="flex items-center space-x-2 pb-2 border-b border-neutral-200">
+              <div className="p-3 bg-neutral-50 dark:bg-[#262626] border border-neutral-200/90 dark:border-neutral-700 rounded-xl space-y-3">
+                <div className="flex items-center space-x-2 pb-2 border-b border-neutral-200 dark:border-neutral-700">
                   <button
                     type="button"
                     onClick={() => {
@@ -3007,7 +3057,7 @@ export default function Dashboard({ onGoToLanding }) {
                       setEmbedLinkInput('');
                     }}
                     className={`text-xs px-2.5 py-1 rounded-md font-medium transition cursor-pointer flex items-center space-x-1.5 ${
-                      mediaMode === 'upload' ? 'bg-white shadow-xs text-neutral-900' : 'text-neutral-500 hover:text-neutral-800'
+                      mediaMode === 'upload' ? 'bg-white dark:bg-[#303030] shadow-xs text-neutral-900 dark:text-neutral-100' : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200'
                     }`}
                   >
                     <Paperclip className="w-3 h-3" />
@@ -3022,7 +3072,7 @@ export default function Dashboard({ onGoToLanding }) {
                       setNoteVideo(null);
                     }}
                     className={`text-xs px-2.5 py-1 rounded-md font-medium transition cursor-pointer flex items-center space-x-1.5 ${
-                      mediaMode === 'embed' ? 'bg-white shadow-xs text-neutral-900' : 'text-neutral-500 hover:text-neutral-800'
+                      mediaMode === 'embed' ? 'bg-white dark:bg-[#303030] shadow-xs text-neutral-900 dark:text-neutral-100' : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200'
                     }`}
                   >
                     <Link className="w-3 h-3" />
@@ -3035,12 +3085,12 @@ export default function Dashboard({ onGoToLanding }) {
                     {/* Galeri Preview Foto Terpilih */}
                     {notePhotos.length > 0 && (
                       <div>
-                        <div className="flex items-center justify-between text-[11px] text-neutral-600 mb-1.5">
+                        <div className="flex items-center justify-between text-[11px] text-neutral-600 dark:text-neutral-300 mb-1.5">
                           <span>Foto Terpilih ({notePhotos.length}/5 foto):</span>
                         </div>
                         <div className="grid grid-cols-5 gap-2">
                           {notePhotos.map((item, idx) => (
-                            <div key={idx} className="relative rounded-lg overflow-hidden border border-neutral-200 h-16 group/item">
+                            <div key={idx} className="relative rounded-lg overflow-hidden border border-neutral-200 dark:border-neutral-700 h-16 group/item">
                               <img src={item.preview} alt="Foto" className="w-full h-full object-cover" />
                               <button
                                 type="button"
@@ -3063,10 +3113,10 @@ export default function Dashboard({ onGoToLanding }) {
 
                     {/* Preview Video Terpilih */}
                     {noteVideo && (
-                      <div className="flex items-center justify-between p-2.5 bg-white rounded-lg border border-neutral-200 text-xs">
+                      <div className="flex items-center justify-between p-2.5 bg-white dark:bg-[#202020] rounded-lg border border-neutral-200 dark:border-neutral-700 text-xs">
                         <div className="flex items-center space-x-2 truncate">
                           <Film className="w-4 h-4 text-emerald-600 shrink-0" />
-                          <span className="truncate font-medium">{noteVideo.name}</span>
+                          <span className="truncate font-medium text-neutral-800 dark:text-neutral-200">{noteVideo.name}</span>
                           <span className="text-[10px] text-neutral-400 font-mono">({noteVideo.size} MB)</span>
                         </div>
                         <button type="button" onClick={removeNoteVideo} className="text-neutral-400 hover:text-red-600">
@@ -3090,10 +3140,10 @@ export default function Dashboard({ onGoToLanding }) {
                           />
                           <label
                             htmlFor="modal-note-photos"
-                            className="text-xs bg-white hover:bg-neutral-100 text-neutral-700 border border-neutral-200 px-3 py-1.5 rounded-lg cursor-pointer transition flex items-center space-x-1.5 shadow-2xs"
+                            className="text-xs bg-white dark:bg-[#282828] hover:bg-neutral-100 dark:hover:bg-[#323232] text-neutral-700 dark:text-neutral-200 border border-neutral-200 dark:border-neutral-700 px-3 py-1.5 rounded-lg cursor-pointer transition flex items-center space-x-1.5 shadow-2xs"
                           >
                             <Image className="w-3.5 h-3.5 text-blue-600" />
-                            <span>+ Tambah Foto ({notePhotos.length}/5)</span>
+                            <span>+ {t('dashboard.uploadPhoto')} ({notePhotos.length}/5)</span>
                           </label>
                         </div>
                       )}
@@ -3110,10 +3160,10 @@ export default function Dashboard({ onGoToLanding }) {
                           />
                           <label
                             htmlFor="modal-note-video"
-                            className="text-xs bg-white hover:bg-neutral-100 text-neutral-700 border border-neutral-200 px-3 py-1.5 rounded-lg cursor-pointer transition flex items-center space-x-1.5 shadow-2xs"
+                            className="text-xs bg-white dark:bg-[#282828] hover:bg-neutral-100 dark:hover:bg-[#323232] text-neutral-700 dark:text-neutral-200 border border-neutral-200 dark:border-neutral-700 px-3 py-1.5 rounded-lg cursor-pointer transition flex items-center space-x-1.5 shadow-2xs"
                           >
                             <Film className="w-3.5 h-3.5 text-emerald-600" />
-                            <span>+ Tambah Video (Maks 1)</span>
+                            <span>+ {t('dashboard.uploadVideo')}</span>
                           </label>
                         </div>
                       )}
@@ -3135,9 +3185,9 @@ export default function Dashboard({ onGoToLanding }) {
                       placeholder="Tempel link Google Drive, YouTube, atau URL gambar..."
                       value={embedLinkInput}
                       onChange={(e) => setEmbedLinkInput(e.target.value)}
-                      className="w-full px-3 py-1.5 text-xs bg-white border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-800"
+                      className="w-full px-3 py-1.5 text-xs bg-white dark:bg-[#282828] border border-neutral-200 dark:border-neutral-700 text-neutral-800 dark:text-neutral-100 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-800 dark:focus:ring-neutral-400"
                     />
-                    <div className="text-[10px] text-neutral-400 leading-relaxed">
+                    <div className="text-[10px] text-neutral-400 dark:text-neutral-500 leading-relaxed">
                       💡 <strong>Tips:</strong> Link Google Drive otomatis diubah ke viewer tanpa memakan kuota storage.
                     </div>
                   </div>
@@ -3145,26 +3195,26 @@ export default function Dashboard({ onGoToLanding }) {
               </div>
 
               {/* Action Buttons */}
-              <div className="flex items-center justify-end space-x-2 pt-2 border-t border-neutral-100">
+              <div className="flex items-center justify-end space-x-2 pt-2 border-t border-neutral-100 dark:border-neutral-800">
                 <button
                   type="button"
                   onClick={clearNoteCreateModal}
-                  className="px-3.5 py-1.5 text-xs font-medium text-neutral-600 hover:bg-neutral-100 rounded-lg transition cursor-pointer"
+                  className="px-3.5 py-1.5 text-xs font-medium text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg transition cursor-pointer"
                 >
-                  Batal
+                  {t('common.cancel')}
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmittingNote || isCompressingNotePhotos || !newNoteTitle.trim()}
-                  className="px-4 py-1.5 text-xs font-medium bg-neutral-900 hover:bg-neutral-800 text-white rounded-lg transition disabled:opacity-50 cursor-pointer flex items-center space-x-1.5"
+                  className="px-4 py-1.5 text-xs font-medium bg-neutral-900 hover:bg-neutral-800 dark:bg-white dark:hover:bg-neutral-100 text-white dark:text-neutral-900 rounded-lg transition disabled:opacity-50 cursor-pointer flex items-center space-x-1.5"
                 >
                   {isSubmittingNote ? (
                     <>
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      <span>Menyimpan...</span>
+                      <span>{t('common.saving')}</span>
                     </>
                   ) : (
-                    <span>Simpan Catatan</span>
+                    <span>{t('dashboard.saveNoteBtn')}</span>
                   )}
                 </button>
               </div>
@@ -3176,36 +3226,36 @@ export default function Dashboard({ onGoToLanding }) {
       {/* MODAL KELOLA STATUS TUGAS */}
       {isStatusManagerOpen && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in">
-          <div className="bg-white border border-neutral-200 rounded-2xl max-w-md w-full p-4 sm:p-6 shadow-xl space-y-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-neutral-100">
+          <div className="bg-white dark:bg-[#202020] border border-neutral-200 dark:border-neutral-800 rounded-2xl max-w-md w-full p-4 sm:p-6 shadow-xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-neutral-100 dark:border-neutral-800">
               <div className="flex items-center space-x-2">
-                <Settings2 className="w-4 h-4 text-neutral-600" />
-                <h3 className="font-semibold text-sm text-neutral-900">Kelola Status Tugas</h3>
+                <Settings2 className="w-4 h-4 text-neutral-600 dark:text-neutral-400" />
+                <h3 className="font-semibold text-sm text-neutral-900 dark:text-neutral-100">{t('dashboard.manageStatusTitle')}</h3>
               </div>
               <button
                 onClick={() => setIsStatusManagerOpen(false)}
-                className="text-neutral-400 hover:text-neutral-600 p-1 rounded-md cursor-pointer"
+                className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 p-1 rounded-md cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <p className="text-xs text-neutral-500">
-              Kustomisasi status alur kerja tugas Anda. Status <strong>Complete</strong> wajib ada dan tidak dapat dihapus.
+            <p className="text-xs text-neutral-500 dark:text-neutral-400">
+              {t('dashboard.manageStatusDesc')}
             </p>
 
             {/* List Status Saat Ini */}
             <div className="space-y-2">
-              <span className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">Daftar Status</span>
+              <span className="text-[11px] font-semibold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider">{t('dashboard.statusList')}</span>
               <div className="space-y-1.5">
                 {taskStatuses.map((s) => (
-                  <div key={s.id} className="flex items-center justify-between p-2.5 bg-neutral-50 rounded-xl border border-neutral-200/70 text-xs">
+                  <div key={s.id} className="flex items-center justify-between p-2.5 bg-neutral-50 dark:bg-[#282828] rounded-xl border border-neutral-200/70 dark:border-neutral-700 text-xs">
                     <div className="flex items-center space-x-2">
                       <span className={`px-2.5 py-0.5 rounded-md font-medium border ${s.color}`}>
                         {s.label}
                       </span>
                       {s.isLocked && (
-                        <span className="text-[10px] text-neutral-400 italic">(Wajib sistem)</span>
+                        <span className="text-[10px] text-neutral-400 dark:text-neutral-500 italic">{t('dashboard.systemRequired')}</span>
                       )}
                     </div>
                     {!s.isLocked && (
@@ -3215,7 +3265,7 @@ export default function Dashboard({ onGoToLanding }) {
                         onClick={() => handleDeleteCustomStatus(s.id)}
                         className={`p-1 transition ${
                           taskStatuses.filter(st => !st.isLocked).length <= 1
-                            ? 'text-neutral-300 cursor-not-allowed'
+                            ? 'text-neutral-300 dark:text-neutral-600 cursor-not-allowed'
                             : 'text-neutral-400 hover:text-red-600 cursor-pointer'
                         }`}
                         title={
@@ -3233,27 +3283,27 @@ export default function Dashboard({ onGoToLanding }) {
             </div>
 
             {/* Tambah Status Baru */}
-            <form onSubmit={handleAddCustomStatus} className="pt-3 border-t border-neutral-100 space-y-3">
-              <span className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider block">Tambah Status Baru</span>
+            <form onSubmit={handleAddCustomStatus} className="pt-3 border-t border-neutral-100 dark:border-neutral-800 space-y-3">
+              <span className="text-[11px] font-semibold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider block">{t('dashboard.addNewStatus')}</span>
               <div className="space-y-2">
                 <input
                   type="text"
-                  placeholder="Nama status baru (misal: On Hold, Testing)..."
+                  placeholder={t('dashboard.newStatusPlaceholder')}
                   maxLength={30}
                   value={newStatusLabel}
                   onChange={(e) => setNewStatusLabel(e.target.value)}
-                  className="w-full px-3 py-1.5 text-xs bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-800"
+                  className="w-full px-3 py-1.5 text-xs bg-neutral-50 dark:bg-[#282828] border border-neutral-200 dark:border-neutral-700 text-neutral-800 dark:text-neutral-100 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-800 dark:focus:ring-neutral-400"
                 />
 
                 <div className="flex items-center space-x-2">
-                  <span className="text-xs text-neutral-500 shrink-0">Warna:</span>
+                  <span className="text-xs text-neutral-500 dark:text-neutral-400 shrink-0">{t('dashboard.colorLabel')}</span>
                   <select
                     value={newStatusColor}
                     onChange={(e) => setNewStatusColor(e.target.value)}
-                    className="flex-1 text-xs bg-neutral-50 border border-neutral-200 rounded-lg p-1.5 focus:outline-none cursor-pointer"
+                    className="flex-1 text-xs bg-neutral-50 dark:bg-[#282828] border border-neutral-200 dark:border-neutral-700 text-neutral-800 dark:text-neutral-200 rounded-lg p-1.5 focus:outline-none cursor-pointer"
                   >
                     {STATUS_COLOR_OPTIONS.map((c, i) => (
-                      <option key={i} value={c.value}>{c.label}</option>
+                      <option key={i} value={c.value} className="dark:bg-[#282828]">{c.label}</option>
                     ))}
                   </select>
                 </div>
@@ -3263,17 +3313,17 @@ export default function Dashboard({ onGoToLanding }) {
                 <button
                   type="button"
                   onClick={handleResetStatuses}
-                  className="text-xs text-neutral-500 hover:text-neutral-800 underline cursor-pointer"
+                  className="text-xs text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200 underline cursor-pointer"
                 >
-                  Reset ke Default
+                  {t('dashboard.resetDefault')}
                 </button>
                 <button
                   type="submit"
                   disabled={!newStatusLabel.trim()}
-                  className="px-3.5 py-1.5 text-xs font-medium bg-neutral-900 hover:bg-neutral-800 text-white rounded-lg transition disabled:opacity-50 cursor-pointer flex items-center space-x-1"
+                  className="px-3.5 py-1.5 text-xs font-medium bg-neutral-900 hover:bg-neutral-800 dark:bg-white dark:hover:bg-neutral-100 text-white dark:text-neutral-900 rounded-lg transition disabled:opacity-50 cursor-pointer flex items-center space-x-1"
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  <span>Tambah Status</span>
+                  <span>{t('dashboard.addStatusBtn')}</span>
                 </button>
               </div>
             </form>

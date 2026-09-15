@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ThemeLanguageProvider } from './context/ThemeLanguageContext';
 import Auth from './components/Auth';
 import Dashboard from './components/Dashboard';
 import LandingPage from './components/LandingPage';
@@ -18,10 +19,10 @@ function AppContent() {
   // Jika pengunjung baru (tidak ada token tersimpan) dan belum login, langsung tampilkan LandingPage tanpa loading page
   if (loading && hasSavedSession) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#FBFBFA]">
+      <div className="min-h-screen flex items-center justify-center bg-[#FBFBFA] dark:bg-[#191919]">
         <div className="flex flex-col items-center space-y-3">
-          <Loader2 className="w-8 h-8 animate-spin text-neutral-500" />
-          <p className="text-xs text-neutral-400 font-medium tracking-wide">Membuka Ersona Workspace...</p>
+          <Loader2 className="w-8 h-8 animate-spin text-neutral-500 dark:text-neutral-400" />
+          <p className="text-xs text-neutral-400 dark:text-neutral-500 font-medium tracking-wide">Membuka Ersona Workspace...</p>
         </div>
       </div>
     );
@@ -57,8 +58,10 @@ function AppContent() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
+    <ThemeLanguageProvider>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
+    </ThemeLanguageProvider>
   );
 }
