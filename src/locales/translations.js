@@ -140,7 +140,7 @@ export const translations = {
 
     // Dashboard
     dashboard: {
-      allTab: 'Semua',
+      allTab: 'Semua Workspace',
       remindersTab: 'Pengingat',
       todosTab: 'To-Do List',
       notesTab: 'Catatan & Media',

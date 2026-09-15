@@ -4,13 +4,13 @@ import { translations } from '../locales/translations';
 const ThemeLanguageContext = createContext();
 
 export function ThemeLanguageProvider({ children }) {
-  // 1. Language State ('id' | 'en')
+  // 1. Language State ('id' | 'en') - Default English
   const [language, setLanguageState] = useState(() => {
     try {
       const saved = localStorage.getItem('ersona_language');
-      return saved === 'en' || saved === 'id' ? saved : 'id';
+      return saved === 'en' || saved === 'id' ? saved : 'en';
     } catch {
-      return 'id';
+      return 'en';
     }
   });
 

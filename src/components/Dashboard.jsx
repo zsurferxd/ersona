@@ -18,33 +18,50 @@ import { parseMediaUrl } from '../utils/embedHelper';
 import SettingsModal from './SettingsModal';
 import { getUserQuotaConfig, calculateUserStorageUsage, formatBytes } from '../utils/storageQuota';
 
+// Helper normalisasi warna status untuk Notion-style Dark Mode
+export const normalizeStatusColor = (color) => {
+  if (!color) return 'bg-neutral-100 text-neutral-700 border-neutral-200 dark:bg-neutral-800/90 dark:text-neutral-300 dark:border-neutral-700';
+
+  // Bersihkan kelas dark: sebelumnya untuk normalisasi konsisten
+  const base = color.replace(/\s*dark:[^\s]+/g, '').trim();
+
+  if (base.includes('blue')) {
+    return 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-800/60';
+  }
+  if (base.includes('purple')) {
+    return 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/60 dark:text-purple-300 dark:border-purple-800/60';
+  }
+  if (base.includes('emerald') || base.includes('green')) {
+    return 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800/60';
+  }
+  if (base.includes('amber') || base.includes('yellow')) {
+    return 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800/60';
+  }
+  if (base.includes('red') || base.includes('rose')) {
+    return 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800/60';
+  }
+  return 'bg-neutral-100 text-neutral-700 border-neutral-200 dark:bg-neutral-800/90 dark:text-neutral-300 dark:border-neutral-700';
+};
+
 export const DEFAULT_TASK_STATUSES = [
-  { id: 'todo', label: 'To Do', color: 'bg-neutral-100 text-neutral-700 border-neutral-200' },
-  { id: 'in_progress', label: 'In Progress', color: 'bg-blue-50 text-blue-700 border-blue-200' },
-  { id: 'review', label: 'Review', color: 'bg-purple-50 text-purple-700 border-purple-200' },
-  { id: 'completed', label: 'Complete', color: 'bg-emerald-50 text-emerald-700 border-emerald-200', isLocked: true },
+  { id: 'todo', label: 'To Do', color: 'bg-neutral-100 text-neutral-700 border-neutral-200 dark:bg-neutral-800/90 dark:text-neutral-300 dark:border-neutral-700' },
+  { id: 'in_progress', label: 'In Progress', color: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-800/60' },
+  { id: 'review', label: 'Review', color: 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/60 dark:text-purple-300 dark:border-purple-800/60' },
+  { id: 'completed', label: 'Complete', color: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800/60', isLocked: true },
 ];
 
 export const STATUS_COLOR_OPTIONS = [
-  { label: 'Abu-abu (Default)', value: 'bg-neutral-100 text-neutral-700 border-neutral-200' },
-  { label: 'Biru (Progress)', value: 'bg-blue-50 text-blue-700 border-blue-200' },
-  { label: 'Ungu (Review)', value: 'bg-purple-50 text-purple-700 border-purple-200' },
-  { label: 'Amber (Menunggu)', value: 'bg-amber-50 text-amber-700 border-amber-200' },
-  { label: 'Merah (Blocked)', value: 'bg-red-50 text-red-700 border-red-200' },
-  { label: 'Emerald (Complete)', value: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  { label: 'Abu-abu (Default)', labelId: 'Abu-abu (Default)', labelEn: 'Gray (Default)', value: 'bg-neutral-100 text-neutral-700 border-neutral-200 dark:bg-neutral-800/90 dark:text-neutral-300 dark:border-neutral-700' },
+  { label: 'Biru (Progress)', labelId: 'Biru (Progress)', labelEn: 'Blue (In Progress)', value: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-800/60' },
+  { label: 'Ungu (Review)', labelId: 'Ungu (Review)', labelEn: 'Purple (Review)', value: 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/60 dark:text-purple-300 dark:border-purple-800/60' },
+  { label: 'Amber (Menunggu)', labelId: 'Amber (Menunggu)', labelEn: 'Amber (Pending)', value: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800/60' },
+  { label: 'Merah (Blocked)', labelId: 'Merah (Blocked)', labelEn: 'Red (Blocked)', value: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800/60' },
+  { label: 'Emerald (Complete)', labelId: 'Emerald (Complete)', labelEn: 'Emerald (Complete)', value: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800/60' },
 ];
 
 const DEFAULT_PREFERENCES = {
   themeColor: 'emerald',
   defaultSort: 'created_desc',
-  customLabels: {
-    trashTab: 'Sampah',
-    remindersTab: 'Pengingat',
-    todosTab: 'To-Do List',
-    notesTab: 'Catatan & Media',
-    moveToTrash: 'Pindahkan ke Tempat Sampah',
-    emptyTrash: 'Kosongkan Sampah',
-  },
 };
 
 export default function Dashboard({ onGoToLanding }) {
@@ -92,15 +109,14 @@ export default function Dashboard({ onGoToLanding }) {
 
   const currentLocale = isEn ? localeEn : localeId;
 
+  // Labels dinamis yang selalu sinkron dengan bahasa aktif (ID/EN)
   const labels = {
-    ...DEFAULT_PREFERENCES.customLabels,
     trashTab: t('dashboard.trashTab'),
     remindersTab: t('dashboard.remindersTab'),
     todosTab: t('dashboard.todosTab'),
     notesTab: t('dashboard.notesTab'),
     moveToTrash: t('dashboard.moveToTrash'),
     emptyTrash: t('dashboard.emptyTrash'),
-    ...(preferences?.customLabels || {}),
   };
 
   // State Pengaturan & Kuota Penyimpanan
@@ -165,10 +181,19 @@ export default function Dashboard({ onGoToLanding }) {
       const saved = localStorage.getItem('ersona_task_statuses') || localStorage.getItem('solist_task_statuses');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (!parsed.some(s => s.id === 'completed')) {
-          parsed.push({ id: 'completed', label: 'Complete', color: 'bg-emerald-50 text-emerald-700 border-emerald-200', isLocked: true });
+        const normalized = parsed.map(s => ({
+          ...s,
+          color: normalizeStatusColor(s.color)
+        }));
+        if (!normalized.some(s => s.id === 'completed')) {
+          normalized.push({ 
+            id: 'completed', 
+            label: 'Complete', 
+            color: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800/60', 
+            isLocked: true 
+          });
         }
-        return parsed;
+        return normalized;
       }
       return DEFAULT_TASK_STATUSES;
     } catch {
@@ -177,9 +202,13 @@ export default function Dashboard({ onGoToLanding }) {
   });
 
   const saveTaskStatuses = (newStatuses) => {
-    setTaskStatuses(newStatuses);
+    const normalized = newStatuses.map(s => ({
+      ...s,
+      color: normalizeStatusColor(s.color)
+    }));
+    setTaskStatuses(normalized);
     try {
-      localStorage.setItem('ersona_task_statuses', JSON.stringify(newStatuses));
+      localStorage.setItem('ersona_task_statuses', JSON.stringify(normalized));
     } catch (e) {
       console.warn('Gagal menyimpan task statuses:', e);
     }
@@ -196,10 +225,14 @@ export default function Dashboard({ onGoToLanding }) {
   };
 
   const getStatusObj = (statusId) => {
-    return taskStatuses.find(s => s.id === statusId) || 
+    const raw = taskStatuses.find(s => s.id === statusId) || 
       taskStatuses.find(s => s.id !== 'completed') || 
       taskStatuses[0] || 
-      { id: 'todo', label: 'To Do', color: 'bg-neutral-100 text-neutral-700 border-neutral-200' };
+      DEFAULT_TASK_STATUSES[0];
+    return {
+      ...raw,
+      color: normalizeStatusColor(raw.color)
+    };
   };
 
   const [taskViewMode, setTaskViewMode] = useState(() => {
@@ -243,7 +276,7 @@ export default function Dashboard({ onGoToLanding }) {
     
     const completedIndex = taskStatuses.findIndex(s => s.id === 'completed');
     const updated = [...taskStatuses];
-    const newStatusObj = { id: newId, label: clean, color: newStatusColor };
+    const newStatusObj = { id: newId, label: clean, color: normalizeStatusColor(newStatusColor) };
     if (completedIndex !== -1) {
       updated.splice(completedIndex, 0, newStatusObj);
     } else {
@@ -255,20 +288,20 @@ export default function Dashboard({ onGoToLanding }) {
 
   const handleDeleteCustomStatus = (statusId) => {
     if (statusId === 'completed') {
-      alert('Status "Complete" adalah status wajib dan tidak dapat dihapus.');
+      alert(isEn ? 'Status "Complete" is a required system status and cannot be deleted.' : 'Status "Complete" adalah status wajib dan tidak dapat dihapus.');
       return;
     }
 
     const remainingActive = taskStatuses.filter(s => s.id !== 'completed' && s.id !== statusId);
     if (remainingActive.length === 0) {
-      alert('Tidak dapat menghapus status ini. Minimal harus ada satu status aktif selain "Complete".');
+      alert(isEn ? 'Cannot delete this status. There must be at least one active status.' : 'Tidak dapat menghapus status ini. Minimal harus ada satu status aktif selain "Complete".');
       return;
     }
 
     const targetStatus = remainingActive[0];
     const statusToDelete = getStatusObj(statusId);
 
-    if (!confirm(`Hapus status "${statusToDelete.label}"? Semua tugas dengan status ini akan otomatis dipindahkan ke status "${targetStatus.label}".`)) {
+    if (!confirm(isEn ? `Delete status "${statusToDelete.label}"? All tasks with this status will be moved to "${targetStatus.label}".` : `Hapus status "${statusToDelete.label}"? Semua tugas dengan status ini akan otomatis dipindahkan ke status "${targetStatus.label}".`)) {
       return;
     }
 
@@ -285,7 +318,7 @@ export default function Dashboard({ onGoToLanding }) {
   };
 
   const handleResetStatuses = () => {
-    if (confirm('Kembalikan status task ke standar (To Do, In Progress, Review, Complete)?')) {
+    if (confirm(isEn ? 'Reset task statuses to default (To Do, In Progress, Review, Complete)?' : 'Kembalikan status task ke standar (To Do, In Progress, Review, Complete)?')) {
       saveTaskStatuses(DEFAULT_TASK_STATUSES);
     }
   };
@@ -1532,7 +1565,7 @@ export default function Dashboard({ onGoToLanding }) {
             {user?.email?.split('@')[0]}
           </span>
           <span className="text-[10px] bg-neutral-200/70 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 px-1.5 py-0.5 rounded font-medium shrink-0">
-            {activeTab === 'reminders' ? labels.remindersTab : activeTab === 'todos' ? labels.todosTab : activeTab === 'notes' ? labels.notesTab : activeTab === 'trash' ? labels.trashTab : (isEn ? 'All' : 'Semua')}
+            {activeTab === 'reminders' ? labels.remindersTab : activeTab === 'todos' ? labels.todosTab : activeTab === 'notes' ? labels.notesTab : activeTab === 'trash' ? labels.trashTab : t('dashboard.allTab')}
           </span>
         </div>
 
@@ -1608,7 +1641,7 @@ export default function Dashboard({ onGoToLanding }) {
               }`}
             >
               <CheckSquare className="w-4 h-4 text-neutral-500" />
-              <span>{isEn ? 'All Workspace' : 'Semua Workspace'}</span>
+              <span>{t('dashboard.allTab')}</span>
             </button>
 
             {/* TAB PENGINGAT (REMINDERS) */}
@@ -1868,7 +1901,7 @@ export default function Dashboard({ onGoToLanding }) {
         {loading ? (
           <div className="py-16 flex flex-col items-center justify-center space-y-2 text-neutral-400">
             <Loader2 className="w-6 h-6 animate-spin text-neutral-600" />
-            <span className="text-xs">Memuat data dari Supabase...</span>
+            <span className="text-xs">{isEn ? 'Loading data from Supabase...' : 'Memuat data dari Supabase...'}</span>
           </div>
         ) : (
           <>
@@ -2262,7 +2295,7 @@ export default function Dashboard({ onGoToLanding }) {
                         >
                           {/* Header Kolom - Pinned di Atas */}
                           <div className="flex items-center space-x-2 px-1 pb-2.5 mb-2 border-b border-neutral-200/60 dark:border-neutral-800 shrink-0">
-                            <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${status.color}`}>
+                            <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${normalizeStatusColor(status.color)}`}>
                               {status.label}
                             </span>
                             <span className="text-xs text-neutral-400 font-mono font-medium">
@@ -2400,7 +2433,7 @@ export default function Dashboard({ onGoToLanding }) {
                       return (
                         <div key={status.id} className="space-y-2">
                           <div className="flex items-center space-x-2 px-1 pb-1.5 border-b border-neutral-200/60 dark:border-neutral-800">
-                            <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${status.color}`}>
+                            <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${normalizeStatusColor(status.color)}`}>
                               {status.label}
                             </span>
                             <span className="text-xs text-neutral-400 font-mono font-medium">({todosInGroup.length})</span>
@@ -2449,10 +2482,10 @@ export default function Dashboard({ onGoToLanding }) {
                       clearNoteCreateModal();
                       setShowNoteModal(true);
                     }}
-                    className="text-xs font-medium text-neutral-700 dark:text-neutral-200 bg-neutral-200/60 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 px-3 py-1.5 rounded-lg flex items-center space-x-1 transition cursor-pointer"
+                    className="text-xs font-medium text-neutral-700 dark:text-neutral-200 bg-neutral-200/60 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 px-3 py-1.5 rounded-lg flex items-center space-x-1.5 transition cursor-pointer"
                   >
                     <Plus className="w-3.5 h-3.5" />
-                    <span>+ {labels.notesTab} {isEn ? 'New' : 'Baru'}</span>
+                    <span>{isEn ? 'New Note & Media' : 'Catatan & Media Baru'}</span>
                   </button>
                 </div>
 
@@ -3251,7 +3284,7 @@ export default function Dashboard({ onGoToLanding }) {
                 {taskStatuses.map((s) => (
                   <div key={s.id} className="flex items-center justify-between p-2.5 bg-neutral-50 dark:bg-[#282828] rounded-xl border border-neutral-200/70 dark:border-neutral-700 text-xs">
                     <div className="flex items-center space-x-2">
-                      <span className={`px-2.5 py-0.5 rounded-md font-medium border ${s.color}`}>
+                      <span className={`px-2.5 py-0.5 rounded-md font-medium border ${normalizeStatusColor(s.color)}`}>
                         {s.label}
                       </span>
                       {s.isLocked && (
@@ -3270,8 +3303,8 @@ export default function Dashboard({ onGoToLanding }) {
                         }`}
                         title={
                           taskStatuses.filter(st => !st.isLocked).length <= 1
-                            ? 'Minimal harus ada satu status aktif'
-                            : `Hapus status ${s.label}`
+                            ? (isEn ? 'At least one active status is required' : 'Minimal harus ada satu status aktif')
+                            : (isEn ? `Delete status ${s.label}` : `Hapus status ${s.label}`)
                         }
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -3303,7 +3336,7 @@ export default function Dashboard({ onGoToLanding }) {
                     className="flex-1 text-xs bg-neutral-50 dark:bg-[#282828] border border-neutral-200 dark:border-neutral-700 text-neutral-800 dark:text-neutral-200 rounded-lg p-1.5 focus:outline-none cursor-pointer"
                   >
                     {STATUS_COLOR_OPTIONS.map((c, i) => (
-                      <option key={i} value={c.value} className="dark:bg-[#282828]">{c.label}</option>
+                      <option key={i} value={c.value} className="dark:bg-[#282828]">{isEn ? c.labelEn : c.labelId}</option>
                     ))}
                   </select>
                 </div>
