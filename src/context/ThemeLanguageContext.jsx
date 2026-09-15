@@ -14,34 +14,62 @@ export function ThemeLanguageProvider({ children }) {
     }
   });
 
-  // 2. Theme State ('light' | 'dark')
-  const [theme, setThemeState] = useState(() => {
+  // Current Scope: 'landing' | 'workspace'
+  const [currentScope, setCurrentScope] = useState('landing');
+
+  // Deteksi tema OS / HP secara realtime
+  const [systemTheme, setSystemTheme] = useState(() => {
+    if (typeof window !== 'undefined' && window.matchMedia) {
+      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    return 'light';
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handler = (e) => setSystemTheme(e.matches ? 'dark' : 'light');
+    mediaQuery.addEventListener('change', handler);
+    return () => mediaQuery.removeEventListener('change', handler);
+  }, []);
+
+  // Landing Page Theme: default 'light'
+  const [landingTheme, setLandingTheme] = useState(() => {
     try {
-      const saved = localStorage.getItem('ersona_theme');
-      if (saved === 'dark' || saved === 'light') return saved;
-      // Fallback ke preferensi OS sistem jika ada
-      if (typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-        return 'dark';
-      }
-      return 'light';
+      const saved = localStorage.getItem('ersona_landing_theme');
+      return saved === 'dark' || saved === 'light' ? saved : 'light';
     } catch {
       return 'light';
     }
   });
 
+  // Workspace Theme: default null (mengikuti tema HP/systemTheme), atau preferensi manual user jika pernah toggle
+  const [workspaceTheme, setWorkspaceTheme] = useState(() => {
+    try {
+      const saved = localStorage.getItem('ersona_workspace_theme');
+      return saved === 'dark' || saved === 'light' ? saved : null;
+    } catch {
+      return null;
+    }
+  });
+
+  // Tema aktif berdasarkan scope saat ini
+  const activeTheme = currentScope === 'workspace'
+    ? (workspaceTheme || systemTheme)
+    : landingTheme;
+
   // Efek sinkronisasi tema dengan class .dark di elemen <html>
   useEffect(() => {
     try {
-      if (theme === 'dark') {
+      if (activeTheme === 'dark') {
         document.documentElement.classList.add('dark');
       } else {
         document.documentElement.classList.remove('dark');
       }
-      localStorage.setItem('ersona_theme', theme);
     } catch (e) {
-      console.warn('Gagal menyimpan tema:', e);
+      console.warn('Gagal sinkronisasi tema:', e);
     }
-  }, [theme]);
+  }, [activeTheme]);
 
   // Efek sinkronisasi bahasa dengan atribut lang di <html>
   useEffect(() => {
@@ -54,13 +82,26 @@ export function ThemeLanguageProvider({ children }) {
   }, [language]);
 
   const setTheme = (newTheme) => {
-    if (newTheme === 'light' || newTheme === 'dark') {
-      setThemeState(newTheme);
+    if (newTheme !== 'light' && newTheme !== 'dark') return;
+    if (currentScope === 'workspace') {
+      setWorkspaceTheme(newTheme);
+      try { localStorage.setItem('ersona_workspace_theme', newTheme); } catch {}
+    } else {
+      setLandingTheme(newTheme);
+      try { localStorage.setItem('ersona_landing_theme', newTheme); } catch {}
     }
   };
 
   const toggleTheme = () => {
-    setThemeState(prev => (prev === 'dark' ? 'light' : 'dark'));
+    if (currentScope === 'workspace') {
+      const next = (workspaceTheme || systemTheme) === 'dark' ? 'light' : 'dark';
+      setWorkspaceTheme(next);
+      try { localStorage.setItem('ersona_workspace_theme', next); } catch {}
+    } else {
+      const next = landingTheme === 'dark' ? 'light' : 'dark';
+      setLandingTheme(next);
+      try { localStorage.setItem('ersona_landing_theme', next); } catch {}
+    }
   };
 
   const setLanguage = (newLang) => {
@@ -122,10 +163,13 @@ export function ThemeLanguageProvider({ children }) {
   return (
     <ThemeLanguageContext.Provider
       value={{
-        theme,
-        isDark: theme === 'dark',
+        theme: activeTheme,
+        isDark: activeTheme === 'dark',
         setTheme,
         toggleTheme,
+        currentScope,
+        setCurrentScope,
+        systemTheme,
         language,
         isEn: language === 'en',
         setLanguage,

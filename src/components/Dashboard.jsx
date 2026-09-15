@@ -1793,7 +1793,7 @@ export default function Dashboard({ onGoToLanding }) {
       </aside>
 
       {/* Konten Utama */}
-      <main className="flex-1 max-w-4xl mx-auto w-full pt-14 md:pt-0 px-3 pb-3 sm:p-6 md:p-10 space-y-4 sm:space-y-6 overflow-y-auto">
+      <main className="flex-1 max-w-4xl mx-auto w-full pt-16 md:pt-8 px-3 pb-6 sm:px-6 md:px-10 space-y-4 sm:space-y-6 overflow-y-auto">
         {/* Search & Header Bar (Desktop Only) */}
         <div className="hidden md:flex flex-row items-center justify-between gap-3">
           <div>
