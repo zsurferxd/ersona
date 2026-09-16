@@ -41,13 +41,23 @@ export const AuthProvider = ({ children }) => {
     return supabase.auth.signInWithPassword({ email, password });
   };
 
+  const signInWithGoogle = () => {
+    if (!isSupabaseConfigured) throw new Error('Supabase belum dikonfigurasi di file .env');
+    return supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/workspace`,
+      },
+    });
+  };
+
   const signOut = () => {
     if (!isSupabaseConfigured) return Promise.resolve();
     return supabase.auth.signOut();
   };
 
   return (
-    <AuthContext.Provider value={{ user, signUp, signIn, signOut, loading, isSupabaseConfigured }}>
+    <AuthContext.Provider value={{ user, signUp, signIn, signInWithGoogle, signOut, loading, isSupabaseConfigured }}>
       {children}
     </AuthContext.Provider>
   );

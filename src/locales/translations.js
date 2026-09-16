@@ -219,6 +219,9 @@ export const translations = {
       notesLabel: 'Catatan Tambahan untuk Tugas Ini',
       notesPlaceholder: 'Tulis catatan detail, nomor tiket, checklist, atau teks bantuan pengingat...',
       photoAttachmentLabel: 'Foto / Lampiran Tugas',
+      subtasksLabel: 'Subtugas & Checklist',
+      subtasksPlaceholder: 'Tambah langkah atau subtugas (tekan Enter)...',
+      addSubtaskBtn: 'Tambah',
       saveChanges: 'Simpan Perubahan',
 
       // Status Manager
@@ -491,6 +494,9 @@ export const translations = {
       notesLabel: 'Additional Notes for this Task',
       notesPlaceholder: 'Write detailed notes, ticket number, checklist, or reminder hints...',
       photoAttachmentLabel: 'Task Photo / Attachment',
+      subtasksLabel: 'Subtasks & Checklist',
+      subtasksPlaceholder: 'Add step or subtask (press Enter)...',
+      addSubtaskBtn: 'Add',
       saveChanges: 'Save Changes',
 
       // Status Manager

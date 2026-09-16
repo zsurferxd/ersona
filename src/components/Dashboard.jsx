@@ -376,6 +376,8 @@ export default function Dashboard({ onGoToLanding }) {
   const [editFilePreview, setEditFilePreview] = useState(null);
   const [isCompressingEditFile, setIsCompressingEditFile] = useState(false);
   const [isUpdatingTodo, setIsUpdatingTodo] = useState(false);
+  const [editSubtasks, setEditSubtasks] = useState([]);
+  const [newSubtaskInput, setNewSubtaskInput] = useState('');
 
   // FORM STATE BUAT CATATAN BARU (MULTI-MEDIA: MAKS 5 FOTO & 1 VIDEO)
   const [showNoteModal, setShowNoteModal] = useState(false);
@@ -817,6 +819,45 @@ export default function Dashboard({ onGoToLanding }) {
     setEditMediaType(todo.media_type || null);
     setEditFile(null);
     setEditFilePreview(null);
+    setEditSubtasks(Array.isArray(todo.subtasks) ? todo.subtasks : []);
+    setNewSubtaskInput('');
+  };
+
+  const handleAddEditSubtask = (e) => {
+    e?.preventDefault();
+    const cleanText = newSubtaskInput.trim();
+    if (!cleanText) return;
+    const newSt = {
+      id: 'st_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 6),
+      title: cleanText,
+      completed: false,
+    };
+    setEditSubtasks(prev => [...prev, newSt]);
+    setNewSubtaskInput('');
+  };
+
+  const handleToggleEditSubtask = (subtaskId) => {
+    setEditSubtasks(prev => prev.map(st => st.id === subtaskId ? { ...st, completed: !st.completed } : st));
+  };
+
+  const handleDeleteEditSubtask = (subtaskId) => {
+    setEditSubtasks(prev => prev.filter(st => st.id !== subtaskId));
+  };
+
+  const handleToggleSubtaskInList = async (todoId, subtaskId, e) => {
+    e?.stopPropagation();
+    const targetTodo = todos.find(t => t.id === todoId);
+    if (!targetTodo) return;
+    const currentSubtasks = Array.isArray(targetTodo.subtasks) ? targetTodo.subtasks : [];
+    const updatedSubtasks = currentSubtasks.map(st => st.id === subtaskId ? { ...st, completed: !st.completed } : st);
+
+    setTodos(prev => prev.map(t => t.id === todoId ? { ...t, subtasks: updatedSubtasks } : t));
+
+    try {
+      await supabase.from('todos').update({ subtasks: updatedSubtasks, updated_at: new Date().toISOString() }).eq('id', todoId);
+    } catch (err) {
+      console.warn('Gagal sinkronisasi subtask:', err);
+    }
   };
 
   const handleUpdateTodo = async (e) => {
@@ -860,6 +901,7 @@ export default function Dashboard({ onGoToLanding }) {
       is_completed: isCompleted,
       media_url: finalMediaUrl,
       media_type: finalMediaType,
+      subtasks: editSubtasks,
       updated_at: new Date().toISOString(),
     };
 
@@ -923,6 +965,7 @@ export default function Dashboard({ onGoToLanding }) {
       is_completed: false,
       media_url: uploadedMediaUrl,
       media_type: uploadedMediaType,
+      subtasks: [],
       workspace_id: activeWorkspaceId || null,
     };
 
@@ -1581,6 +1624,16 @@ export default function Dashboard({ onGoToLanding }) {
               {todo.media_url && (
                 <span title="Tugas ini memiliki lampiran foto" className="text-blue-500 shrink-0">
                   <Image className="w-3.5 h-3.5" />
+                </span>
+              )}
+
+              {Array.isArray(todo.subtasks) && todo.subtasks.length > 0 && (
+                <span 
+                  title={isEn ? `Checklist: ${todo.subtasks.filter(s => s.completed).length}/${todo.subtasks.length} completed` : `Checklist: ${todo.subtasks.filter(s => s.completed).length}/${todo.subtasks.length} selesai`}
+                  className="inline-flex items-center space-x-1 text-[11px] font-medium text-neutral-600 dark:text-neutral-300 bg-neutral-100 dark:bg-neutral-800 px-1.5 py-0.5 rounded shrink-0 border border-neutral-200/60 dark:border-neutral-700/60"
+                >
+                  <CheckSquare className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                  <span>{todo.subtasks.filter(s => s.completed).length}/{todo.subtasks.length}</span>
                 </span>
               )}
             </div>
@@ -2756,6 +2809,32 @@ export default function Dashboard({ onGoToLanding }) {
                                       </p>
                                     )}
 
+                                    {Array.isArray(todo.subtasks) && todo.subtasks.length > 0 && (() => {
+                                      const doneCount = todo.subtasks.filter(s => s.completed).length;
+                                      const totalCount = todo.subtasks.length;
+                                      const pct = Math.round((doneCount / totalCount) * 100);
+                                      return (
+                                        <div 
+                                          onClick={() => openEditTodoModal(todo)}
+                                          className="pl-6 space-y-1 cursor-pointer group/st"
+                                        >
+                                          <div className="flex items-center justify-between text-[10px] text-neutral-500 dark:text-neutral-400">
+                                            <span className="flex items-center space-x-1">
+                                              <CheckSquare className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                                              <span>{isEn ? 'Subtasks' : 'Subtugas'}</span>
+                                            </span>
+                                            <span className="font-medium font-mono">{doneCount}/{totalCount} ({pct}%)</span>
+                                          </div>
+                                          <div className="w-full bg-neutral-100 dark:bg-neutral-800 h-1.5 rounded-full overflow-hidden">
+                                            <div 
+                                              className="bg-emerald-500 h-full rounded-full transition-all duration-300"
+                                              style={{ width: `${pct}%` }}
+                                            />
+                                          </div>
+                                        </div>
+                                      );
+                                    })()}
+
                                     {/* Lampiran Foto */}
                                     {todo.media_url && (
                                       <div 
@@ -3259,6 +3338,101 @@ export default function Dashboard({ onGoToLanding }) {
                 />
                 <div className="text-[10px] text-neutral-400 dark:text-neutral-500 text-right">
                   {editDesc.length} / 2.000 karakter
+                </div>
+              </div>
+
+              {/* SUBTASKS & CHECKLIST */}
+              <div className="space-y-2.5 p-3.5 bg-neutral-50/80 dark:bg-[#262626] rounded-xl border border-neutral-200/80 dark:border-neutral-700">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-medium text-neutral-700 dark:text-neutral-200 flex items-center space-x-1.5">
+                    <CheckSquare className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                    <span>{t('dashboard.subtasksLabel')}</span>
+                  </label>
+                  {editSubtasks.length > 0 && (
+                    <span className="text-[11px] font-medium text-neutral-500 dark:text-neutral-400 font-mono">
+                      {editSubtasks.filter(s => s.completed).length} / {editSubtasks.length} {isEn ? 'done' : 'selesai'}
+                    </span>
+                  )}
+                </div>
+
+                {/* Progress bar */}
+                {editSubtasks.length > 0 && (
+                  <div className="w-full bg-neutral-200 dark:bg-neutral-700 h-1.5 rounded-full overflow-hidden">
+                    <div 
+                      className="bg-emerald-500 h-full transition-all duration-300 rounded-full"
+                      style={{ 
+                        width: `${(editSubtasks.filter(s => s.completed).length / editSubtasks.length) * 100}%` 
+                      }}
+                    />
+                  </div>
+                )}
+
+                {/* Subtask list */}
+                {editSubtasks.length > 0 && (
+                  <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                    {editSubtasks.map((st) => (
+                      <div 
+                        key={st.id} 
+                        className="flex items-center space-x-2 bg-white dark:bg-[#202020] px-2.5 py-1.5 rounded-lg border border-neutral-200/70 dark:border-neutral-700 group/st"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => handleToggleEditSubtask(st.id)}
+                          className="text-neutral-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition cursor-pointer shrink-0"
+                        >
+                          {st.completed ? (
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                          ) : (
+                            <Circle className="w-4 h-4" />
+                          )}
+                        </button>
+                        <span 
+                          onClick={() => handleToggleEditSubtask(st.id)}
+                          className={`text-xs flex-1 cursor-pointer select-none ${
+                            st.completed 
+                              ? 'line-through text-neutral-400 dark:text-neutral-500' 
+                              : 'text-neutral-700 dark:text-neutral-200'
+                          }`}
+                        >
+                          {st.title}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteEditSubtask(st.id)}
+                          className="opacity-0 group-hover/st:opacity-100 text-neutral-400 hover:text-red-500 p-0.5 rounded transition cursor-pointer"
+                          title={isEn ? 'Delete subtask' : 'Hapus subtugas'}
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Add new subtask input */}
+                <div className="flex items-center space-x-1.5 pt-1">
+                  <input
+                    type="text"
+                    value={newSubtaskInput}
+                    onChange={(e) => setNewSubtaskInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddEditSubtask(e);
+                      }
+                    }}
+                    placeholder={t('dashboard.subtasksPlaceholder')}
+                    className="flex-1 px-3 py-1.5 text-xs bg-white dark:bg-[#202020] border border-neutral-200 dark:border-neutral-700 text-neutral-800 dark:text-neutral-100 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-800 dark:focus:ring-neutral-400"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddEditSubtask}
+                    disabled={!newSubtaskInput.trim()}
+                    className="px-3 py-1.5 text-xs font-medium bg-neutral-900 dark:bg-neutral-100 hover:bg-neutral-800 dark:hover:bg-neutral-200 text-white dark:text-neutral-900 rounded-lg transition disabled:opacity-40 cursor-pointer shrink-0 flex items-center space-x-1"
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span>{t('dashboard.addSubtaskBtn')}</span>
+                  </button>
                 </div>
               </div>
 
@@ -4006,6 +4180,9 @@ export default function Dashboard({ onGoToLanding }) {
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
         user={user}
+        todos={todos}
+        notes={notes}
+        workspaces={workspaces}
         storageUsage={storageUsage}
         onRefreshStorage={refreshStorageUsage}
         quotaConfig={quotaConfig}

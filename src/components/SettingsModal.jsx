@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import {
   X, User, HardDrive, CheckCircle2, AlertTriangle,
-  RefreshCw, Sparkles, Mail, Trash2, Sun, Moon, Globe
+  RefreshCw, Sparkles, Mail, Trash2, Sun, Moon, Globe,
+  Download, FileText, Check, Image as ImageIcon, Film
 } from 'lucide-react';
 import { formatBytes } from '../utils/storageQuota';
 import { supabase } from '../lib/supabaseClient';
@@ -16,15 +17,93 @@ export default function SettingsModal({
   quotaConfig,
   onToggleProTier,
   onNavigateToTab,
+  todos = [],
+  notes = [],
+  workspaces = [],
 }) {
   if (!isOpen) return null;
 
   const { theme, setTheme, isDark, language, setLanguage, t } = useThemeLanguage();
+  const isEn = language === 'en';
 
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [resendingEmail, setResendingEmail] = useState(false);
   const [emailSentNotice, setEmailSentNotice] = useState(false);
   const [isUpgrading, setIsUpgrading] = useState(false);
+  const [exportedType, setExportedType] = useState(null);
+
+  // Hitung kuota berbasis kuantitas file (Foto & Video)
+  const photoCount = (todos?.filter(t => t.media_url && t.media_type !== 'video').length || 0) +
+    (notes?.reduce((acc, n) => {
+      let c = 0;
+      if (n.media_url && n.media_type !== 'video') c++;
+      if (Array.isArray(n.media_items)) {
+        c += n.media_items.filter(m => m?.type !== 'video').length;
+      }
+      return acc + c;
+    }, 0) || 0);
+
+  const videoCount = (todos?.filter(t => t.media_type === 'video').length || 0) +
+    (notes?.reduce((acc, n) => {
+      let c = 0;
+      if (n.media_type === 'video') c++;
+      if (Array.isArray(n.media_items)) {
+        c += n.media_items.filter(m => m?.type === 'video').length;
+      }
+      return acc + c;
+    }, 0) || 0);
+
+  const maxPhotos = quotaConfig?.isUpgraded ? 500 : (quotaConfig?.isEmailConfirmed ? 150 : 50);
+  const maxVideos = quotaConfig?.isUpgraded ? 25 : (quotaConfig?.isEmailConfirmed ? 5 : 2);
+
+  // Handler Ekspor Data JSON
+  const handleExportJSON = () => {
+    const exportData = {
+      appName: 'Ersona',
+      exportedAt: new Date().toISOString(),
+      account: { email: user?.email, id: user?.id },
+      todos: todos || [],
+      notes: notes || [],
+      workspaces: workspaces || [],
+    };
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ersona-backup-${new Date().toISOString().substring(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setExportedType('json');
+    setTimeout(() => setExportedType(null), 2500);
+  };
+
+  // Handler Ekspor Data CSV
+  const handleExportCSV = () => {
+    if (!todos || todos.length === 0) {
+      alert(isEn ? 'No tasks to export.' : 'Belum ada tugas untuk diekspor.');
+      return;
+    }
+    const headers = ['Title', 'Status', 'Priority', 'Due Date', 'Reminder Date', 'Completed', 'Created At'];
+    const rows = todos.map(t => [
+      `"${(t.title || '').replace(/"/g, '""')}"`,
+      `"${t.status || (t.is_completed ? 'completed' : 'todo')}"`,
+      `"${t.priority || 'medium'}"`,
+      `"${t.due_date ? t.due_date.substring(0, 10) : ''}"`,
+      `"${t.reminder_date ? t.reminder_date.substring(0, 10) : ''}"`,
+      t.is_completed ? 'TRUE' : 'FALSE',
+      `"${t.created_at ? t.created_at.substring(0, 10) : ''}"`
+    ]);
+    const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ersona-tasks-${new Date().toISOString().substring(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setExportedType('csv');
+    setTimeout(() => setExportedType(null), 2500);
+  };
 
   // Kalkulasi persentase kuota
   const usedBytes = storageUsage || 0;
@@ -264,6 +343,28 @@ export default function SettingsModal({
                 <span>Sisa: <strong className="text-neutral-600 dark:text-neutral-300">{formatBytes(remainingBytes)}</strong></span>
                 <span>Tier: <strong className="text-neutral-700 dark:text-neutral-300">{quotaConfig?.tierName}</strong></span>
               </div>
+
+              {/* Media Count Badges (Foto & Video) */}
+              <div className="grid grid-cols-2 gap-2 pt-2.5 mt-2 border-t border-neutral-100 dark:border-neutral-800">
+                <div className="p-2 rounded-lg bg-neutral-50 dark:bg-[#202020] border border-neutral-200/80 dark:border-neutral-700/80 flex items-center justify-between text-xs">
+                  <div className="flex items-center space-x-1.5 text-neutral-700 dark:text-neutral-300">
+                    <ImageIcon className="w-3.5 h-3.5 text-blue-500" />
+                    <span className="font-medium">{isEn ? 'Photos' : 'Foto'}</span>
+                  </div>
+                  <span className="font-mono font-semibold text-neutral-800 dark:text-neutral-200 text-[11px]">
+                    {photoCount} / {maxPhotos}
+                  </span>
+                </div>
+                <div className="p-2 rounded-lg bg-neutral-50 dark:bg-[#202020] border border-neutral-200/80 dark:border-neutral-700/80 flex items-center justify-between text-xs">
+                  <div className="flex items-center space-x-1.5 text-neutral-700 dark:text-neutral-300">
+                    <Film className="w-3.5 h-3.5 text-purple-500" />
+                    <span className="font-medium">Video</span>
+                  </div>
+                  <span className="font-mono font-semibold text-neutral-800 dark:text-neutral-200 text-[11px]">
+                    {videoCount} / {maxVideos}
+                  </span>
+                </div>
+              </div>
             </div>
 
             {/* Storage Info Tips */}
@@ -345,6 +446,57 @@ export default function SettingsModal({
                     ? t('settings.revertFree')
                     : t('settings.activatePro')}
                 </span>
+              </button>
+            </div>
+          </div>
+
+          {/* 5. DATA BACKUP & EKSPOR */}
+          <div className="p-4 sm:p-5 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-[#252525] space-y-3 shadow-2xs">
+            <div className="flex items-center space-x-2">
+              <Download className="w-4 h-4 text-neutral-700 dark:text-neutral-300" />
+              <h3 className="text-sm font-semibold text-neutral-900 dark:text-white">
+                {isEn ? 'Data Backup & Export' : 'Cadangan & Ekspor Data'}
+              </h3>
+            </div>
+            <p className="text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed">
+              {isEn 
+                ? 'Download a safe local copy of all your tasks, notes, checklists, and workspaces anytime.' 
+                : 'Unduh salinan cadangan seluruh tugas, catatan, checklist, dan ruang kerja Anda secara instan.'}
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+              <button
+                type="button"
+                onClick={handleExportJSON}
+                className="px-3 py-2 bg-neutral-50 dark:bg-[#2c2c2c] hover:bg-neutral-100 dark:hover:bg-[#353535] border border-neutral-200 dark:border-neutral-700 rounded-lg text-xs font-medium text-neutral-800 dark:text-neutral-200 flex items-center justify-center space-x-2 transition cursor-pointer shadow-2xs"
+              >
+                {exportedType === 'json' ? (
+                  <>
+                    <Check className="w-3.5 h-3.5 text-emerald-600" />
+                    <span className="text-emerald-600 font-semibold">{isEn ? 'Downloaded!' : 'Tersimpan!'}</span>
+                  </>
+                ) : (
+                  <>
+                    <FileText className="w-3.5 h-3.5 text-blue-500" />
+                    <span>{isEn ? 'Export All (.json)' : 'Ekspor Lengkap (.json)'}</span>
+                  </>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={handleExportCSV}
+                className="px-3 py-2 bg-neutral-50 dark:bg-[#2c2c2c] hover:bg-neutral-100 dark:hover:bg-[#353535] border border-neutral-200 dark:border-neutral-700 rounded-lg text-xs font-medium text-neutral-800 dark:text-neutral-200 flex items-center justify-center space-x-2 transition cursor-pointer shadow-2xs"
+              >
+                {exportedType === 'csv' ? (
+                  <>
+                    <Check className="w-3.5 h-3.5 text-emerald-600" />
+                    <span className="text-emerald-600 font-semibold">{isEn ? 'Downloaded!' : 'Tersimpan!'}</span>
+                  </>
+                ) : (
+                  <>
+                    <Download className="w-3.5 h-3.5 text-emerald-500" />
+                    <span>{isEn ? 'Export Tasks (.csv)' : 'Ekspor Tugas (.csv)'}</span>
+                  </>
+                )}
               </button>
             </div>
           </div>
