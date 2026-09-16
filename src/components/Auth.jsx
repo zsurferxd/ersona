@@ -8,6 +8,7 @@ export default function Auth({ onBackToHome, initialIsSignUp = false, initialMod
   const [mode, setMode] = useState(() => {
     if (initialMode) return initialMode;
     try {
+      if (sessionStorage.getItem('ersona_auth_action') === 'recovery') return 'reset';
       const params = new URLSearchParams(window.location.search);
       if (params.get('mode') === 'reset' || window.location.hash.includes('type=recovery')) {
         return 'reset';
@@ -23,7 +24,7 @@ export default function Auth({ onBackToHome, initialIsSignUp = false, initialMod
   const [message, setMessage] = useState(null);
   const [error, setError] = useState(null);
 
-  const { signIn, signUp, signInWithGoogle, isSupabaseConfigured } = useAuth();
+  const { signIn, signUp, signInWithGoogle, isSupabaseConfigured, setIsPasswordRecovery } = useAuth();
   const { language, setLanguage, isDark, toggleTheme, t } = useThemeLanguage();
   const isEn = language === 'en';
 
@@ -33,9 +34,15 @@ export default function Auth({ onBackToHome, initialIsSignUp = false, initialMod
       return;
     }
     const handleHash = () => {
-      if (window.location.hash.includes('type=recovery') || window.location.search.includes('mode=reset')) {
-        setMode('reset');
-      }
+      try {
+        if (
+          window.location.hash.includes('type=recovery') || 
+          window.location.search.includes('mode=reset') ||
+          sessionStorage.getItem('ersona_auth_action') === 'recovery'
+        ) {
+          setMode('reset');
+        }
+      } catch {}
     };
     handleHash();
     window.addEventListener('hashchange', handleHash);
@@ -102,9 +109,11 @@ export default function Auth({ onBackToHome, initialIsSignUp = false, initialMod
         if (updateError) throw updateError;
         setMessage(isEn ? 'Password successfully updated! Redirecting to workspace...' : 'Kata sandi berhasil diperbarui! Mengalihkan ke ruang kerja...');
         try {
+          sessionStorage.removeItem('ersona_auth_action');
           window.history.replaceState(null, '', '/workspace');
         } catch {}
         setTimeout(() => {
+          if (setIsPasswordRecovery) setIsPasswordRecovery(false);
           if (onResetSuccess) {
             onResetSuccess();
           } else {
@@ -383,6 +392,10 @@ export default function Auth({ onBackToHome, initialIsSignUp = false, initialMod
             <button
               type="button"
               onClick={() => {
+                try {
+                  sessionStorage.removeItem('ersona_auth_action');
+                } catch {}
+                if (setIsPasswordRecovery) setIsPasswordRecovery(false);
                 setMode('signin');
                 setError(null);
                 setMessage(null);

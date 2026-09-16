@@ -118,6 +118,21 @@ export default function Dashboard({ onGoToLanding }) {
     } catch {}
   };
 
+  const [showVerifiedToast, setShowVerifiedToast] = useState(() => {
+    try {
+      return sessionStorage.getItem('ersona_email_verified_just_now') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const handleDismissVerifiedToast = () => {
+    setShowVerifiedToast(false);
+    try {
+      sessionStorage.removeItem('ersona_email_verified_just_now');
+    } catch {}
+  };
+
   // Preferensi Tampilan & Kustomisasi Teks
   const [preferences, setPreferences] = useState(() => {
     try {
@@ -2507,6 +2522,28 @@ export default function Dashboard({ onGoToLanding }) {
               className="w-full pl-9 pr-3 py-2.5 text-sm bg-white dark:bg-[#232323] border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 rounded-xl focus:outline-none focus:ring-1 focus:ring-neutral-800 dark:focus:ring-neutral-400" />
           </div>
         </div>
+
+        {/* Banner Sukses Verifikasi Email Baru */}
+        {showVerifiedToast && (
+          <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/80 rounded-xl flex items-center justify-between gap-3 text-xs shadow-2xs animate-in fade-in duration-300">
+            <div className="flex items-center space-x-2 text-emerald-800 dark:text-emerald-300 min-w-0">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+              <span className="font-medium">
+                {isEn 
+                  ? '🎉 Email verified successfully! Your account quota has been upgraded to 150 photos & 2 videos.' 
+                  : '🎉 Email berhasil diverifikasi! Kuota akun Anda kini meningkat menjadi 150 foto & 2 video.'}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={handleDismissVerifiedToast}
+              className="p-1 text-emerald-700 hover:text-emerald-900 dark:text-emerald-300 dark:hover:text-emerald-100 rounded-md hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition cursor-pointer shrink-0"
+              title={isEn ? 'Close' : 'Tutup'}
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
 
         {/* Banner Akun Belum Terverifikasi (Limit 50 Foto & 0 Video) */}
         {!quotaConfig.isEmailConfirmed && !quotaConfig.isUpgraded && !isUnverifiedBannerDismissed && (

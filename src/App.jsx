@@ -8,6 +8,9 @@ import { Loader2 } from 'lucide-react';
 
 function getPathView() {
   if (typeof window === 'undefined') return 'landing';
+  try {
+    if (sessionStorage.getItem('ersona_auth_action') === 'recovery') return 'auth';
+  } catch {}
   const path = window.location.pathname.toLowerCase();
   const hash = window.location.hash || '';
   const search = window.location.search || '';
@@ -26,6 +29,17 @@ function AppContent() {
   const [authIsSignUp, setAuthIsSignUp] = useState(false);
   const [explicitLanding, setExplicitLanding] = useState(false);
 
+  // Periksa apakah sedang dalam alur reset password
+  const isRecovery = Boolean(
+    isPasswordRecovery || 
+    (typeof window !== 'undefined' && (
+      window.location.hash.includes('type=recovery') || 
+      window.location.search.includes('mode=reset') ||
+      window.location.search.includes('type=recovery') ||
+      sessionStorage.getItem('ersona_auth_action') === 'recovery'
+    ))
+  );
+
   // Cek apakah ada token session yang tersimpan di localStorage
   const hasSavedSession = typeof window !== 'undefined' && Object.keys(localStorage).some(
     k => k.startsWith('sb-') && k.endsWith('-auth-token')
@@ -35,12 +49,12 @@ function AppContent() {
   useEffect(() => {
     if (loading) return;
 
-    // Jika sedang dalam proses reset kata sandi, jangan arahkan ke workspace!
-    const isRecovery = isPasswordRecovery || 
-      (typeof window !== 'undefined' && (window.location.hash.includes('type=recovery') || window.location.search.includes('mode=reset')));
-
+    // Jika sedang dalam proses reset kata sandi, JANGAN arahkan ke workspace!
     if (isRecovery) {
       setCurrentView('auth');
+      if (window.location.pathname !== '/auth') {
+        window.history.replaceState(null, '', '/auth?mode=reset');
+      }
       return;
     }
 
@@ -57,7 +71,7 @@ function AppContent() {
         window.history.replaceState(null, '', '/');
       }
     }
-  }, [user, loading, explicitLanding, isPasswordRecovery]);
+  }, [user, loading, explicitLanding, isRecovery]);
 
   // Efek sinkronisasi scope tema (Landing = light by default, Workspace = HP/system theme)
   useEffect(() => {
@@ -117,13 +131,16 @@ function AppContent() {
   }
 
   // Jika pengguna memilih form Masuk / Daftar atau sedang reset password
-  if (isPasswordRecovery || currentView === 'auth') {
+  if (isRecovery || currentView === 'auth') {
     return (
       <Auth
         initialIsSignUp={authIsSignUp}
-        initialMode={isPasswordRecovery ? 'reset' : (authIsSignUp ? 'signup' : 'signin')}
+        initialMode={isRecovery ? 'reset' : (authIsSignUp ? 'signup' : 'signin')}
         onBackToHome={handleGoToLanding}
         onResetSuccess={() => {
+          try {
+            sessionStorage.removeItem('ersona_auth_action');
+          } catch {}
           if (setIsPasswordRecovery) setIsPasswordRecovery(false);
           handleGoToDashboard();
         }}

@@ -148,13 +148,16 @@ export default function SettingsModal({
         email: user.email,
         options: {
           shouldCreateUser: false,
-          emailRedirectTo: `${window.location.origin}/workspace`,
+          emailRedirectTo: `${window.location.origin}/workspace?type=email`,
         }
       });
       if (error) {
         const fallback = await supabase.auth.resend({
           type: 'signup',
           email: user.email,
+          options: {
+            emailRedirectTo: `${window.location.origin}/workspace?type=email`,
+          }
         });
         if (fallback.error) throw error;
       }

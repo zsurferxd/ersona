@@ -5,6 +5,9 @@ const AuthContext = createContext({});
 
 const checkIsRecoveryMode = () => {
   if (typeof window === 'undefined') return false;
+  try {
+    if (sessionStorage.getItem('ersona_auth_action') === 'recovery') return true;
+  } catch {}
   const hash = window.location.hash || '';
   const search = window.location.search || '';
   return hash.includes('type=recovery') || search.includes('mode=reset') || search.includes('type=recovery');
@@ -21,9 +24,35 @@ export const AuthProvider = ({ children }) => {
       return;
     }
 
+    // Helper untuk memverifikasi akun jika user datang dari link konfirmasi email
+    const handleAutoVerifyIfPending = async (sessionUser) => {
+      if (!sessionUser) return sessionUser;
+      try {
+        const action = sessionStorage.getItem('ersona_auth_action');
+        if (action === 'verify_email') {
+          sessionStorage.removeItem('ersona_auth_action');
+          const { data, error } = await supabase.auth.updateUser({
+            data: { ersona_verified: true }
+          });
+          if (!error && data?.user) {
+            sessionStorage.setItem('ersona_email_verified_just_now', 'true');
+            sessionStorage.removeItem('ersona_unverified_banner_dismissed');
+            return data.user;
+          }
+        }
+      } catch (err) {
+        console.error('Error auto-verifying user email:', err);
+      }
+      return sessionUser;
+    };
+
     // Ambil session saat pertama kali aplikasi dimuat
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      let activeUser = session?.user ?? null;
+      if (activeUser) {
+        activeUser = await handleAutoVerifyIfPending(activeUser);
+      }
+      setUser(activeUser);
       setLoading(false);
     }).catch((err) => {
       console.error('Error fetching session:', err);
@@ -31,11 +60,20 @@ export const AuthProvider = ({ children }) => {
     });
 
     // Listener realtime untuk event autentikasi (SIGN_IN, SIGN_OUT, PASSWORD_RECOVERY, TOKEN_REFRESHED)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'PASSWORD_RECOVERY') {
         setIsPasswordRecovery(true);
+        try {
+          sessionStorage.setItem('ersona_auth_action', 'recovery');
+        } catch {}
       }
-      setUser(session?.user ?? null);
+
+      let activeUser = session?.user ?? null;
+      if (activeUser) {
+        activeUser = await handleAutoVerifyIfPending(activeUser);
+      }
+
+      setUser(activeUser);
       setLoading(false);
     });
 
@@ -51,7 +89,7 @@ export const AuthProvider = ({ children }) => {
         data: {
           ersona_verified: false,
         },
-        emailRedirectTo: `${window.location.origin}/workspace`,
+        emailRedirectTo: `${window.location.origin}/workspace?type=signup`,
       }
     });
   };
