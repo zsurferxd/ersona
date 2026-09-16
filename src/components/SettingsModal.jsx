@@ -131,15 +131,18 @@ export default function SettingsModal({
     return [];
   };
 
+  // Set ID workspace yang dimiliki oleh user saat ini (Owner)
+  const ownedWsIds = new Set((workspaces || []).filter(w => w.owner_id === user?.id).map(w => w.id));
+
   // Hitung kuota berbasis kuantitas file (Foto & Video)
-  // Scoped ke activeWorkspace jika ada, atau ke personal jika null
+  // Scoped ke activeWorkspace jika ada, atau ke personal + owned workspaces jika null (Opsi 2: Unified Owner Quota)
   const relevantTodos = activeWorkspace 
     ? todos.filter(t => t.workspace_id === activeWorkspace.id)
-    : todos.filter(t => !t.workspace_id);
+    : todos.filter(t => !t.workspace_id || ownedWsIds.has(t.workspace_id));
 
   const relevantNotes = activeWorkspace
     ? notes.filter(n => n.workspace_id === activeWorkspace.id)
-    : notes.filter(n => !n.workspace_id);
+    : notes.filter(n => !n.workspace_id || ownedWsIds.has(n.workspace_id));
 
   const photoCount = (relevantTodos?.filter(t => t.media_url && t.media_type !== 'video' && !t.deleted_at).length || 0) +
     (relevantNotes?.filter(n => !n.deleted_at).reduce((acc, n) => {
@@ -150,6 +153,19 @@ export default function SettingsModal({
     (relevantNotes?.filter(n => !n.deleted_at).reduce((acc, n) => {
       return acc + getNoteItems(n).filter(m => m?.type === 'video').length;
     }, 0) || 0);
+
+  // Rincian pemakaian foto untuk mode pribadi (Pribadi vs Ruang Kerja yang dimiliki)
+  const personalOnlyPhotoCount = (todos?.filter(t => !t.workspace_id && t.media_url && t.media_type !== 'video' && !t.deleted_at).length || 0) +
+    (notes?.filter(n => !n.workspace_id && !n.deleted_at).reduce((acc, n) => {
+      return acc + getNoteItems(n).filter(m => m?.type !== 'video').length;
+    }, 0) || 0);
+  const workspacePhotoCount = Math.max(0, photoCount - personalOnlyPhotoCount);
+
+  const personalOnlyVideoCount = (todos?.filter(t => !t.workspace_id && t.media_url && t.media_type === 'video' && !t.deleted_at).length || 0) +
+    (notes?.filter(n => !n.workspace_id && !n.deleted_at).reduce((acc, n) => {
+      return acc + getNoteItems(n).filter(m => m?.type === 'video').length;
+    }, 0) || 0);
+  const workspaceVideoCount = Math.max(0, videoCount - personalOnlyVideoCount);
 
   const maxPhotos = quotaConfig?.maxPhotos ?? (quotaConfig?.isUpgraded ? 1000 : (quotaConfig?.isEmailConfirmed ? 150 : 50));
   const maxVideos = quotaConfig?.maxVideos ?? (quotaConfig?.isUpgraded ? 5 : (quotaConfig?.isEmailConfirmed ? 2 : 0));
@@ -554,7 +570,11 @@ export default function SettingsModal({
                 />
               </div>
               <div className="flex items-center justify-between text-[10px] text-neutral-400 dark:text-neutral-500 pt-0.5">
-                <span>{isEn ? 'Auto WebP compressor active (~200 KB/photo)' : 'Kompresi WebP otomatis aktif (~200 KB/foto)'}</span>
+                <span>
+                  {!activeWorkspace && workspacePhotoCount > 0
+                    ? (isEn ? `${personalOnlyPhotoCount} personal • ${workspacePhotoCount} in workspaces` : `${personalOnlyPhotoCount} pribadi • ${workspacePhotoCount} di ruang kerja tim`)
+                    : (isEn ? 'Auto WebP compressor active (~200 KB/photo)' : 'Kompresi WebP otomatis aktif (~200 KB/foto)')}
+                </span>
                 <span>{Math.max(0, maxPhotos - photoCount)} {isEn ? 'slots left' : 'tersisa'}</span>
               </div>
             </div>
@@ -580,9 +600,11 @@ export default function SettingsModal({
               </div>
               <div className="flex items-center justify-between text-[10px] text-neutral-400 dark:text-neutral-500 pt-0.5">
                 <span>
-                  {maxVideos === 0 
-                    ? (isEn ? '🔒 Locked: verify email to unlock 2 videos' : '🔒 Terkunci: verifikasi email untuk membuka 2 video') 
-                    : (isEn ? 'Max 15 MB per video/file' : 'Maksimal 15 MB per video/berkas')}
+                  {!activeWorkspace && workspaceVideoCount > 0
+                    ? (isEn ? `${personalOnlyVideoCount} personal • ${workspaceVideoCount} in workspaces` : `${personalOnlyVideoCount} pribadi • ${workspaceVideoCount} di ruang kerja tim`)
+                    : (maxVideos === 0 
+                        ? (isEn ? '🔒 Locked: verify email to unlock 2 videos' : '🔒 Terkunci: verifikasi email untuk membuka 2 video') 
+                        : (isEn ? 'Max 15 MB per video/file' : 'Maksimal 15 MB per video/berkas'))}
                 </span>
                 <span>{maxVideos === 0 ? (isEn ? '0 video' : '0 video') : `${Math.max(0, maxVideos - videoCount)} ${isEn ? 'slots left' : 'tersisa'}`}</span>
               </div>

@@ -241,16 +241,20 @@ export default function Dashboard({ onGoToLanding }) {
     return [];
   };
 
+  // Set ID ruang kerja (workspace) yang dimiliki oleh pengguna saat ini (Owner)
+  const ownedWsIds = new Set((workspaces || []).filter(w => w.owner_id === user?.id).map(w => w.id));
+
   // Item yang dihitung untuk kuota:
   // - Jika berada di workspace tim (activeWorkspaceId != null): hanya hitung item dalam workspace tersebut
-  // - Jika berada di personal (activeWorkspaceId == null): hanya hitung item personal (!workspace_id)
+  // - Jika berada di personal (activeWorkspaceId == null): Opsi 2 (Unified Owner Quota)
+  //   Hitung seluruh item personal (!workspace_id) + seluruh item di workspace yang dimiliki user
   const quotaTodos = activeWorkspaceId 
     ? todos.filter(t => t.workspace_id === activeWorkspaceId)
-    : todos.filter(t => !t.workspace_id);
+    : todos.filter(t => !t.workspace_id || ownedWsIds.has(t.workspace_id));
 
   const quotaNotes = activeWorkspaceId 
     ? notes.filter(n => n.workspace_id === activeWorkspaceId)
-    : notes.filter(n => !n.workspace_id);
+    : notes.filter(n => !n.workspace_id || ownedWsIds.has(n.workspace_id));
 
   const currentPhotoCount = (quotaTodos?.filter(t => t.media_url && t.media_type !== 'video' && !t.deleted_at).length || 0) +
     (quotaNotes?.filter(n => !n.deleted_at).reduce((acc, n) => {
@@ -259,6 +263,17 @@ export default function Dashboard({ onGoToLanding }) {
 
   const currentVideoCount = (quotaTodos?.filter(t => t.media_url && t.media_type === 'video' && !t.deleted_at).length || 0) +
     (quotaNotes?.filter(n => !n.deleted_at).reduce((acc, n) => {
+      return acc + getNoteItems(n).filter(m => m?.type === 'video').length;
+    }, 0) || 0);
+
+  // Total keseluruhan foto/video yang didanai/dimiliki pemilik (Personal + seluruh Workspace milik pemilik)
+  const totalOwnerPhotoCount = (todos?.filter(t => (!t.workspace_id || ownedWsIds.has(t.workspace_id)) && t.media_url && t.media_type !== 'video' && !t.deleted_at).length || 0) +
+    (notes?.filter(n => (!n.workspace_id || ownedWsIds.has(n.workspace_id)) && !n.deleted_at).reduce((acc, n) => {
+      return acc + getNoteItems(n).filter(m => m?.type !== 'video').length;
+    }, 0) || 0);
+
+  const totalOwnerVideoCount = (todos?.filter(t => (!t.workspace_id || ownedWsIds.has(t.workspace_id)) && t.media_url && t.media_type === 'video' && !t.deleted_at).length || 0) +
+    (notes?.filter(n => (!n.workspace_id || ownedWsIds.has(n.workspace_id)) && !n.deleted_at).reduce((acc, n) => {
       return acc + getNoteItems(n).filter(m => m?.type === 'video').length;
     }, 0) || 0);
 
@@ -278,6 +293,7 @@ export default function Dashboard({ onGoToLanding }) {
               : '🔒 Fitur upload video terkunci untuk akun belum terverifikasi.\nSilakan verifikasi email Anda di Pengaturan untuk mendapatkan kuota 2 video, atau upgrade ke Ersona Pro untuk 5 video.'));
         return false;
       }
+      // Validasi batas video pada ruang kerja atau total pemilik
       if (currentVideoCount + count > maxVideos) {
         alert(isEn
           ? (isWs 
@@ -287,6 +303,15 @@ export default function Dashboard({ onGoToLanding }) {
               ? `⚠️ Batas kuota video Ruang Kerja Tim tercapai! (${currentVideoCount} dari ${maxVideos} video terpakai).\nMinta pemilik ruang kerja untuk upgrade ke Ersona Pro atau hapus video lama.` 
               : `⚠️ Batas kuota video tercapai! (${currentVideoCount} dari ${maxVideos} video terpakai).\nUpgrade ke Ersona Pro atau hapus video lama untuk mengunggah.`));
         return false;
+      }
+      if (isWs && currentWorkspace?.owner_id === user?.id) {
+        const ownerConfig = getUserQuotaConfig(user);
+        if (totalOwnerVideoCount + count > ownerConfig.maxVideos) {
+          alert(isEn
+            ? `⚠️ Your account's overall video pool is full (${totalOwnerVideoCount}/${ownerConfig.maxVideos} videos used across personal & owned workspaces).`
+            : `⚠️ Kuota total video akun Anda sudah penuh (${totalOwnerVideoCount}/${ownerConfig.maxVideos} video terpakai di akun pribadi & ruang kerja yang Anda miliki).`);
+          return false;
+        }
       }
       return true;
     }
@@ -301,6 +326,15 @@ export default function Dashboard({ onGoToLanding }) {
             ? `⚠️ Batas kuota foto Ruang Kerja Tim tercapai! (${currentPhotoCount} dari ${maxPhotos} foto terpakai).\nMinta pemilik ruang kerja untuk upgrade ke Ersona Pro (hingga 1.000 foto) atau hapus foto lama.`
             : `⚠️ Batas kuota foto tercapai! (${currentPhotoCount} dari ${maxPhotos} foto terpakai).\n${!quotaConfig.isEmailConfirmed ? 'Verifikasi email Anda di Pengaturan untuk mendapatkan kuota 150 foto, atau upgrade ke Pro untuk 1.000 foto.' : (!quotaConfig.isUpgraded ? 'Upgrade ke Ersona Pro untuk kuota hingga 1.000 foto.' : 'Hapus foto lama untuk menambah ruang.')}`));
       return false;
+    }
+    if (isWs && currentWorkspace?.owner_id === user?.id) {
+      const ownerConfig = getUserQuotaConfig(user);
+      if (totalOwnerPhotoCount + count > ownerConfig.maxPhotos) {
+        alert(isEn
+          ? `⚠️ Your account's overall photo pool is full (${totalOwnerPhotoCount}/${ownerConfig.maxPhotos} photos used across personal & owned workspaces).\nUpgrade to Pro or delete older photos to free up space.`
+          : `⚠️ Kuota total foto akun Anda sudah penuh (${totalOwnerPhotoCount}/${ownerConfig.maxPhotos} foto terpakai di akun pribadi & ruang kerja yang Anda miliki).\nUpgrade ke Ersona Pro atau hapus foto lama untuk menambah ruang.`);
+        return false;
+      }
     }
     return true;
   };
