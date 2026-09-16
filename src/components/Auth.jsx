@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../context/AuthContext';
 import { useThemeLanguage } from '../context/ThemeLanguageContext';
 import { Mail, Lock, ArrowRight, Loader2, AlertTriangle, ArrowLeft, Sun, Moon, KeyRound, CheckCircle2 } from 'lucide-react';
+import BrandLogo from './BrandLogo';
 
 export default function Auth({ onBackToHome, initialIsSignUp = false, initialMode, onResetSuccess }) {
   const [mode, setMode] = useState(() => {
@@ -198,9 +199,7 @@ export default function Auth({ onBackToHome, initialIsSignUp = false, initialMod
 
         {/* Brand Header */}
         <div className="flex items-center space-x-3 mb-6">
-          <div className="w-11 h-11 rounded-xl bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-2xl shadow-inner border border-neutral-200/60 dark:border-neutral-700">
-            🪐
-          </div>
+          <BrandLogo size="md" showText={false} />
           <div>
             <h1 className="text-xl font-bold text-neutral-900 dark:text-white tracking-tight">Ersona</h1>
             <p className="text-xs text-neutral-500 dark:text-neutral-400">{t('auth.tagline')}</p>

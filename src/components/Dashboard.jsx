@@ -9,13 +9,14 @@ import {
   ArrowUpDown, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, ZoomIn, Eye, MessageSquare,
   Edit3, Flag, Check, RotateCcw, AlertTriangle, Film, Settings,
   HardDrive, Flame, Columns3, List, Layers, Settings2, ArrowRight, Menu, Globe,
-  Sun, Moon, Users, UserPlus, Copy, Share2
+  Sun, Moon, Users, UserPlus, UserMinus, Copy, Share2
 } from 'lucide-react';
 import { format, isPast, isToday, parseISO, differenceInDays } from 'date-fns';
 import { id as localeId, enUS as localeEn } from 'date-fns/locale';
 import { compressImage } from '../utils/compressor';
 import { parseMediaUrl } from '../utils/embedHelper';
 import SettingsModal from './SettingsModal';
+import BrandLogo from './BrandLogo';
 import { getUserQuotaConfig, getWorkspaceQuotaConfig, calculateUserStorageUsage, formatBytes } from '../utils/storageQuota';
 import { uploadMediaToR2OrSupabase, deleteMediaByUrl } from '../utils/r2Storage';
 import {
@@ -619,7 +620,7 @@ export default function Dashboard({ onGoToLanding }) {
       let wsList = [];
       const { data, error } = await supabase
         .from('workspaces')
-        .select('id, name, owner_id, invite_code, created_at, is_upgraded, tier, custom_photo_limit')
+        .select('id, name, owner_id, invite_code, created_at, is_upgraded, tier, custom_photo_limit, requires_approval')
         .order('created_at', { ascending: true });
 
       if (!error && data) {
@@ -627,7 +628,7 @@ export default function Dashboard({ onGoToLanding }) {
       } else {
         const fallbackRes = await supabase
           .from('workspaces')
-          .select('id, name, owner_id, invite_code, created_at')
+          .select('id, name, owner_id, invite_code, created_at, is_upgraded, tier, custom_photo_limit')
           .order('created_at', { ascending: true });
         if (!fallbackRes.error && fallbackRes.data) {
           wsList = fallbackRes.data;
@@ -672,14 +673,76 @@ export default function Dashboard({ onGoToLanding }) {
     try {
       const { data, error } = await supabase
         .from('workspace_members')
-        .select('id, user_id, user_email, role, joined_at')
+        .select('id, user_id, user_email, role, status, joined_at')
         .eq('workspace_id', wsId)
         .order('joined_at', { ascending: true });
       if (!error && data) {
         setWorkspaceMembers(data);
+      } else {
+        const fallbackRes = await supabase
+          .from('workspace_members')
+          .select('id, user_id, user_email, role, joined_at')
+          .eq('workspace_id', wsId)
+          .order('joined_at', { ascending: true });
+        if (!fallbackRes.error && fallbackRes.data) {
+          setWorkspaceMembers(fallbackRes.data.map(m => ({ ...m, status: 'active' })));
+        }
       }
     } catch (err) {
       console.warn('Gagal memuat anggota workspace:', err);
+    }
+  };
+
+  // Handler Mengeluarkan / Kick Anggota dari Ruang Kerja Tim
+  const handleKickMember = async (targetUserId) => {
+    if (!currentWorkspace || currentWorkspace.owner_id !== user?.id) return;
+    if (!confirm(t('dashboard.confirmKickMember') || 'Apakah Anda yakin ingin mengeluarkan anggota ini?')) return;
+
+    try {
+      const { error } = await supabase
+        .from('workspace_members')
+        .delete()
+        .eq('workspace_id', currentWorkspace.id)
+        .eq('user_id', targetUserId);
+
+      if (error) throw error;
+      setWorkspaceMembers(prev => prev.filter(m => m.user_id !== targetUserId));
+    } catch (err) {
+      alert('Gagal mengeluarkan anggota: ' + err.message);
+    }
+  };
+
+  // Handler Menyetujui Anggota Baru (Status: pending -> active)
+  const handleApproveMember = async (memberId) => {
+    if (!currentWorkspace || currentWorkspace.owner_id !== user?.id) return;
+
+    try {
+      const { error } = await supabase
+        .from('workspace_members')
+        .update({ status: 'active' })
+        .eq('id', memberId);
+
+      if (error) throw error;
+      setWorkspaceMembers(prev => prev.map(m => m.id === memberId ? { ...m, status: 'active' } : m));
+    } catch (err) {
+      alert('Gagal menyetujui anggota: ' + err.message);
+    }
+  };
+
+  // Handler Toggle Persetujuan Bergabung (Requires Approval)
+  const handleToggleRequiresApproval = async (newVal) => {
+    if (!currentWorkspace || currentWorkspace.owner_id !== user?.id) return;
+
+    try {
+      const { error } = await supabase
+        .from('workspaces')
+        .update({ requires_approval: newVal, updated_at: new Date().toISOString() })
+        .eq('id', currentWorkspace.id);
+
+      if (error) throw error;
+      setWorkspaces(prev => prev.map(w => w.id === currentWorkspace.id ? { ...w, requires_approval: newVal } : w));
+    } catch (err) {
+      alert('Gagal mengubah pengaturan persetujuan: ' + err.message);
     }
   };
 
@@ -1382,6 +1445,12 @@ export default function Dashboard({ onGoToLanding }) {
 
   // 7. EMPTY TRASH
   const handleEmptyTrash = async () => {
+    // Proteksi Keamanan: Anggota tim biasa dilarang mengosongkan tempat sampah bersama
+    if (activeWorkspaceId && currentWorkspace && currentWorkspace.owner_id !== user?.id) {
+      alert(t('dashboard.onlyOwnerEmptyTrash') || 'Hanya pemilik ruang kerja yang dapat mengosongkan tempat sampah.');
+      return;
+    }
+
     if (totalTrashCount === 0) return;
     if (!confirm(`Hapus permanen ${totalTrashCount} item di Tempat Sampah? Tindakan ini TIDAK DAPAT DIBATALKAN.`)) return;
 
@@ -2106,7 +2175,7 @@ export default function Dashboard({ onGoToLanding }) {
 
         {/* Logo + Workspace / Section name */}
         <div className="flex items-center space-x-1.5 ml-1 min-w-0 flex-1">
-          <span className="text-base shrink-0">🪐</span>
+          <BrandLogo size="xs" showText={false} />
           <span className="text-sm font-semibold text-neutral-800 dark:text-neutral-100 truncate max-w-[120px]">
             {currentWorkspace ? currentWorkspace.name : 'Ersona'}
           </span>
@@ -2143,7 +2212,7 @@ export default function Dashboard({ onGoToLanding }) {
             {/* Drawer header */}
             <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-neutral-200/60 dark:border-neutral-800">
               <div className="flex items-center space-x-2">
-                <span className="text-xl">🪐</span>
+                <BrandLogo size="sm" showText={false} />
                 <span className="font-semibold text-sm text-neutral-800 dark:text-neutral-100 truncate max-w-[130px]">
                   {user?.email?.split('@')[0]}
                 </span>
@@ -2361,7 +2430,7 @@ export default function Dashboard({ onGoToLanding }) {
               </div>
               <div className="text-[11px] text-neutral-400 dark:text-neutral-500 flex items-center justify-between px-1">
                 <span>Ersona Workspace</span>
-                <span className="bg-emerald-100 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 px-1.5 py-0.5 rounded text-[10px] font-mono">v1.7</span>
+                <span className="bg-emerald-100 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 px-1.5 py-0.5 rounded text-[10px] font-mono">v1.8</span>
               </div>
             </div>
           </aside>
@@ -2373,7 +2442,7 @@ export default function Dashboard({ onGoToLanding }) {
         <div>
           <div className="flex items-center justify-between pb-4 border-b border-neutral-200/60 dark:border-neutral-800 mb-4">
             <div className="flex items-center space-x-2">
-              <span className="text-xl">🪐</span>
+              <BrandLogo size="sm" showText={false} />
               <span className="font-semibold text-sm text-neutral-800 dark:text-neutral-100 truncate max-w-[130px]">{user?.email?.split('@')[0]}</span>
             </div>
             <button onClick={signOut} title={t('dashboard.signOut')} className="text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 p-1.5 rounded-md hover:bg-neutral-200/50 dark:hover:bg-neutral-800 transition cursor-pointer">
@@ -2542,19 +2611,19 @@ export default function Dashboard({ onGoToLanding }) {
           </div>
           <div className="text-[11px] text-neutral-400 dark:text-neutral-500 flex items-center justify-between px-1">
             <span>Ersona Workspace</span>
-            <span className="bg-emerald-100 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 px-1.5 py-0.5 rounded text-[10px] font-mono">v1.7</span>
+            <span className="bg-emerald-100 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 px-1.5 py-0.5 rounded text-[10px] font-mono">v1.8</span>
           </div>
         </div>
       </aside>
 
       {/* Konten Utama */}
-      <main className="flex-1 max-w-4xl mx-auto w-full pt-16 md:pt-8 px-3 pb-6 sm:px-6 md:px-10 space-y-4 sm:space-y-6 overflow-y-auto">
+      <main className="flex-1 max-w-4xl mx-auto w-full pt-16 md:pt-8 px-4 sm:px-6 md:px-10 space-y-5 sm:space-y-7 overflow-y-auto">
         {/* Search & Header Bar (Desktop Only) */}
         <div className="hidden md:flex flex-row items-center justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100 flex items-center space-x-2">
               <span>{t('dashboard.workspaceTitle')}</span>
-              <span className="text-xs bg-neutral-200 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 px-2 py-0.5 rounded-full font-normal">v1.7</span>
+              <span className="text-xs bg-neutral-200/80 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 px-2.5 py-0.5 rounded-full font-normal">v1.8</span>
             </h1>
             <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">{t('dashboard.workspaceSubtitle')}</p>
           </div>
@@ -2583,52 +2652,66 @@ export default function Dashboard({ onGoToLanding }) {
 
         {/* Banner Sukses Verifikasi Email Baru */}
         {showVerifiedToast && (
-          <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/80 rounded-xl flex items-center justify-between gap-3 text-xs shadow-2xs animate-in fade-in duration-300">
-            <div className="flex items-center space-x-2 text-emerald-800 dark:text-emerald-300 min-w-0">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-              <span className="font-medium">
-                {isEn 
-                  ? '🎉 Email verified successfully! Your account quota has been upgraded to 150 photos & 2 videos.' 
-                  : '🎉 Email berhasil diverifikasi! Kuota akun Anda kini meningkat menjadi 150 foto & 2 video.'}
-              </span>
+          <div className="p-3.5 sm:p-4 bg-gradient-to-r from-emerald-500/10 via-emerald-500/5 to-transparent dark:from-emerald-950/40 dark:via-emerald-950/20 dark:to-transparent border border-emerald-300/80 dark:border-emerald-800/80 rounded-2xl flex items-center justify-between gap-3 text-xs shadow-xs transition-all animate-in fade-in duration-300">
+            <div className="flex items-center space-x-3 text-emerald-900 dark:text-emerald-200 min-w-0">
+              <div className="w-8 h-8 rounded-xl bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 flex items-center justify-center shrink-0 shadow-2xs">
+                <CheckCircle2 className="w-4 h-4" />
+              </div>
+              <div className="min-w-0">
+                <p className="font-semibold text-emerald-950 dark:text-emerald-100">
+                  {isEn ? 'Email Verified Successfully!' : 'Email Berhasil Diverifikasi!'}
+                </p>
+                <p className="text-emerald-800/80 dark:text-emerald-300/80 text-[11px] leading-tight">
+                  {isEn 
+                    ? 'Your account quota has been upgraded to 150 photos & 2 videos.' 
+                    : 'Kuota akun Anda kini meningkat menjadi 150 foto & 2 video.'}
+                </p>
+              </div>
             </div>
             <button
               type="button"
               onClick={handleDismissVerifiedToast}
-              className="p-1 text-emerald-700 hover:text-emerald-900 dark:text-emerald-300 dark:hover:text-emerald-100 rounded-md hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition cursor-pointer shrink-0"
+              className="p-1.5 text-emerald-700 hover:text-emerald-900 dark:text-emerald-300 dark:hover:text-emerald-100 rounded-lg hover:bg-emerald-100/80 dark:hover:bg-emerald-900/50 transition cursor-pointer shrink-0"
               title={isEn ? 'Close' : 'Tutup'}
             >
-              <X className="w-3.5 h-3.5" />
+              <X className="w-4 h-4" />
             </button>
           </div>
         )}
 
         {/* Banner Akun Belum Terverifikasi (Limit 50 Foto & 0 Video) */}
         {!quotaConfig.isEmailConfirmed && !quotaConfig.isUpgraded && !isUnverifiedBannerDismissed && (
-          <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/80 rounded-xl flex items-center justify-between gap-3 text-xs shadow-2xs">
-            <div className="flex items-center space-x-2 text-amber-800 dark:text-amber-300 min-w-0">
-              <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
-              <span className="truncate">
-                {isEn 
-                  ? 'Email not verified (Limit: 50 photos & 0 videos). Verify to unlock 150 photos & 2 videos!' 
-                  : 'Email belum diverifikasi (Batas: 50 foto & 0 video). Verifikasi untuk membuka 150 foto & 2 video!'}
-              </span>
+          <div className="p-3.5 sm:p-4 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent dark:from-amber-950/40 dark:via-amber-950/20 dark:to-transparent border border-amber-300/80 dark:border-amber-800/80 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-xs transition-all animate-in fade-in duration-200">
+            <div className="flex items-center space-x-3 min-w-0">
+              <div className="w-8 h-8 rounded-xl bg-amber-100 dark:bg-amber-900/60 text-amber-700 dark:text-amber-300 flex items-center justify-center shrink-0 shadow-2xs">
+                <AlertTriangle className="w-4 h-4" />
+              </div>
+              <div className="min-w-0">
+                <p className="font-semibold text-amber-950 dark:text-amber-100">
+                  {isEn ? 'Email not verified' : 'Email belum diverifikasi'}
+                </p>
+                <p className="text-amber-800/80 dark:text-amber-300/80 text-[11px] leading-tight truncate">
+                  {isEn 
+                    ? 'Current limit: 50 photos & 0 videos. Verify to unlock 150 photos & 2 videos.' 
+                    : 'Batas saat ini: 50 foto & 0 video. Verifikasi untuk membuka 150 foto & 2 video.'}
+                </p>
+              </div>
             </div>
-            <div className="flex items-center space-x-1.5 shrink-0">
+            <div className="flex items-center space-x-2 self-end sm:self-auto shrink-0">
               <button
                 type="button"
                 onClick={() => setIsSettingsOpen(true)}
-                className="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-medium text-xs transition cursor-pointer"
+                className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-medium text-xs transition cursor-pointer shadow-2xs active:scale-[0.98]"
               >
                 {isEn ? 'Verify' : 'Verifikasi'}
               </button>
               <button
                 type="button"
                 onClick={handleDismissUnverifiedBanner}
-                className="p-1 text-amber-700 hover:text-amber-900 dark:text-amber-300 dark:hover:text-amber-100 rounded-md hover:bg-amber-100 dark:hover:bg-amber-900/50 transition cursor-pointer"
+                className="p-1.5 text-amber-700 hover:text-amber-900 dark:text-amber-300 dark:hover:text-amber-100 rounded-lg hover:bg-amber-100/80 dark:hover:bg-amber-900/50 transition cursor-pointer"
                 title={isEn ? 'Dismiss for this session' : 'Tutup pemberitahuan'}
               >
-                <X className="w-3.5 h-3.5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
           </div>
@@ -2677,11 +2760,13 @@ export default function Dashboard({ onGoToLanding }) {
 
         {/* BANNER PENGINGAT PRIORITAS PALING ATAS */}
         {activeReminders.length > 0 && activeTab !== 'notes' && activeTab !== 'trash' && (
-          <div className="p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200/90 dark:border-amber-800/60 rounded-2xl shadow-xs space-y-2 animate-in fade-in">
+          <div className="p-4 sm:p-5 bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent dark:from-amber-950/40 dark:via-amber-950/20 dark:to-transparent border border-amber-300/80 dark:border-amber-800/80 rounded-2xl shadow-xs space-y-3 animate-in fade-in">
             <div className="flex items-center justify-between flex-wrap gap-2">
-              <div className="flex items-center space-x-2 text-amber-900 dark:text-amber-200 font-semibold text-xs">
-                <Bell className="w-4 h-4 text-amber-600 dark:text-amber-400 animate-bounce" />
-                <span>🔔 {labels.remindersTab} {t('common.active')} ({activeReminders.length} {isEn ? 'tasks need your attention' : 'Tugas Membutuhkan Perhatian Anda'})</span>
+              <div className="flex items-center space-x-2.5 text-amber-950 dark:text-amber-100 font-semibold text-xs">
+                <div className="w-6 h-6 rounded-lg bg-amber-100 dark:bg-amber-900/60 text-amber-700 dark:text-amber-300 flex items-center justify-center shrink-0">
+                  <Bell className="w-3.5 h-3.5 animate-bounce" />
+                </div>
+                <span>{labels.remindersTab} {t('common.active')} ({activeReminders.length} {isEn ? 'tasks need your attention' : 'Tugas Membutuhkan Perhatian Anda'})</span>
               </div>
               <div className="flex items-center space-x-2.5">
                 {isNotificationSupported() && !isNotifActive && (
@@ -2695,7 +2780,7 @@ export default function Dashboard({ onGoToLanding }) {
                         sendTestNotification(isEn);
                       }
                     }}
-                    className="text-[11px] bg-amber-600 hover:bg-amber-700 text-white font-medium px-2 py-0.5 rounded-md transition cursor-pointer shadow-2xs flex items-center space-x-1"
+                    className="text-[11px] bg-amber-600 hover:bg-amber-700 text-white font-medium px-2.5 py-1 rounded-xl transition cursor-pointer shadow-2xs flex items-center space-x-1 active:scale-[0.98]"
                   >
                     <span>🔔</span>
                     <span>{isEn ? 'Enable Notifications' : 'Aktifkan Notifikasi'}</span>
@@ -2710,13 +2795,13 @@ export default function Dashboard({ onGoToLanding }) {
               </div>
             </div>
 
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               {activeReminders.slice(0, 3).map(rem => (
-                <div key={rem.id} className="flex items-center justify-between bg-white/80 dark:bg-[#232323] p-2 rounded-lg border border-amber-200 dark:border-amber-800/50 text-xs">
-                  <div className="flex items-center space-x-2 truncate">
+                <div key={rem.id} className="flex items-center justify-between bg-white/90 dark:bg-[#252525] p-2.5 rounded-xl border border-amber-200/70 dark:border-amber-800/50 text-xs shadow-2xs hover:shadow-xs transition">
+                  <div className="flex items-center space-x-2.5 truncate">
                     <button
                       onClick={() => handleToggleTodo(rem.id, rem.is_completed)}
-                      className="text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 cursor-pointer"
+                      className="text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 cursor-pointer transition"
                     >
                       <Circle className="w-4 h-4" />
                     </button>
@@ -2732,7 +2817,7 @@ export default function Dashboard({ onGoToLanding }) {
                     {rem.due_date && renderDateBadge(rem.due_date)}
                     <button 
                       onClick={() => openEditTodoModal(rem)}
-                      className="text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 p-1"
+                      className="text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 p-1 hover:bg-neutral-100 dark:hover:bg-neutral-700/60 rounded-md transition"
                       title="Edit Tugas"
                     >
                       <Edit3 className="w-3.5 h-3.5" />
@@ -2748,7 +2833,7 @@ export default function Dashboard({ onGoToLanding }) {
         {loading ? (
           <div className="py-16 flex flex-col items-center justify-center space-y-2 text-neutral-400">
             <Loader2 className="w-6 h-6 animate-spin text-neutral-600" />
-            <span className="text-xs">{isEn ? 'Loading data from Supabase...' : 'Memuat data dari Supabase...'}</span>
+            <span className="text-xs">{isEn ? 'Loading workspace...' : 'Memuat ruang kerja...'}</span>
           </div>
         ) : (
           <>
@@ -2768,13 +2853,19 @@ export default function Dashboard({ onGoToLanding }) {
                   </div>
 
                   {totalTrashCount > 0 && (
-                    <button
-                      onClick={handleEmptyTrash}
-                      className="px-3 py-1.5 bg-red-50 dark:bg-red-950/40 hover:bg-red-100 dark:hover:bg-red-900/60 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800 rounded-lg text-xs font-medium transition cursor-pointer flex items-center space-x-1.5 self-start sm:self-auto"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      <span>{labels.emptyTrash}</span>
-                    </button>
+                    activeWorkspaceId && currentWorkspace && currentWorkspace.owner_id !== user?.id ? (
+                      <span className="text-[11px] text-neutral-400 dark:text-neutral-500 italic bg-neutral-100 dark:bg-neutral-800/80 px-2.5 py-1 rounded-lg self-start sm:self-auto border border-neutral-200/60 dark:border-neutral-700/60">
+                        {t('dashboard.onlyOwnerEmptyTrash')}
+                      </span>
+                    ) : (
+                      <button
+                        onClick={handleEmptyTrash}
+                        className="px-3 py-1.5 bg-red-50 dark:bg-red-950/40 hover:bg-red-100 dark:hover:bg-red-900/60 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800 rounded-lg text-xs font-medium transition cursor-pointer flex items-center space-x-1.5 self-start sm:self-auto active:scale-[0.98]"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>{labels.emptyTrash}</span>
+                      </button>
+                    )
                   )}
                 </div>
 
@@ -4518,12 +4609,81 @@ export default function Dashboard({ onGoToLanding }) {
               <span>{t('dashboard.liveSyncActive')}</span>
             </div>
 
-            {/* Daftar Anggota */}
+            {/* Khusus Pemilik: Toggle Perlu Persetujuan Bergabung (Requires Approval) */}
+            {currentWorkspace.owner_id === user.id && (
+              <div className="p-3 bg-neutral-50 dark:bg-[#282828] rounded-xl border border-neutral-200 dark:border-neutral-700 space-y-1.5 shrink-0">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-1.5 text-xs font-semibold text-neutral-800 dark:text-neutral-200">
+                    <ShieldCheck className="w-3.5 h-3.5 text-blue-500" />
+                    <span>{t('dashboard.requiresApproval')}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleToggleRequiresApproval(!currentWorkspace.requires_approval)}
+                    className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
+                      currentWorkspace.requires_approval ? 'bg-neutral-900 dark:bg-white' : 'bg-neutral-300 dark:bg-neutral-700'
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white dark:bg-neutral-900 shadow-sm ring-0 transition duration-200 ease-in-out ${
+                        currentWorkspace.requires_approval ? 'translate-x-4' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+                <p className="text-[11px] text-neutral-500 dark:text-neutral-400 leading-tight">
+                  {t('dashboard.requiresApprovalDesc')}
+                </p>
+              </div>
+            )}
+
+            {/* Khusus Pemilik: Daftar Permintaan Bergabung yang Menunggu Persetujuan */}
+            {currentWorkspace.owner_id === user.id && workspaceMembers.some(m => m.status === 'pending') && (
+              <div className="p-3 bg-amber-50/70 dark:bg-amber-950/40 rounded-xl border border-amber-200/80 dark:border-amber-800/60 space-y-2 shrink-0">
+                <div className="flex items-center space-x-1.5 text-xs font-semibold text-amber-900 dark:text-amber-200">
+                  <Clock className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                  <span>{t('dashboard.pendingApprovals')} ({workspaceMembers.filter(m => m.status === 'pending').length})</span>
+                </div>
+                <div className="space-y-1.5">
+                  {workspaceMembers.filter(m => m.status === 'pending').map(pendingMember => (
+                    <div
+                      key={pendingMember.id}
+                      className="flex items-center justify-between p-2 rounded-lg bg-white dark:bg-[#252525] border border-amber-200/70 dark:border-amber-800/70 text-xs shadow-2xs"
+                    >
+                      <div className="flex items-center space-x-2 truncate">
+                        <div className="w-6 h-6 rounded-full bg-amber-200 dark:bg-amber-800 text-amber-900 dark:text-amber-100 flex items-center justify-center text-[10px] font-bold uppercase shrink-0">
+                          {(pendingMember.user_email || 'U')[0]}
+                        </div>
+                        <span className="text-neutral-800 dark:text-neutral-200 truncate">{pendingMember.user_email || 'User'}</span>
+                      </div>
+                      <div className="flex items-center space-x-1.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handleApproveMember(pendingMember.id)}
+                          className="px-2 py-0.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-medium transition cursor-pointer"
+                        >
+                          {t('dashboard.approveMember')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleKickMember(pendingMember.user_id)}
+                          className="px-2 py-0.5 rounded bg-neutral-200 hover:bg-red-100 dark:bg-neutral-700 dark:hover:bg-red-950/80 text-neutral-700 dark:text-neutral-300 hover:text-red-700 dark:hover:text-red-400 text-[10px] font-medium transition cursor-pointer"
+                        >
+                          {t('dashboard.rejectMember')}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Daftar Anggota Aktif */}
             <div className="flex-1 overflow-y-auto space-y-1.5 min-h-[120px]">
               <div className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400 dark:text-neutral-500 mb-1">
-                {t('dashboard.workspaceMembers')}
+                {t('dashboard.workspaceMembers')} ({workspaceMembers.filter(m => m.status !== 'pending').length})
               </div>
-              {workspaceMembers.map(m => (
+              {workspaceMembers.filter(m => m.status !== 'pending').map(m => (
                 <div key={m.id} className="flex items-center justify-between p-2 rounded-lg bg-neutral-50 dark:bg-[#252525] border border-neutral-100 dark:border-neutral-800 text-xs">
                   <div className="flex items-center space-x-2 truncate">
                     <div className="w-6 h-6 rounded-full bg-neutral-200 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 flex items-center justify-center text-[10px] font-bold uppercase shrink-0">
@@ -4534,13 +4694,26 @@ export default function Dashboard({ onGoToLanding }) {
                       <span className="text-[10px] bg-neutral-200 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300 px-1 rounded font-medium shrink-0">You</span>
                     )}
                   </div>
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium shrink-0 ${
-                    m.role === 'owner' 
-                      ? 'bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300' 
-                      : 'bg-neutral-200 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300'
-                  }`}>
-                    {m.role === 'owner' ? t('dashboard.roleOwner') : t('dashboard.roleMember')}
-                  </span>
+                  <div className="flex items-center space-x-1.5 shrink-0">
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                      m.role === 'owner' 
+                        ? 'bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300' 
+                        : 'bg-neutral-200 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300'
+                    }`}>
+                      {m.role === 'owner' ? t('dashboard.roleOwner') : t('dashboard.roleMember')}
+                    </span>
+                    {/* Tombol Keluarkan / Kick Anggota (Hanya untuk Owner terhadap member lain) */}
+                    {currentWorkspace.owner_id === user.id && m.role !== 'owner' && (
+                      <button
+                        type="button"
+                        onClick={() => handleKickMember(m.user_id)}
+                        className="p-1 rounded-md text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/50 transition cursor-pointer"
+                        title={t('dashboard.kickMember')}
+                      >
+                        <UserMinus className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>

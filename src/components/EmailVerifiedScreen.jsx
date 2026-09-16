@@ -1,6 +1,7 @@
 import React from 'react';
 import { useThemeLanguage } from '../context/ThemeLanguageContext';
 import { CheckCircle2, RotateCcw, ArrowRight, Sun, Moon, Sparkles, Image, Video } from 'lucide-react';
+import BrandLogo from './BrandLogo';
 
 export default function EmailVerifiedScreen({ onRefresh, onContinue }) {
   const { language, setLanguage, isDark, toggleTheme, t } = useThemeLanguage();
@@ -11,10 +12,7 @@ export default function EmailVerifiedScreen({ onRefresh, onContinue }) {
       <div className="w-full max-w-md bg-white dark:bg-[#232323] border border-neutral-200/90 dark:border-neutral-800 rounded-2xl shadow-sm p-6 sm:p-8 transition-all relative">
         {/* Top Controls: Lang & Theme */}
         <div className="flex items-center justify-between pb-3 mb-3 border-b border-neutral-100 dark:border-neutral-800/80">
-          <div className="flex items-center space-x-2">
-            <span className="text-xl">🪐</span>
-            <span className="text-sm font-bold text-neutral-900 dark:text-white tracking-tight">Ersona</span>
-          </div>
+          <BrandLogo size="xs" showText={true} />
 
           <div className="flex items-center space-x-2">
             {/* Lang Switcher */}
