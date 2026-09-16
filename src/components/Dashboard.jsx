@@ -139,7 +139,7 @@ export default function Dashboard({ onGoToLanding }) {
     todosTab: t('dashboard.todosTab'),
     notesTab: t('dashboard.notesTab'),
     moveToTrash: t('dashboard.moveToTrash'),
-    emptyTrash: t('dashboard.emptyTrash'),
+    emptyTrash: t('dashboard.emptyTrashBtn'),
   };
 
   // State Pengaturan & Kuota Penyimpanan
