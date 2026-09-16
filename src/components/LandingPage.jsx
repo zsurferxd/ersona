@@ -254,25 +254,25 @@ export default function LandingPage({ onStartAuth, user, onGoToDashboard }) {
         {/* Browser Mockup Window */}
         <div className="bg-white dark:bg-[#202020] border border-neutral-200/90 dark:border-neutral-800 rounded-2xl shadow-xl overflow-hidden transition-all">
           {/* Top Window Chrome */}
-          <div className="bg-[#F7F6F3] dark:bg-[#1C1C1C] border-b border-neutral-200/70 dark:border-neutral-800 px-4 py-3 flex items-center justify-between gap-3">
+          <div className="bg-[#F7F6F3] dark:bg-[#1C1C1C] border-b border-neutral-200/70 dark:border-neutral-800 px-3 sm:px-4 py-2 sm:py-3 flex items-center justify-between gap-2 sm:gap-3">
             {/* Window Dots */}
-            <div className="flex items-center space-x-1.5">
-              <div className="w-3 h-3 rounded-full bg-red-400/80" />
-              <div className="w-3 h-3 rounded-full bg-amber-400/80" />
-              <div className="w-3 h-3 rounded-full bg-emerald-400/80" />
+            <div className="flex items-center space-x-1.5 shrink-0">
+              <div className="w-2.5 sm:w-3 h-2.5 sm:h-3 rounded-full bg-red-400/80" />
+              <div className="w-2.5 sm:w-3 h-2.5 sm:h-3 rounded-full bg-amber-400/80" />
+              <div className="w-2.5 sm:w-3 h-2.5 sm:h-3 rounded-full bg-emerald-400/80" />
             </div>
 
             {/* Window Title Bar */}
-            <div className="flex-1 max-w-xs mx-auto bg-white dark:bg-[#282828] border border-neutral-200/80 dark:border-neutral-700/80 rounded-lg px-3 py-1 text-center text-xs text-neutral-600 dark:text-neutral-300 select-none flex items-center justify-center space-x-1.5 shadow-2xs font-medium">
+            <div className="hidden sm:flex flex-1 max-w-xs mx-auto bg-white dark:bg-[#282828] border border-neutral-200/80 dark:border-neutral-700/80 rounded-lg px-3 py-1 text-center text-xs text-neutral-600 dark:text-neutral-300 select-none items-center justify-center space-x-1.5 shadow-2xs font-medium">
               <span>🪐 ersona</span>
             </div>
 
             {/* View Mode Switcher: Baris vs Kolom */}
-            <div className="flex items-center bg-neutral-200/70 dark:bg-neutral-800 p-0.5 rounded-lg text-xs">
+            <div className="flex items-center bg-neutral-200/70 dark:bg-neutral-800 p-0.5 rounded-lg text-xs shrink-0">
               <button
                 type="button"
                 onClick={() => setPreviewMode('list')}
-                className={`flex items-center space-x-1 px-2.5 py-1 rounded-md font-medium transition cursor-pointer ${
+                className={`flex items-center space-x-1 px-2 sm:px-2.5 py-1 rounded-md font-medium transition cursor-pointer text-[11px] sm:text-xs ${
                   previewMode === 'list'
                     ? 'bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white shadow-2xs font-semibold'
                     : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
@@ -284,7 +284,7 @@ export default function LandingPage({ onStartAuth, user, onGoToDashboard }) {
               <button
                 type="button"
                 onClick={() => setPreviewMode('board')}
-                className={`flex items-center space-x-1 px-2.5 py-1 rounded-md font-medium transition cursor-pointer ${
+                className={`flex items-center space-x-1 px-2 sm:px-2.5 py-1 rounded-md font-medium transition cursor-pointer text-[11px] sm:text-xs ${
                   previewMode === 'board'
                     ? 'bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white shadow-2xs font-semibold'
                     : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
@@ -297,9 +297,9 @@ export default function LandingPage({ onStartAuth, user, onGoToDashboard }) {
           </div>
 
           {/* Window Body (Workspace Preview) */}
-          <div className="p-4 sm:p-6 bg-[#FBFBFA] dark:bg-[#191919] space-y-4">
+          <div className="p-3.5 sm:p-6 bg-[#FBFBFA] dark:bg-[#191919] space-y-3.5 sm:space-y-4">
             {/* Mockup Toolbar Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-neutral-200/80 dark:border-neutral-800">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 pb-3 border-b border-neutral-200/80 dark:border-neutral-800">
               <div className="flex items-center space-x-2">
                 <span className="text-sm font-semibold text-neutral-800 dark:text-neutral-200">{t('dashboard.todosTab')} & Schedule</span>
                 <span className="text-[11px] font-mono bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 px-2 py-0.5 rounded-full font-medium">
@@ -320,22 +320,22 @@ export default function LandingPage({ onStartAuth, user, onGoToDashboard }) {
               <div className="text-xs text-neutral-400 dark:text-neutral-500 font-medium select-none">
                 {t('landing.preview.quickAddPlaceholder')}
               </div>
-              <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-neutral-100 dark:border-neutral-800 text-[11px] text-neutral-600 dark:text-neutral-400">
-                <div className="flex items-center gap-1.5">
-                  <span className="bg-neutral-50 dark:bg-neutral-800 border border-neutral-200/80 dark:border-neutral-700 px-2 py-0.5 rounded-md flex items-center space-x-1 text-neutral-700 dark:text-neutral-300">
+              <div className="flex items-center justify-between gap-2 pt-1 border-t border-neutral-100 dark:border-neutral-800 text-[11px] text-neutral-600 dark:text-neutral-400 overflow-x-auto no-scrollbar">
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span className="bg-neutral-50 dark:bg-neutral-800 border border-neutral-200/80 dark:border-neutral-700 px-2 py-0.5 rounded-md flex items-center space-x-1 text-neutral-700 dark:text-neutral-300 shrink-0">
                     <Flag className="w-2.5 h-2.5 text-neutral-400" />
                     <span>{t('landing.preview.urgentChip')}</span>
                   </span>
-                  <span className="bg-neutral-50 dark:bg-neutral-800 border border-neutral-200/80 dark:border-neutral-700 px-2 py-0.5 rounded-md flex items-center space-x-1 text-neutral-700 dark:text-neutral-300">
+                  <span className="bg-neutral-50 dark:bg-neutral-800 border border-neutral-200/80 dark:border-neutral-700 px-2 py-0.5 rounded-md flex items-center space-x-1 text-neutral-700 dark:text-neutral-300 shrink-0">
                     <Calendar className="w-2.5 h-2.5 text-neutral-400" />
                     <span>18 Sep 2026</span>
                   </span>
-                  <span className="bg-neutral-50 dark:bg-neutral-800 border border-neutral-200/80 dark:border-neutral-700 px-2 py-0.5 rounded-md flex items-center space-x-1 text-neutral-600 dark:text-neutral-400">
+                  <span className="hidden sm:flex bg-neutral-50 dark:bg-neutral-800 border border-neutral-200/80 dark:border-neutral-700 px-2 py-0.5 rounded-md items-center space-x-1 text-neutral-600 dark:text-neutral-400 shrink-0">
                     <Paperclip className="w-2.5 h-2.5 text-neutral-400" />
                     <span>{t('dashboard.advancedOptions')}</span>
                   </span>
                 </div>
-                <div className="bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 text-[10px] font-semibold px-2.5 py-1 rounded-lg shadow-2xs">
+                <div className="bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 text-[10px] font-semibold px-2.5 py-1 rounded-lg shadow-2xs shrink-0">
                   {t('landing.preview.saveTask')}
                 </div>
               </div>
@@ -344,81 +344,102 @@ export default function LandingPage({ onStartAuth, user, onGoToDashboard }) {
             {/* Tampilan Sesuai Mode: Kolom (Board) vs Baris (List) */}
             {previewMode === 'board' ? (
               /* PREVIEW KANBAN BOARD */
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
-                {previewStatuses.map(status => {
-                  const tasksInCol = previewTasks.filter(t => t.status === status.id);
-                  return (
-                    <div key={status.id} className="bg-[#F7F6F3] dark:bg-[#202020] border border-neutral-200/80 dark:border-neutral-800 rounded-2xl p-3 flex flex-col min-h-[310px] shadow-2xs">
-                      {/* Header Kolom */}
-                      <div className="flex items-center justify-between pb-2 mb-2 border-b border-neutral-200/60 dark:border-neutral-800">
-                        <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold border ${status.color}`}>
-                          {status.label}
-                        </span>
-                        <span className="text-xs text-neutral-400 dark:text-neutral-500 font-mono font-medium">({status.count})</span>
-                      </div>
+              <div className="space-y-2.5 pt-1">
+                {/* Petunjuk swipe di layar mobile */}
+                <div className="sm:hidden flex items-center justify-between text-[11px] text-neutral-400 dark:text-neutral-500 px-1">
+                  <span className="flex items-center space-x-1">
+                    <span>👉</span>
+                    <span>{isEn ? 'Swipe horizontally to view all stages' : 'Geser ke samping untuk melihat semua tahap'}</span>
+                  </span>
+                  <span className="font-mono bg-neutral-100 dark:bg-neutral-800 px-1.5 py-0.5 rounded text-[10px]">4 {isEn ? 'columns' : 'kolom'}</span>
+                </div>
 
-                      {/* Kartu-Kartu Tugas dalam Kolom */}
-                      <div className="space-y-2.5 flex-1">
-                        {tasksInCol.map(task => (
-                          <div
-                            key={task.id}
-                            className={`bg-white dark:bg-[#282828] border rounded-xl p-3 shadow-2xs space-y-2 select-none ${
-                              task.completed ? 'border-neutral-200/60 dark:border-neutral-800 opacity-75' : 'border-neutral-200/90 dark:border-neutral-700/80'
-                            }`}
-                          >
-                            {/* Card Top: Prioritas Badge */}
-                            <div className="flex items-center justify-between">
-                              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md border ${task.priorityColor}`}>
-                                {task.priorityLabel}
-                              </span>
-                              <span className="text-[10px] text-neutral-400 dark:text-neutral-500 font-mono font-medium">
-                                #{task.id}
-                              </span>
+                {/* Kolom Papan: Horizontal Swipeable di Mobile, Grid Rapi di Desktop */}
+                <div className="flex sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-3 overflow-x-auto pb-2 no-scrollbar scroll-smooth snap-x snap-mandatory">
+                  {previewStatuses.map(status => {
+                    const tasksInCol = previewTasks.filter(t => t.status === status.id);
+                    return (
+                      <div
+                        key={status.id}
+                        className="w-[260px] sm:w-auto shrink-0 snap-start bg-[#F7F6F3] dark:bg-[#202020] border border-neutral-200/80 dark:border-neutral-800 rounded-2xl p-3 flex flex-col min-h-[290px] shadow-2xs transition-all hover:border-neutral-300 dark:hover:border-neutral-700"
+                      >
+                        {/* Header Kolom */}
+                        <div className="flex items-center justify-between pb-2 mb-2 border-b border-neutral-200/60 dark:border-neutral-800">
+                          <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold border ${status.color}`}>
+                            {status.label}
+                          </span>
+                          <span className="text-xs text-neutral-400 dark:text-neutral-500 font-mono font-medium">({tasksInCol.length})</span>
+                        </div>
+
+                        {/* Kartu-Kartu Tugas dalam Kolom */}
+                        <div className="space-y-2.5 flex-1">
+                          {tasksInCol.length === 0 ? (
+                            <div className="h-24 rounded-xl border border-dashed border-neutral-200 dark:border-neutral-800 flex items-center justify-center text-[11px] text-neutral-400 dark:text-neutral-500">
+                              {isEn ? 'No tasks yet' : 'Belum ada tugas'}
                             </div>
+                          ) : (
+                            tasksInCol.map(task => (
+                              <div
+                                key={task.id}
+                                className={`bg-white dark:bg-[#282828] border rounded-xl p-3 shadow-2xs space-y-2 select-none transition hover:shadow-xs ${
+                                  task.completed ? 'border-neutral-200/60 dark:border-neutral-800 opacity-75' : 'border-neutral-200/90 dark:border-neutral-700/80'
+                                }`}
+                              >
+                                {/* Card Top: Prioritas Badge */}
+                                <div className="flex items-center justify-between">
+                                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md border ${task.priorityColor}`}>
+                                    {task.priorityLabel}
+                                  </span>
+                                  <span className="text-[10px] text-neutral-400 dark:text-neutral-500 font-mono font-medium">
+                                    #{task.id}
+                                  </span>
+                                </div>
 
-                            {/* Card Title & Checkbox */}
-                            <div className="flex items-start space-x-2">
-                              <div className="mt-0.5 shrink-0 text-neutral-400 dark:text-neutral-500">
-                                {task.completed ? (
-                                  <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                                ) : (
-                                  <Circle className="w-4 h-4" />
+                                {/* Card Title & Checkbox */}
+                                <div className="flex items-start space-x-2">
+                                  <div className="mt-0.5 shrink-0 text-neutral-400 dark:text-neutral-500">
+                                    {task.completed ? (
+                                      <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                                    ) : (
+                                      <Circle className="w-4 h-4" />
+                                    )}
+                                  </div>
+                                  <p className={`text-xs font-semibold leading-snug ${
+                                    task.completed ? 'line-through text-neutral-400 dark:text-neutral-500' : 'text-neutral-800 dark:text-neutral-200'
+                                  }`}>
+                                    {task.title}
+                                  </p>
+                                </div>
+
+                                {/* Contoh Lampiran Gambar Mini */}
+                                {task.hasImage && (
+                                  <div className="h-14 rounded-lg bg-neutral-100 dark:bg-neutral-800/80 border border-neutral-200/70 dark:border-neutral-700/80 flex items-center justify-center text-[10px] text-neutral-500 dark:text-neutral-400 space-x-1 font-medium">
+                                    <Paperclip className="w-3 h-3 text-neutral-400" />
+                                    <span>Preview_Foto.jpg</span>
+                                  </div>
                                 )}
-                              </div>
-                              <p className={`text-xs font-semibold leading-snug ${
-                                task.completed ? 'line-through text-neutral-400 dark:text-neutral-500' : 'text-neutral-800 dark:text-neutral-200'
-                              }`}>
-                                {task.title}
-                              </p>
-                            </div>
 
-                            {/* Contoh Lampiran Gambar Mini */}
-                            {task.hasImage && (
-                              <div className="h-16 rounded-lg bg-neutral-100 dark:bg-neutral-800 border border-neutral-200/70 dark:border-neutral-700 flex items-center justify-center text-[10px] text-neutral-500 dark:text-neutral-400 space-x-1">
-                                <Paperclip className="w-3 h-3 text-neutral-400" />
-                                <span>Preview_Foto_Lampiran.jpg</span>
+                                {/* Card Footer: Due Date & Reminder */}
+                                <div className="flex items-center justify-between pt-1 border-t border-neutral-100 dark:border-neutral-800 text-[10px] text-neutral-500 dark:text-neutral-400">
+                                  <div className="flex items-center space-x-1 font-mono">
+                                    <Calendar className="w-2.5 h-2.5 text-neutral-400" />
+                                    <span>{task.date}</span>
+                                  </div>
+                                  {task.reminder && (
+                                    <span className="bg-amber-100/70 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 px-1.5 py-0.2 rounded font-semibold flex items-center space-x-0.5 text-[9px]">
+                                      <Bell className="w-2 h-2" />
+                                      <span>{task.reminder}</span>
+                                    </span>
+                                  )}
+                                </div>
                               </div>
-                            )}
-
-                            {/* Card Footer: Due Date & Reminder */}
-                            <div className="flex items-center justify-between pt-1 border-t border-neutral-100 dark:border-neutral-800 text-[10px] text-neutral-500 dark:text-neutral-400">
-                              <div className="flex items-center space-x-1 font-mono">
-                                <Calendar className="w-2.5 h-2.5 text-neutral-400" />
-                                <span>{task.date}</span>
-                              </div>
-                              {task.reminder && (
-                                <span className="bg-amber-100/70 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 px-1.5 py-0.2 rounded font-semibold flex items-center space-x-0.5 text-[9px]">
-                                  <Bell className="w-2 h-2" />
-                                  <span>{task.reminder}</span>
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        ))}
+                            ))
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
             ) : (
               /* PREVIEW BARIS (LIST) */

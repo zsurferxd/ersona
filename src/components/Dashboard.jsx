@@ -259,7 +259,7 @@ export default function Dashboard({ onGoToLanding }) {
   };
 
   const [taskViewMode, setTaskViewMode] = useState(() => {
-    return localStorage.getItem('ersona_task_view_mode') || localStorage.getItem('solist_task_view_mode') || 'list'; // 'list' | 'board'
+    return localStorage.getItem('ersona_task_view_mode') || 'board'; // Default: 'board' (tabel/kolom)
   });
 
   const [isGroupedByStatus, setIsGroupedByStatus] = useState(() => {
