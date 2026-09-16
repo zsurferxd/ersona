@@ -1,4 +1,4 @@
-﻿-- ==============================================================================
+-- ==============================================================================
 -- ERSONA APP - UPGRADE v1.9: SHARED WORKSPACES & TEAM COLLABORATION
 -- ==============================================================================
 -- Jalankan skrip ini di Supabase SQL Editor (Dashboard > SQL Editor > New query)
@@ -108,6 +108,7 @@ USING (
 
 -- 6. PERBARUI KEBIJAKAN RLS PADA TODOS (Mendukung Personal & Shared Workspace)
 DROP POLICY IF EXISTS "Users can view their own todos" ON public.todos;
+DROP POLICY IF EXISTS "Users can view their own todos or shared workspace todos" ON public.todos;
 CREATE POLICY "Users can view their own todos or shared workspace todos" 
 ON public.todos FOR SELECT 
 USING (
@@ -116,6 +117,7 @@ USING (
 );
 
 DROP POLICY IF EXISTS "Users can create their own todos" ON public.todos;
+DROP POLICY IF EXISTS "Users can create their own todos or shared workspace todos" ON public.todos;
 CREATE POLICY "Users can create their own todos or shared workspace todos" 
 ON public.todos FOR INSERT 
 WITH CHECK (
@@ -124,6 +126,7 @@ WITH CHECK (
 );
 
 DROP POLICY IF EXISTS "Users can update their own todos" ON public.todos;
+DROP POLICY IF EXISTS "Users can update their own todos or shared workspace todos" ON public.todos;
 CREATE POLICY "Users can update their own todos or shared workspace todos" 
 ON public.todos FOR UPDATE 
 USING (
@@ -136,6 +139,7 @@ WITH CHECK (
 );
 
 DROP POLICY IF EXISTS "Users can delete their own todos" ON public.todos;
+DROP POLICY IF EXISTS "Users can delete their own todos or shared workspace todos" ON public.todos;
 CREATE POLICY "Users can delete their own todos or shared workspace todos" 
 ON public.todos FOR DELETE 
 USING (
@@ -145,6 +149,7 @@ USING (
 
 -- 7. PERBARUI KEBIJAKAN RLS PADA NOTES (Mendukung Personal & Shared Workspace)
 DROP POLICY IF EXISTS "Users can view their own notes" ON public.notes;
+DROP POLICY IF EXISTS "Users can view their own notes or shared workspace notes" ON public.notes;
 CREATE POLICY "Users can view their own notes or shared workspace notes" 
 ON public.notes FOR SELECT 
 USING (
@@ -153,6 +158,7 @@ USING (
 );
 
 DROP POLICY IF EXISTS "Users can create their own notes" ON public.notes;
+DROP POLICY IF EXISTS "Users can create their own notes or shared workspace notes" ON public.notes;
 CREATE POLICY "Users can create their own notes or shared workspace notes" 
 ON public.notes FOR INSERT 
 WITH CHECK (
@@ -161,6 +167,7 @@ WITH CHECK (
 );
 
 DROP POLICY IF EXISTS "Users can update their own notes" ON public.notes;
+DROP POLICY IF EXISTS "Users can update their own notes or shared workspace notes" ON public.notes;
 CREATE POLICY "Users can update their own notes or shared workspace notes" 
 ON public.notes FOR UPDATE 
 USING (
@@ -173,6 +180,7 @@ WITH CHECK (
 );
 
 DROP POLICY IF EXISTS "Users can delete their own notes" ON public.notes;
+DROP POLICY IF EXISTS "Users can delete their own notes or shared workspace notes" ON public.notes;
 CREATE POLICY "Users can delete their own notes or shared workspace notes" 
 ON public.notes FOR DELETE 
 USING (
