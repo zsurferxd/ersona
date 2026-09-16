@@ -47,16 +47,32 @@ export async function uploadMediaToR2OrSupabase({ file, userId, supabase, folder
   const safeKey = `${folder}/${userId || 'guest'}/${timestamp}-${randomStr}.${fileExt}`;
   const isVideo = file.type.startsWith('video/');
 
-  // 1. Coba unggah ke Cloudflare R2
+  // 1. Dapatkan token autentikasi sesi Supabase aktif
+  let authToken = null;
+  if (supabase?.auth) {
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      authToken = sessionData?.session?.access_token;
+    } catch (tokenErr) {
+      console.warn('Gagal membaca token auth Supabase:', tokenErr);
+    }
+  }
+
+  // 2. Coba unggah ke Cloudflare R2
   try {
     const apiUrl = getR2ApiUrl();
     const uploadEndpoint = `${apiUrl}?key=${encodeURIComponent(safeKey)}`;
 
+    const headers = {
+      'Content-Type': file.type || 'application/octet-stream',
+    };
+    if (authToken) {
+      headers['Authorization'] = `Bearer ${authToken}`;
+    }
+
     const res = await fetch(uploadEndpoint, {
       method: 'POST',
-      headers: {
-        'Content-Type': file.type || 'application/octet-stream',
-      },
+      headers,
       body: file,
     });
 
@@ -68,7 +84,7 @@ export async function uploadMediaToR2OrSupabase({ file, userId, supabase, folder
         url: publicUrl,
         type: isVideo ? 'video' : 'image',
         storage: 'r2',
-        key: safeKey,
+        key: data.key || safeKey,
       };
     } else {
       const errText = await res.text();
@@ -78,7 +94,7 @@ export async function uploadMediaToR2OrSupabase({ file, userId, supabase, folder
     console.warn('Gagal unggah ke Cloudflare R2, mencoba fallback ke Supabase Storage:', r2Err);
   }
 
-  // 2. Fallback: Supabase Storage jika R2 gagal / tidak terjangkau
+  // 3. Fallback: Supabase Storage jika R2 gagal / tidak terjangkau
   if (supabase) {
     const supabasePath = `${userId}/${timestamp}-${randomStr}.${fileExt}`;
     const { data, error } = await supabase.storage.from('attachments').upload(supabasePath, file);
@@ -115,7 +131,21 @@ export async function deleteMediaByUrl(url, supabase) {
       if (key) {
         const apiUrl = getR2ApiUrl();
         const deleteEndpoint = `${apiUrl}?key=${encodeURIComponent(key)}`;
-        await fetch(deleteEndpoint, { method: 'DELETE' });
+
+        let authToken = null;
+        if (supabase?.auth) {
+          try {
+            const { data: sessionData } = await supabase.auth.getSession();
+            authToken = sessionData?.session?.access_token;
+          } catch {}
+        }
+
+        const headers = {};
+        if (authToken) {
+          headers['Authorization'] = `Bearer ${authToken}`;
+        }
+
+        await fetch(deleteEndpoint, { method: 'DELETE', headers });
       }
       return;
     } catch (err) {

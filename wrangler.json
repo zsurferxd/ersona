@@ -13,5 +13,9 @@
       "binding": "BUCKET",
       "bucket_name": "ersona"
     }
-  ]
+  ],
+  "vars": {
+    "SUPABASE_URL": "https://ykbyuwhpwrbsjfwpazty.supabase.co",
+    "SUPABASE_ANON_KEY": "sb_publishable_eTFwmG_i7o0CZYamHiT4OQ_bU-vr5sp"
+  }
 }
