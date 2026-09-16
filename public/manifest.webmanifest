@@ -1,8 +1,8 @@
 {
   "id": "ersona-workspace-pwa",
-  "name": "Ersona — Modern Minimalist Workspace",
+  "name": "Ersona - Your Personal Workspace",
   "short_name": "Ersona",
-  "description": "Manage daily tasks, multimedia notes, Kanban boards, and team collaboration in real-time.",
+  "description": "Personalize your workspace. Manage all your notes, tasks, and daily schedules.",
   "start_url": "/workspace",
   "scope": "/",
   "display": "standalone",

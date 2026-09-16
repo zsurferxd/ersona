@@ -14,6 +14,7 @@ export default function LandingPage({ onStartAuth, user, onGoToDashboard }) {
 
   // State untuk Switcher Tampilan (Daftar vs Papan) di Mockup Interaktif
   const [previewMode, setPreviewMode] = useState('board'); // 'board' | 'list'
+  const [mobileActiveStatus, setMobileActiveStatus] = useState('in_progress');
 
   // Data representasi visual antarmuka Ersona (Clean & Professional)
   const previewTasks = [
@@ -181,13 +182,18 @@ export default function LandingPage({ onStartAuth, user, onGoToDashboard }) {
             <span className="font-semibold text-neutral-900 dark:text-white">{t('landing.hero.badge')}</span>
           </div>
 
-          {/* Slogan Resmi Ersona */}
-          <h1 className="text-3xl sm:text-5xl md:text-6xl font-bold tracking-tight text-neutral-950 dark:text-white leading-[1.12]">
-            {t('landing.hero.title')}
-          </h1>
+          {/* Slogan Resmi: Heading utama 'Ersona', di bawahnya 'Your Personal Workspace' */}
+          <div className="space-y-1.5 sm:space-y-2 pt-1">
+            <h1 className="text-5xl sm:text-7xl md:text-8xl font-black tracking-tight text-neutral-950 dark:text-white leading-none">
+              {t('landing.hero.title')}
+            </h1>
+            <p className="text-2xl sm:text-4xl md:text-5xl font-bold tracking-tight text-neutral-800 dark:text-neutral-200 leading-tight">
+              {t('landing.hero.slogan')}
+            </p>
+          </div>
 
           {/* Deskripsi Resmi Ersona */}
-          <p className="text-sm sm:text-base md:text-lg text-neutral-600 dark:text-neutral-400 max-w-2xl mx-auto leading-relaxed font-normal">
+          <p className="text-sm sm:text-base md:text-lg text-neutral-600 dark:text-neutral-400 max-w-2xl mx-auto leading-relaxed font-normal pt-1">
             {t('landing.hero.subtitle')}
           </p>
 
@@ -310,8 +316,8 @@ export default function LandingPage({ onStartAuth, user, onGoToDashboard }) {
               <div className="text-xs text-neutral-400 dark:text-neutral-500 font-medium select-none">
                 {t('landing.preview.quickAddPlaceholder')}
               </div>
-              <div className="flex items-center justify-between gap-2 pt-1 border-t border-neutral-100 dark:border-neutral-800 text-[11px] text-neutral-600 dark:text-neutral-400">
-                <div className="flex items-center gap-1.5 shrink-0">
+              <div className="flex items-center justify-between gap-2 pt-1 border-t border-neutral-100 dark:border-neutral-800 text-[11px] text-neutral-600 dark:text-neutral-400 flex-wrap">
+                <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="bg-neutral-50 dark:bg-neutral-800 border border-neutral-200/80 dark:border-neutral-700 px-2 py-0.5 rounded-md flex items-center space-x-1 text-neutral-700 dark:text-neutral-300">
                     <Flag className="w-2.5 h-2.5 text-neutral-400" />
                     <span>{t('landing.preview.urgentChip')}</span>
@@ -329,76 +335,173 @@ export default function LandingPage({ onStartAuth, user, onGoToDashboard }) {
 
             {/* Render Mode: Board vs List */}
             {previewMode === 'board' ? (
-              <div className="flex sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-3 overflow-x-auto pb-2 no-scrollbar scroll-smooth snap-x snap-mandatory">
-                {previewStatuses.map(status => {
-                  const tasksInCol = previewTasks.filter(t => t.status === status.id);
-                  return (
-                    <div
-                      key={status.id}
-                      className="w-[260px] sm:w-auto shrink-0 snap-start bg-[#F7F6F3] dark:bg-[#1d1d1d] border border-neutral-200/80 dark:border-neutral-800 rounded-2xl p-3 flex flex-col min-h-[260px] shadow-2xs"
-                    >
-                      <div className="flex items-center justify-between pb-2 mb-2 border-b border-neutral-200/60 dark:border-neutral-800">
-                        <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold border ${status.color}`}>
-                          {status.label}
+              <div className="space-y-3">
+                {/* 1. Mobile Status Filter Pills (sm:hidden) */}
+                <div className="sm:hidden flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
+                  {previewStatuses.map(status => {
+                    const tasksInCol = previewTasks.filter(t => t.status === status.id);
+                    const isActive = mobileActiveStatus === status.id;
+                    return (
+                      <button
+                        key={status.id}
+                        type="button"
+                        onClick={() => setMobileActiveStatus(status.id)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition cursor-pointer flex items-center space-x-1.5 shrink-0 ${
+                          isActive
+                            ? 'bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 shadow-xs'
+                            : 'bg-white dark:bg-[#252525] text-neutral-600 dark:text-neutral-400 border border-neutral-200/80 dark:border-neutral-700/80'
+                        }`}
+                      >
+                        <span>{status.label}</span>
+                        <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                          isActive 
+                            ? 'bg-neutral-700 dark:bg-neutral-200 text-white dark:text-neutral-900' 
+                            : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-500'
+                        }`}>
+                          {tasksInCol.length}
                         </span>
-                        <span className="text-xs text-neutral-400 dark:text-neutral-500 font-mono">({tasksInCol.length})</span>
-                      </div>
+                      </button>
+                    );
+                  })}
+                </div>
 
-                      <div className="space-y-2.5 flex-1">
-                        {tasksInCol.length === 0 ? (
-                          <div className="h-20 rounded-xl border border-dashed border-neutral-200 dark:border-neutral-800 flex items-center justify-center text-[11px] text-neutral-400 dark:text-neutral-500">
-                            {isEn ? 'Empty' : 'Kosong'}
+                {/* 2. Mobile View: Active Status Column (100% full-width, zero horizontal scroll) */}
+                <div className="sm:hidden w-full bg-[#F7F6F3] dark:bg-[#1d1d1d] border border-neutral-200/80 dark:border-neutral-800 rounded-2xl p-3.5 shadow-2xs space-y-3">
+                  <div className="flex items-center justify-between pb-2 border-b border-neutral-200/60 dark:border-neutral-800">
+                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${previewStatuses.find(s => s.id === mobileActiveStatus)?.color}`}>
+                      {previewStatuses.find(s => s.id === mobileActiveStatus)?.label}
+                    </span>
+                    <span className="text-xs text-neutral-400 dark:text-neutral-500 font-mono">
+                      {previewTasks.filter(t => t.status === mobileActiveStatus).length} {t('landing.preview.tasksCount')}
+                    </span>
+                  </div>
+
+                  <div className="space-y-2.5">
+                    {previewTasks.filter(t => t.status === mobileActiveStatus).length === 0 ? (
+                      <div className="h-24 rounded-xl border border-dashed border-neutral-200 dark:border-neutral-800 flex items-center justify-center text-xs text-neutral-400 dark:text-neutral-500">
+                        {isEn ? 'No tasks in this stage' : 'Tidak ada tugas di tahap ini'}
+                      </div>
+                    ) : (
+                      previewTasks.filter(t => t.status === mobileActiveStatus).map(task => (
+                        <div
+                          key={task.id}
+                          className={`bg-white dark:bg-[#252525] border rounded-xl p-3.5 shadow-2xs space-y-2.5 select-none transition hover:shadow-xs ${
+                            task.completed ? 'border-neutral-200/60 dark:border-neutral-800 opacity-75' : 'border-neutral-200/90 dark:border-neutral-700/80'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md border ${task.priorityColor}`}>
+                              {task.priorityLabel}
+                            </span>
+                            <span className="text-[10px] text-neutral-400 dark:text-neutral-500 font-mono">#{task.id}</span>
                           </div>
-                        ) : (
-                          tasksInCol.map(task => (
-                            <div
-                              key={task.id}
-                              className={`bg-white dark:bg-[#252525] border rounded-xl p-3 shadow-2xs space-y-2 select-none transition hover:shadow-xs ${
-                                task.completed ? 'border-neutral-200/60 dark:border-neutral-800 opacity-75' : 'border-neutral-200/90 dark:border-neutral-700/80'
-                              }`}
-                            >
-                              <div className="flex items-center justify-between">
-                                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md border ${task.priorityColor}`}>
-                                  {task.priorityLabel}
-                                </span>
-                                <span className="text-[10px] text-neutral-400 dark:text-neutral-500 font-mono">#{task.id}</span>
-                              </div>
 
-                              <div className="flex items-start space-x-2">
-                                <div className="mt-0.5 shrink-0 text-neutral-400">
-                                  {task.completed ? <CheckCircle2 className="w-4 h-4 text-emerald-600" /> : <Circle className="w-4 h-4" />}
-                                </div>
-                                <p className={`text-xs font-semibold leading-snug ${task.completed ? 'line-through text-neutral-400' : 'text-neutral-800 dark:text-neutral-200'}`}>
-                                  {task.title}
-                                </p>
-                              </div>
-
-                              {task.hasImage && (
-                                <div className="h-12 rounded-lg bg-neutral-100 dark:bg-neutral-800 border border-neutral-200/70 dark:border-neutral-700 flex items-center justify-center text-[10px] text-neutral-500 dark:text-neutral-400 space-x-1.5 font-medium">
-                                  <Paperclip className="w-3 h-3" />
-                                  <span>Media_Attachment.webp</span>
-                                </div>
-                              )}
-
-                              <div className="flex items-center justify-between pt-1 border-t border-neutral-100 dark:border-neutral-800 text-[10px] text-neutral-400">
-                                <div className="flex items-center space-x-1 font-mono">
-                                  <Calendar className="w-2.5 h-2.5" />
-                                  <span>{task.date}</span>
-                                </div>
-                                {task.reminder && (
-                                  <span className="bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 px-1.5 py-0.2 rounded font-semibold flex items-center space-x-0.5 text-[9px]">
-                                    <Bell className="w-2 h-2" />
-                                    <span>{task.reminder}</span>
-                                  </span>
-                                )}
-                              </div>
+                          <div className="flex items-start space-x-2.5">
+                            <div className="mt-0.5 shrink-0 text-neutral-400">
+                              {task.completed ? <CheckCircle2 className="w-4 h-4 text-emerald-600" /> : <Circle className="w-4 h-4" />}
                             </div>
-                          ))
-                        )}
+                            <p className={`text-xs sm:text-sm font-semibold leading-snug ${task.completed ? 'line-through text-neutral-400' : 'text-neutral-800 dark:text-neutral-200'}`}>
+                              {task.title}
+                            </p>
+                          </div>
+
+                          {task.hasImage && (
+                            <div className="h-12 rounded-lg bg-neutral-100 dark:bg-neutral-800 border border-neutral-200/70 dark:border-neutral-700 flex items-center justify-center text-[10px] text-neutral-500 dark:text-neutral-400 space-x-1.5 font-medium">
+                              <Paperclip className="w-3 h-3" />
+                              <span>Media_Attachment.webp</span>
+                            </div>
+                          )}
+
+                          <div className="flex items-center justify-between pt-1 border-t border-neutral-100 dark:border-neutral-800 text-[10px] text-neutral-400">
+                            <div className="flex items-center space-x-1 font-mono">
+                              <Calendar className="w-2.5 h-2.5" />
+                              <span>{task.date}</span>
+                            </div>
+                            {task.reminder && (
+                              <span className="bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 px-1.5 py-0.2 rounded font-semibold flex items-center space-x-0.5 text-[9px]">
+                                <Bell className="w-2 h-2" />
+                                <span>{task.reminder}</span>
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                {/* 3. Desktop / Tablet Grid: 4 Columns (hidden sm:grid) */}
+                <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  {previewStatuses.map(status => {
+                    const tasksInCol = previewTasks.filter(t => t.status === status.id);
+                    return (
+                      <div
+                        key={status.id}
+                        className="bg-[#F7F6F3] dark:bg-[#1d1d1d] border border-neutral-200/80 dark:border-neutral-800 rounded-2xl p-3 flex flex-col min-h-[260px] shadow-2xs"
+                      >
+                        <div className="flex items-center justify-between pb-2 mb-2 border-b border-neutral-200/60 dark:border-neutral-800">
+                          <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold border ${status.color}`}>
+                            {status.label}
+                          </span>
+                          <span className="text-xs text-neutral-400 dark:text-neutral-500 font-mono">({tasksInCol.length})</span>
+                        </div>
+
+                        <div className="space-y-2.5 flex-1">
+                          {tasksInCol.length === 0 ? (
+                            <div className="h-20 rounded-xl border border-dashed border-neutral-200 dark:border-neutral-800 flex items-center justify-center text-[11px] text-neutral-400 dark:text-neutral-500">
+                              {isEn ? 'Empty' : 'Kosong'}
+                            </div>
+                          ) : (
+                            tasksInCol.map(task => (
+                              <div
+                                key={task.id}
+                                className={`bg-white dark:bg-[#252525] border rounded-xl p-3 shadow-2xs space-y-2 select-none transition hover:shadow-xs ${
+                                  task.completed ? 'border-neutral-200/60 dark:border-neutral-800 opacity-75' : 'border-neutral-200/90 dark:border-neutral-700/80'
+                                }`}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md border ${task.priorityColor}`}>
+                                    {task.priorityLabel}
+                                  </span>
+                                  <span className="text-[10px] text-neutral-400 dark:text-neutral-500 font-mono">#{task.id}</span>
+                                </div>
+
+                                <div className="flex items-start space-x-2">
+                                  <div className="mt-0.5 shrink-0 text-neutral-400">
+                                    {task.completed ? <CheckCircle2 className="w-4 h-4 text-emerald-600" /> : <Circle className="w-4 h-4" />}
+                                  </div>
+                                  <p className={`text-xs font-semibold leading-snug ${task.completed ? 'line-through text-neutral-400' : 'text-neutral-800 dark:text-neutral-200'}`}>
+                                    {task.title}
+                                  </p>
+                                </div>
+
+                                {task.hasImage && (
+                                  <div className="h-12 rounded-lg bg-neutral-100 dark:bg-neutral-800 border border-neutral-200/70 dark:border-neutral-700 flex items-center justify-center text-[10px] text-neutral-500 dark:text-neutral-400 space-x-1.5 font-medium">
+                                    <Paperclip className="w-3 h-3" />
+                                    <span>Media_Attachment.webp</span>
+                                  </div>
+                                )}
+
+                                <div className="flex items-center justify-between pt-1 border-t border-neutral-100 dark:border-neutral-800 text-[10px] text-neutral-400">
+                                  <div className="flex items-center space-x-1 font-mono">
+                                    <Calendar className="w-2.5 h-2.5" />
+                                    <span>{task.date}</span>
+                                  </div>
+                                  {task.reminder && (
+                                    <span className="bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 px-1.5 py-0.2 rounded font-semibold flex items-center space-x-0.5 text-[9px]">
+                                      <Bell className="w-2 h-2" />
+                                      <span>{task.reminder}</span>
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            ))
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
             ) : (
               <div className="space-y-2 pt-1">

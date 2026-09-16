@@ -41,9 +41,10 @@ export const translations = {
         openWorkspace: 'Buka Workspace',
       },
       hero: {
-        badge: 'Workspace Kolaborasi Tim & Produktivitas Jernih',
-        title: 'Ersona - Your Personal Workspace',
-        subtitle: 'Personalisasikan ruang kerja Anda. Kelola semua catatan, tugas, dan jadwal harian dalam satu alur yang tenang dan terpadu.',
+        badge: 'Ersona - Your Personal Workspace',
+        title: 'Ersona',
+        slogan: 'Your Personal Workspace',
+        subtitle: 'Personalisasikan ruang kerja Anda. Kelola semua catatan, tugas, dan jadwal harian.',
         ctaPrimary: 'Mulai Gratis Sekarang',
         ctaDashboard: 'Buka Workspace Saya',
         ctaSecondary: 'Lihat Antarmuka',
@@ -110,13 +111,13 @@ export const translations = {
       },
       footer: {
         copyright: 'Hak Cipta ©',
-        tagline: 'Minimalist Productivity',
+        tagline: 'Your Personal Workspace',
       },
     },
 
     // Auth Form
     auth: {
-      tagline: 'Workspace To-Do & Catatan Minimalis',
+      tagline: 'Your Personal Workspace',
       signUpTitle: 'Buat akun baru',
       signInTitle: 'Selamat datang kembali',
       signUpSubtitle: 'Daftar sekarang untuk mengelola jadwal dan catatan Anda dengan tenang.',
@@ -334,8 +335,9 @@ export const translations = {
         openWorkspace: 'Open Workspace',
       },
       hero: {
-        badge: 'Team Collaboration & Personal Clarity',
-        title: 'Ersona - Your Personal Workspace',
+        badge: 'Ersona - Your Personal Workspace',
+        title: 'Ersona',
+        slogan: 'Your Personal Workspace',
         subtitle: 'Personalize your workspace. Manage all your notes, tasks, and daily schedules.',
         ctaPrimary: 'Get Started Free',
         ctaDashboard: 'Open My Workspace',
@@ -403,13 +405,13 @@ export const translations = {
       },
       footer: {
         copyright: 'Copyright ©',
-        tagline: 'Minimalist Productivity',
+        tagline: 'Your Personal Workspace',
       },
     },
 
     // Auth Form
     auth: {
-      tagline: 'Minimalist Workspace for To-Dos & Notes',
+      tagline: 'Your Personal Workspace',
       signUpTitle: 'Create an account',
       signInTitle: 'Welcome back',
       signUpSubtitle: 'Sign up now to manage your schedule and notes with peace of mind.',
