@@ -259,7 +259,7 @@ export const translations = {
       title: 'Pengaturan Akun',
       subtitle: 'Kelola akun, preferensi tema, bahasa, dan kuota penyimpanan',
       emailStatusConfirmed: 'Email Terverifikasi',
-      emailStatusUnconfirmed: 'Email Belum Dikonfirmasi',
+      emailStatusUnconfirmed: 'Email Belum Terverifikasi',
       resendEmail: 'Kirim Ulang Verifikasi',
       emailSentNotice: 'Email verifikasi telah dikirim ulang! Silakan periksa kotak masuk/spam Anda.',
       storageUsage: 'Penggunaan Penyimpanan',

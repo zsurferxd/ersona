@@ -103,6 +103,20 @@ export default function Dashboard({ onGoToLanding }) {
   const [wsCustomPhotoLimit, setWsCustomPhotoLimit] = useState('');
   const [isSavingWsLimit, setIsSavingWsLimit] = useState(false);
   const [wsLimitSaveMsg, setWsLimitSaveMsg] = useState('');
+  const [isUnverifiedBannerDismissed, setIsUnverifiedBannerDismissed] = useState(() => {
+    try {
+      return sessionStorage.getItem('ersona_unverified_banner_dismissed') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const handleDismissUnverifiedBanner = () => {
+    setIsUnverifiedBannerDismissed(true);
+    try {
+      sessionStorage.setItem('ersona_unverified_banner_dismissed', 'true');
+    } catch {}
+  };
 
   // Preferensi Tampilan & Kustomisasi Teks
   const [preferences, setPreferences] = useState(() => {
@@ -2495,7 +2509,7 @@ export default function Dashboard({ onGoToLanding }) {
         </div>
 
         {/* Banner Akun Belum Terverifikasi (Limit 50 Foto & 0 Video) */}
-        {!quotaConfig.isEmailConfirmed && !quotaConfig.isUpgraded && (
+        {!quotaConfig.isEmailConfirmed && !quotaConfig.isUpgraded && !isUnverifiedBannerDismissed && (
           <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/80 rounded-xl flex items-center justify-between gap-3 text-xs shadow-2xs">
             <div className="flex items-center space-x-2 text-amber-800 dark:text-amber-300 min-w-0">
               <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
@@ -2505,13 +2519,23 @@ export default function Dashboard({ onGoToLanding }) {
                   : 'Email belum diverifikasi (Batas: 50 foto & 0 video). Verifikasi untuk membuka 150 foto & 2 video!'}
               </span>
             </div>
-            <button
-              type="button"
-              onClick={() => setIsSettingsOpen(true)}
-              className="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-medium text-xs transition shrink-0 cursor-pointer"
-            >
-              {isEn ? 'Verify' : 'Verifikasi'}
-            </button>
+            <div className="flex items-center space-x-1.5 shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsSettingsOpen(true)}
+                className="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-medium text-xs transition cursor-pointer"
+              >
+                {isEn ? 'Verify' : 'Verifikasi'}
+              </button>
+              <button
+                type="button"
+                onClick={handleDismissUnverifiedBanner}
+                className="p-1 text-amber-700 hover:text-amber-900 dark:text-amber-300 dark:hover:text-amber-100 rounded-md hover:bg-amber-100 dark:hover:bg-amber-900/50 transition cursor-pointer"
+                title={isEn ? 'Dismiss for this session' : 'Tutup pemberitahuan'}
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
         )}
 
