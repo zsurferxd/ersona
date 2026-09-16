@@ -18,6 +18,11 @@ import { parseMediaUrl } from '../utils/embedHelper';
 import SettingsModal from './SettingsModal';
 import { getUserQuotaConfig, getWorkspaceQuotaConfig, calculateUserStorageUsage, formatBytes } from '../utils/storageQuota';
 import { uploadMediaToR2OrSupabase, deleteMediaByUrl } from '../utils/r2Storage';
+import {
+  isNotificationSupported, getNotificationPermission, isNotificationEnabled,
+  requestNotificationPermission, enableNotifications, disableNotifications,
+  startReminderChecker, stopReminderChecker, sendTestNotification
+} from '../utils/notificationManager';
 
 // Helper normalisasi warna status untuk Notion-style Dark Mode
 export const normalizeStatusColor = (color) => {
@@ -907,6 +912,24 @@ export default function Dashboard({ onGoToLanding }) {
         });
     }
   }, [loading, taskStatuses]);
+
+  // Push Notification: Start reminder checker when todos are loaded
+  const [isNotifActive, setIsNotifActive] = useState(() => isNotificationSupported() && isNotificationEnabled() && getNotificationPermission() === 'granted');
+  const todosRef = useRef(todos);
+  todosRef.current = todos;
+  const isEnRef = useRef(isEn);
+  isEnRef.current = isEn;
+
+  useEffect(() => {
+    if (loading || !isNotifActive) return;
+    
+    startReminderChecker(
+      () => todosRef.current,
+      () => isEnRef.current
+    );
+
+    return () => stopReminderChecker();
+  }, [loading, isNotifActive]);
 
   // Filter Data berdasarkan Workspace Aktif (Personal jika activeWorkspaceId null, atau Workspace Tim)
   const scopedTodos = activeWorkspaceId 
@@ -2621,17 +2644,36 @@ export default function Dashboard({ onGoToLanding }) {
         {/* BANNER PENGINGAT PRIORITAS PALING ATAS */}
         {activeReminders.length > 0 && activeTab !== 'notes' && activeTab !== 'trash' && (
           <div className="p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200/90 dark:border-amber-800/60 rounded-2xl shadow-xs space-y-2 animate-in fade-in">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-2">
               <div className="flex items-center space-x-2 text-amber-900 dark:text-amber-200 font-semibold text-xs">
                 <Bell className="w-4 h-4 text-amber-600 dark:text-amber-400 animate-bounce" />
                 <span>🔔 {labels.remindersTab} {t('common.active')} ({activeReminders.length} {isEn ? 'tasks need your attention' : 'Tugas Membutuhkan Perhatian Anda'})</span>
               </div>
-              <button
-                onClick={() => setActiveTab('reminders')}
-                className="text-[11px] text-amber-800 dark:text-amber-300 underline hover:text-amber-950 dark:hover:text-amber-100 font-medium cursor-pointer"
-              >
-                {isEn ? `View All ${labels.remindersTab}` : `Lihat Semua ${labels.remindersTab}`}
-              </button>
+              <div className="flex items-center space-x-2.5">
+                {isNotificationSupported() && !isNotifActive && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const res = await requestNotificationPermission();
+                      if (res === 'granted') {
+                        enableNotifications();
+                        setIsNotifActive(true);
+                        sendTestNotification(isEn);
+                      }
+                    }}
+                    className="text-[11px] bg-amber-600 hover:bg-amber-700 text-white font-medium px-2 py-0.5 rounded-md transition cursor-pointer shadow-2xs flex items-center space-x-1"
+                  >
+                    <span>🔔</span>
+                    <span>{isEn ? 'Enable Notifications' : 'Aktifkan Notifikasi'}</span>
+                  </button>
+                )}
+                <button
+                  onClick={() => setActiveTab('reminders')}
+                  className="text-[11px] text-amber-800 dark:text-amber-300 underline hover:text-amber-950 dark:hover:text-amber-100 font-medium cursor-pointer"
+                >
+                  {isEn ? `View All ${labels.remindersTab}` : `Lihat Semua ${labels.remindersTab}`}
+                </button>
+              </div>
             </div>
 
             <div className="space-y-1.5">
@@ -4559,7 +4601,10 @@ export default function Dashboard({ onGoToLanding }) {
       {/* MODAL PENGATURAN AKUN & TAMPILAN */}
       <SettingsModal
         isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
+        onClose={() => {
+          setIsSettingsOpen(false);
+          setIsNotifActive(isNotificationSupported() && isNotificationEnabled() && getNotificationPermission() === 'granted');
+        }}
         user={user}
         todos={todos}
         notes={notes}

@@ -2,11 +2,20 @@ import React, { useState, useEffect } from 'react';
 import {
   X, User, HardDrive, CheckCircle2, AlertTriangle,
   RefreshCw, Sparkles, Mail, Trash2, Sun, Moon, Globe,
-  Download, FileText, Check, Image as ImageIcon, Film, Loader2
+  Download, FileText, Check, Image as ImageIcon, Film, Loader2, Bell
 } from 'lucide-react';
 import { formatBytes } from '../utils/storageQuota';
 import { supabase } from '../lib/supabaseClient';
 import { useThemeLanguage } from '../context/ThemeLanguageContext';
+import {
+  isNotificationSupported,
+  getNotificationPermission,
+  isNotificationEnabled,
+  requestNotificationPermission,
+  enableNotifications,
+  disableNotifications,
+  sendTestNotification
+} from '../utils/notificationManager';
 
 export default function SettingsModal({
   isOpen,
@@ -28,11 +37,51 @@ export default function SettingsModal({
   const { theme, setTheme, isDark, language, setLanguage, t } = useThemeLanguage();
   const isEn = language === 'en';
 
+  const [notifPermission, setNotifPermission] = useState(() => getNotificationPermission());
+  const [notifEnabled, setNotifEnabled] = useState(() => isNotificationEnabled());
+  const [testNotifSent, setTestNotifSent] = useState(false);
+
   useEffect(() => {
-    if (isOpen && onRefreshStorage) {
-      onRefreshStorage();
+    if (isOpen) {
+      if (onRefreshStorage) onRefreshStorage();
+      setNotifPermission(getNotificationPermission());
+      setNotifEnabled(isNotificationEnabled());
     }
   }, [isOpen]);
+
+  const handleToggleNotification = async () => {
+    if (!isNotificationSupported()) {
+      alert(isEn ? 'Browser does not support notifications.' : 'Browser tidak mendukung notifikasi.');
+      return;
+    }
+
+    if (notifPermission !== 'granted') {
+      const result = await requestNotificationPermission();
+      setNotifPermission(result);
+      if (result === 'granted') {
+        enableNotifications();
+        setNotifEnabled(true);
+      } else if (result === 'denied') {
+        alert(isEn 
+          ? 'Notification permission was denied. Please allow notifications in your browser address bar or site settings.' 
+          : 'Izin notifikasi ditolak. Silakan izinkan notifikasi melalui ikon gembok di bilah alamat browser Anda.');
+      }
+    } else {
+      if (notifEnabled) {
+        disableNotifications();
+        setNotifEnabled(false);
+      } else {
+        enableNotifications();
+        setNotifEnabled(true);
+      }
+    }
+  };
+
+  const handleTestNotification = () => {
+    sendTestNotification(isEn);
+    setTestNotifSent(true);
+    setTimeout(() => setTestNotifSent(false), 3000);
+  };
 
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [resendingEmail, setResendingEmail] = useState(false);
@@ -601,7 +650,80 @@ export default function SettingsModal({
             </div>
           </div>
 
-          {/* 5. DATA BACKUP & EKSPOR */}
+          {/* 5. PUSH NOTIFICATION SETTINGS */}
+          <div className="p-4 sm:p-5 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-[#252525] space-y-3 shadow-2xs">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Bell className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                <h3 className="text-sm font-semibold text-neutral-900 dark:text-white">
+                  {t('settings.notificationsTitle')}
+                </h3>
+              </div>
+              <div>
+                {!isNotificationSupported() ? (
+                  <span className="text-[11px] px-2 py-0.5 rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-500 font-medium">
+                    {t('settings.notificationsUnsupported')}
+                  </span>
+                ) : notifPermission === 'denied' ? (
+                  <span className="text-[11px] px-2 py-0.5 rounded-full bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 font-medium border border-red-200 dark:border-red-900">
+                    {t('settings.notificationsDenied')}
+                  </span>
+                ) : notifEnabled && notifPermission === 'granted' ? (
+                  <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 font-medium border border-emerald-200 dark:border-emerald-800 flex items-center space-x-1">
+                    <CheckCircle2 className="w-3 h-3" />
+                    <span>{t('settings.notificationsGranted')}</span>
+                  </span>
+                ) : (
+                  <span className="text-[11px] px-2 py-0.5 rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 font-medium">
+                    {isEn ? 'Disabled' : 'Nonaktif'}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <p className="text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed">
+              {t('settings.notificationsDesc')}
+            </p>
+
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <button
+                type="button"
+                onClick={handleToggleNotification}
+                disabled={!isNotificationSupported()}
+                className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition flex items-center space-x-1.5 cursor-pointer ${
+                  notifEnabled && notifPermission === 'granted'
+                    ? 'bg-neutral-200 hover:bg-neutral-300 dark:bg-neutral-700 dark:hover:bg-neutral-600 text-neutral-800 dark:text-neutral-200'
+                    : 'bg-neutral-900 hover:bg-neutral-800 dark:bg-white dark:hover:bg-neutral-200 text-white dark:text-neutral-900 shadow-xs'
+                }`}
+              >
+                <Bell className="w-3.5 h-3.5" />
+                <span>
+                  {notifEnabled && notifPermission === 'granted'
+                    ? t('settings.notificationsDisable')
+                    : t('settings.notificationsEnable')}
+                </span>
+              </button>
+
+              {notifEnabled && notifPermission === 'granted' && (
+                <button
+                  type="button"
+                  onClick={handleTestNotification}
+                  className="px-3 py-1.5 text-xs font-medium rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-50 hover:bg-neutral-100 dark:bg-[#2c2c2c] dark:hover:bg-[#353535] text-neutral-700 dark:text-neutral-300 transition flex items-center space-x-1.5 cursor-pointer"
+                >
+                  {testNotifSent ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-emerald-600" />
+                      <span className="text-emerald-600 font-semibold">{t('settings.testNotifSent')}</span>
+                    </>
+                  ) : (
+                    <span>{t('settings.sendTestNotif')}</span>
+                  )}
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* 6. DATA BACKUP & EKSPOR */}
           <div className="p-4 sm:p-5 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-[#252525] space-y-3 shadow-2xs">
             <div className="flex items-center space-x-2">
               <Download className="w-4 h-4 text-neutral-700 dark:text-neutral-300" />
