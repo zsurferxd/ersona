@@ -4,8 +4,9 @@ import { useAuth } from '../context/AuthContext';
 import { useThemeLanguage } from '../context/ThemeLanguageContext';
 import { Mail, Lock, ArrowRight, Loader2, AlertTriangle, ArrowLeft, Sun, Moon, KeyRound, CheckCircle2 } from 'lucide-react';
 
-export default function Auth({ onBackToHome, initialIsSignUp = false }) {
+export default function Auth({ onBackToHome, initialIsSignUp = false, initialMode, onResetSuccess }) {
   const [mode, setMode] = useState(() => {
+    if (initialMode) return initialMode;
     try {
       const params = new URLSearchParams(window.location.search);
       if (params.get('mode') === 'reset' || window.location.hash.includes('type=recovery')) {
@@ -27,15 +28,19 @@ export default function Auth({ onBackToHome, initialIsSignUp = false }) {
   const isEn = language === 'en';
 
   useEffect(() => {
+    if (initialMode) {
+      setMode(initialMode);
+      return;
+    }
     const handleHash = () => {
-      if (window.location.hash.includes('type=recovery')) {
+      if (window.location.hash.includes('type=recovery') || window.location.search.includes('mode=reset')) {
         setMode('reset');
       }
     };
     handleHash();
     window.addEventListener('hashchange', handleHash);
     return () => window.removeEventListener('hashchange', handleHash);
-  }, []);
+  }, [initialMode]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -45,11 +50,17 @@ export default function Auth({ onBackToHome, initialIsSignUp = false }) {
 
     try {
       if (mode === 'signup') {
-        const { error: signUpError } = await signUp(email, password);
+        const { data: signUpData, error: signUpError } = await signUp(email, password);
         if (signUpError) throw signUpError;
-        setMessage(isEn 
-          ? 'Account created! Please check your email to verify your account.' 
-          : 'Akun berhasil dibuat! Silakan periksa email Anda untuk verifikasi akun.');
+        if (signUpData?.user && !signUpData?.session) {
+          setMessage(isEn 
+            ? 'Account created! Please check your email inbox (and spam) to click the verification link before logging in.' 
+            : 'Akun berhasil dibuat! Silakan buka email Anda (dan folder spam) untuk klik tautan verifikasi sebelum masuk.');
+        } else {
+          setMessage(isEn 
+            ? 'Account created! Please check your email to verify your account.' 
+            : 'Akun berhasil dibuat! Silakan periksa email Anda untuk verifikasi akun.');
+        }
       } else if (mode === 'signin') {
         const { error: signInError } = await signIn(email, password);
         if (signInError) throw signInError;
@@ -71,9 +82,16 @@ export default function Auth({ onBackToHome, initialIsSignUp = false }) {
         const { error: updateError } = await supabase.auth.updateUser({ password });
         if (updateError) throw updateError;
         setMessage(isEn ? 'Password successfully updated! Redirecting to workspace...' : 'Kata sandi berhasil diperbarui! Mengalihkan ke ruang kerja...');
+        try {
+          window.history.replaceState(null, '', '/workspace');
+        } catch {}
         setTimeout(() => {
-          window.location.href = '/workspace';
-        }, 1500);
+          if (onResetSuccess) {
+            onResetSuccess();
+          } else {
+            window.location.href = '/workspace';
+          }
+        }, 1200);
       }
     } catch (err) {
       setError(err.message || (isEn ? 'An authentication error occurred.' : 'Terjadi kesalahan saat autentikasi.'));

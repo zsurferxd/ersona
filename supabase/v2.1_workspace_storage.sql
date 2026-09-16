@@ -5,10 +5,11 @@
 -- untuk menambahkan dukungan kuota pool tim pada tabel workspaces.
 -- ==============================================================================
 
--- 1. TAMBAHKAN KOLOM STATUS TIER PADA TABEL WORKSPACES
+-- 1. TAMBAHKAN KOLOM STATUS TIER & LIMIT FOTO PADA TABEL WORKSPACES
 ALTER TABLE public.workspaces
     ADD COLUMN IF NOT EXISTS is_upgraded BOOLEAN NOT NULL DEFAULT false,
-    ADD COLUMN IF NOT EXISTS tier TEXT NOT NULL DEFAULT 'free';
+    ADD COLUMN IF NOT EXISTS tier TEXT NOT NULL DEFAULT 'free',
+    ADD COLUMN IF NOT EXISTS custom_photo_limit INTEGER DEFAULT NULL;
 
 -- 2. BUAT INDEKS UNTUK PERFORMA QUERY
 CREATE INDEX IF NOT EXISTS idx_workspaces_owner_tier ON public.workspaces(owner_id, is_upgraded);

@@ -9,13 +9,18 @@ import { Loader2 } from 'lucide-react';
 function getPathView() {
   if (typeof window === 'undefined') return 'landing';
   const path = window.location.pathname.toLowerCase();
+  const hash = window.location.hash || '';
+  const search = window.location.search || '';
+  if (hash.includes('type=recovery') || search.includes('mode=reset') || search.includes('type=recovery')) {
+    return 'auth';
+  }
   if (path === '/workspace') return 'dashboard';
   if (path === '/auth') return 'auth';
   return 'landing';
 }
 
 function AppContent() {
-  const { user, loading } = useAuth();
+  const { user, loading, isPasswordRecovery, setIsPasswordRecovery } = useAuth();
   const { setCurrentScope } = useThemeLanguage();
   const [currentView, setCurrentView] = useState(() => getPathView());
   const [authIsSignUp, setAuthIsSignUp] = useState(false);
@@ -30,6 +35,15 @@ function AppContent() {
   useEffect(() => {
     if (loading) return;
 
+    // Jika sedang dalam proses reset kata sandi, jangan arahkan ke workspace!
+    const isRecovery = isPasswordRecovery || 
+      (typeof window !== 'undefined' && (window.location.hash.includes('type=recovery') || window.location.search.includes('mode=reset')));
+
+    if (isRecovery) {
+      setCurrentView('auth');
+      return;
+    }
+
     if (user) {
       if (!explicitLanding) {
         setCurrentView('dashboard');
@@ -43,7 +57,7 @@ function AppContent() {
         window.history.replaceState(null, '', '/');
       }
     }
-  }, [user, loading, explicitLanding]);
+  }, [user, loading, explicitLanding, isPasswordRecovery]);
 
   // Efek sinkronisasi scope tema (Landing = light by default, Workspace = HP/system theme)
   useEffect(() => {
@@ -102,19 +116,24 @@ function AppContent() {
     );
   }
 
-  // Jika pengguna sudah login dan view aktif adalah dashboard
-  if (user && currentView === 'dashboard') {
-    return <Dashboard onGoToLanding={handleGoToLanding} />;
-  }
-
-  // Jika pengguna memilih form Masuk / Daftar
-  if (currentView === 'auth') {
+  // Jika pengguna memilih form Masuk / Daftar atau sedang reset password
+  if (isPasswordRecovery || currentView === 'auth') {
     return (
       <Auth
         initialIsSignUp={authIsSignUp}
+        initialMode={isPasswordRecovery ? 'reset' : (authIsSignUp ? 'signup' : 'signin')}
         onBackToHome={handleGoToLanding}
+        onResetSuccess={() => {
+          if (setIsPasswordRecovery) setIsPasswordRecovery(false);
+          handleGoToDashboard();
+        }}
       />
     );
+  }
+
+  // Jika pengguna sudah login dan view aktif adalah dashboard
+  if (user && currentView === 'dashboard') {
+    return <Dashboard onGoToLanding={handleGoToLanding} />;
   }
 
   // Default: Tampilkan Home Page / Landing Page

@@ -100,6 +100,9 @@ export default function Dashboard({ onGoToLanding }) {
   const [wsActionLoading, setWsActionLoading] = useState(false);
   const [wsError, setWsError] = useState('');
   const [copiedInvite, setCopiedInvite] = useState(false);
+  const [wsCustomPhotoLimit, setWsCustomPhotoLimit] = useState('');
+  const [isSavingWsLimit, setIsSavingWsLimit] = useState(false);
+  const [wsLimitSaveMsg, setWsLimitSaveMsg] = useState('');
 
   // Preferensi Tampilan & Kustomisasi Teks
   const [preferences, setPreferences] = useState(() => {
@@ -535,7 +538,7 @@ export default function Dashboard({ onGoToLanding }) {
       let wsList = [];
       const { data, error } = await supabase
         .from('workspaces')
-        .select('id, name, owner_id, invite_code, created_at, is_upgraded, tier')
+        .select('id, name, owner_id, invite_code, created_at, is_upgraded, tier, custom_photo_limit')
         .order('created_at', { ascending: true });
 
       if (!error && data) {
@@ -614,11 +617,22 @@ export default function Dashboard({ onGoToLanding }) {
   const handleCreateWorkspace = async (e) => {
     e?.preventDefault();
     if (!newWsName.trim()) return;
+
+    const isUserPro = Boolean(user?.user_metadata?.is_upgraded || user?.user_metadata?.tier === 'pro');
+    const maxOwnedWorkspaces = isUserPro ? 5 : 1;
+    const ownedCount = workspaces.filter(w => w.owner_id === user?.id).length;
+
+    if (ownedCount >= maxOwnedWorkspaces) {
+      setWsError(isEn
+        ? `Workspace limit reached (${ownedCount} of ${maxOwnedWorkspaces} workspaces created). ${!isUserPro ? 'Upgrade to Pro to create up to 5 workspaces.' : 'Maximum 5 workspaces reached.'}`
+        : `Batas ruang kerja tercapai (${ownedCount} dari ${maxOwnedWorkspaces} ruang kerja dibuat). ${!isUserPro ? 'Upgrade ke Pro untuk membuat hingga 5 ruang kerja.' : 'Batas maksimal 5 ruang kerja.'}`);
+      return;
+    }
+
     setWsActionLoading(true);
     setWsError('');
     try {
       const inviteCode = Math.random().toString(36).substring(2, 10).toUpperCase();
-      const isUserPro = Boolean(user.user_metadata?.is_upgraded || user.user_metadata?.tier === 'pro');
       
       let wsData = null;
       const { data, error } = await supabase
@@ -629,6 +643,7 @@ export default function Dashboard({ onGoToLanding }) {
           invite_code: inviteCode,
           is_upgraded: isUserPro,
           tier: isUserPro ? 'pro' : 'free',
+          custom_photo_limit: null,
         })
         .select()
         .single();
@@ -645,7 +660,7 @@ export default function Dashboard({ onGoToLanding }) {
           .select()
           .single();
         if (fbError) throw fbError;
-        wsData = { ...fbData, is_upgraded: isUserPro, tier: isUserPro ? 'pro' : 'free' };
+        wsData = { ...fbData, is_upgraded: isUserPro, tier: isUserPro ? 'pro' : 'free', custom_photo_limit: null };
       } else {
         wsData = data;
       }
@@ -665,6 +680,30 @@ export default function Dashboard({ onGoToLanding }) {
       setWsError(err.message || 'Gagal membuat ruang kerja');
     } finally {
       setWsActionLoading(false);
+    }
+  };
+
+  const handleSaveWorkspacePhotoLimit = async (e) => {
+    e?.preventDefault();
+    if (!currentWorkspace || currentWorkspace.owner_id !== user.id) return;
+    setIsSavingWsLimit(true);
+    setWsLimitSaveMsg('');
+    try {
+      const trimmed = wsCustomPhotoLimit.trim();
+      const parsed = trimmed === '' ? null : parseInt(trimmed, 10);
+      const finalLimit = isNaN(parsed) || parsed <= 0 ? null : parsed;
+      const { error } = await supabase
+        .from('workspaces')
+        .update({ custom_photo_limit: finalLimit, updated_at: new Date().toISOString() })
+        .eq('id', currentWorkspace.id);
+      if (error) throw error;
+      setWorkspaces(prev => prev.map(w => w.id === currentWorkspace.id ? { ...w, custom_photo_limit: finalLimit } : w));
+      setWsLimitSaveMsg(isEn ? 'Photo limit saved!' : 'Batas foto berhasil disimpan!');
+      setTimeout(() => setWsLimitSaveMsg(''), 3000);
+    } catch (err) {
+      alert('Gagal menyimpan batas foto: ' + err.message);
+    } finally {
+      setIsSavingWsLimit(false);
     }
   };
 
@@ -791,6 +830,13 @@ export default function Dashboard({ onGoToLanding }) {
       fetchWorkspaceMembers(activeWorkspaceId);
     }
   }, [activeWorkspaceId]);
+
+  useEffect(() => {
+    if (currentWorkspace) {
+      setWsCustomPhotoLimit(currentWorkspace.custom_photo_limit ? String(currentWorkspace.custom_photo_limit) : '');
+      setWsLimitSaveMsg('');
+    }
+  }, [currentWorkspace?.id, currentWorkspace?.custom_photo_limit]);
 
   // Auto-heal: Deteksi dan sinkronkan tugas yang memiliki status yatim (status yang sudah dihapus dari daftar status)
   useEffect(() => {
@@ -4080,6 +4126,56 @@ export default function Dashboard({ onGoToLanding }) {
               </div>
             )}
 
+            {/* Status Kuota Pembuatan Workspace (Free: 1, Pro: 5) */}
+            {(() => {
+              const isUserPro = Boolean(user?.user_metadata?.is_upgraded || user?.user_metadata?.tier === 'pro');
+              const maxOwnedWorkspaces = isUserPro ? 5 : 1;
+              const ownedCount = workspaces.filter(w => w.owner_id === user?.id).length;
+              const isLimitReached = ownedCount >= maxOwnedWorkspaces;
+
+              if (isLimitReached) {
+                return (
+                  <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-xs space-y-2">
+                    <div className="flex items-center space-x-1.5 font-semibold text-amber-800 dark:text-amber-300">
+                      <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                      <span>
+                        {isEn 
+                          ? `Workspace limit reached (${ownedCount} of ${maxOwnedWorkspaces} created)` 
+                          : `Batas ruang kerja tercapai (${ownedCount} dari ${maxOwnedWorkspaces} dibuat)`}
+                      </span>
+                    </div>
+                    <p className="text-amber-700 dark:text-amber-300 leading-relaxed">
+                      {isUserPro
+                        ? (isEn ? 'You have reached the maximum 5 workspaces on Ersona Pro.' : 'Anda telah mencapai batas maksimal 5 ruang kerja pada paket Ersona Pro.')
+                        : (isEn ? 'Free accounts can create 1 workspace. Upgrade to Pro to create up to 5 workspaces!' : 'Akun Free dapat membuat maksimal 1 ruang kerja. Upgrade ke Ersona Pro untuk membuat hingga 5 ruang kerja!')}
+                    </p>
+                    {!isUserPro && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsCreateWsModalOpen(false);
+                          setIsSettingsOpen(true);
+                        }}
+                        className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-medium text-xs transition cursor-pointer flex items-center space-x-1.5"
+                      >
+                        <Sparkles className="w-3.5 h-3.5" />
+                        <span>{isEn ? 'Upgrade to Pro (5 Workspaces)' : 'Upgrade ke Ersona Pro (5 Workspace)'}</span>
+                      </button>
+                    )}
+                  </div>
+                );
+              }
+
+              return (
+                <div className="flex items-center justify-between text-[11px] px-2.5 py-1.5 bg-neutral-50 dark:bg-[#282828] rounded-xl border border-neutral-200/80 dark:border-neutral-700/80">
+                  <span className="text-neutral-500 dark:text-neutral-400">{isEn ? 'Your Workspace Slots:' : 'Kuota Ruang Kerja Anda:'}</span>
+                  <span className="font-semibold font-mono text-neutral-800 dark:text-neutral-200">
+                    {ownedCount} / {maxOwnedWorkspaces} {isEn ? 'created' : 'dibuat'} ({isUserPro ? 'PRO 5' : 'FREE 1'})
+                  </span>
+                </div>
+              );
+            })()}
+
             <form onSubmit={handleCreateWorkspace} className="space-y-3">
               <div>
                 <label className="block text-xs font-medium text-neutral-700 dark:text-neutral-300 mb-1.5">
@@ -4106,7 +4202,11 @@ export default function Dashboard({ onGoToLanding }) {
                 </button>
                 <button
                   type="submit"
-                  disabled={wsActionLoading || !newWsName.trim()}
+                  disabled={
+                    wsActionLoading || 
+                    !newWsName.trim() || 
+                    (workspaces.filter(w => w.owner_id === user?.id).length >= (Boolean(user?.user_metadata?.is_upgraded || user?.user_metadata?.tier === 'pro') ? 5 : 1))
+                  }
                   className="px-4 py-1.5 text-xs font-medium bg-neutral-900 hover:bg-neutral-800 dark:bg-white dark:hover:bg-neutral-100 text-white dark:text-neutral-900 rounded-lg transition disabled:opacity-50 cursor-pointer flex items-center space-x-1.5"
                 >
                   {wsActionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
@@ -4272,6 +4372,60 @@ export default function Dashboard({ onGoToLanding }) {
                   </span>
                 </div>
               ))}
+            </div>
+
+            {/* Pengaturan Batas Foto Khusus Workspace */}
+            <div className="p-3 bg-neutral-50 dark:bg-[#282828] rounded-xl border border-neutral-200 dark:border-neutral-700 space-y-2 shrink-0">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-1.5 text-xs font-semibold text-neutral-800 dark:text-neutral-200">
+                  <Image className="w-3.5 h-3.5 text-neutral-500" />
+                  <span>{isEn ? 'Workspace Photo Limit' : 'Batas Foto Workspace'}</span>
+                </div>
+                {currentWorkspace.custom_photo_limit ? (
+                  <span className="text-[10px] font-medium bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded">
+                    {currentWorkspace.custom_photo_limit} {isEn ? 'photos' : 'foto'}
+                  </span>
+                ) : (
+                  <span className="text-[10px] font-medium bg-neutral-200 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300 px-1.5 py-0.5 rounded">
+                    {isEn ? 'Default (Tier limit)' : 'Default (Ikuti akun)'}
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px] text-neutral-500 dark:text-neutral-400 leading-tight">
+                {isEn 
+                  ? 'Set a custom photo limit for this workspace, or leave blank to follow your account tier limit (Free: 50/150, Pro: 1,000).'
+                  : 'Atur batas foto khusus untuk workspace ini, atau kosongkan untuk mengikuti limit akun Anda (Free: 50/150, Pro: 1.000).'}
+              </p>
+              {currentWorkspace.owner_id === user.id ? (
+                <form onSubmit={handleSaveWorkspacePhotoLimit} className="flex items-center space-x-2 pt-1">
+                  <input
+                    type="number"
+                    min="1"
+                    placeholder={isEn ? "e.g. 100 (blank for default)" : "contoh: 100 (kosongkan = default)"}
+                    value={wsCustomPhotoLimit}
+                    onChange={(e) => setWsCustomPhotoLimit(e.target.value)}
+                    className="flex-1 px-3 py-1.5 text-xs rounded-lg bg-white dark:bg-[#1f1f1f] border border-neutral-200 dark:border-neutral-700 text-neutral-800 dark:text-neutral-200 focus:outline-hidden focus:ring-1 focus:ring-neutral-400 dark:focus:ring-neutral-500"
+                  />
+                  <button
+                    type="submit"
+                    disabled={isSavingWsLimit}
+                    className="px-3 py-1.5 text-xs font-medium bg-neutral-900 hover:bg-neutral-800 dark:bg-white dark:hover:bg-neutral-100 text-white dark:text-neutral-900 rounded-lg transition disabled:opacity-50 cursor-pointer shrink-0 flex items-center space-x-1"
+                  >
+                    {isSavingWsLimit && <Loader2 className="w-3 h-3 animate-spin" />}
+                    <span>{isEn ? 'Save' : 'Simpan'}</span>
+                  </button>
+                </form>
+              ) : (
+                <div className="text-[11px] text-neutral-500 dark:text-neutral-400 italic">
+                  {isEn ? 'Only workspace owner can change photo limit.' : 'Hanya pemilik workspace yang dapat mengubah batas foto.'}
+                </div>
+              )}
+              {wsLimitSaveMsg && (
+                <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center space-x-1">
+                  <Check className="w-3 h-3" />
+                  <span>{wsLimitSaveMsg}</span>
+                </div>
+              )}
             </div>
 
             {/* Danger Zone Actions */}

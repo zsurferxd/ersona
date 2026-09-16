@@ -87,28 +87,35 @@ export function getWorkspaceQuotaConfig(workspace, currentUser) {
     return getUserQuotaConfig(currentUser);
   }
 
-  // Jika pengguna saat ini adalah pemilik workspace
-  if (currentUser && workspace.owner_id === currentUser.id) {
-    const userConfig = getUserQuotaConfig(currentUser);
-    return {
-      ...userConfig,
-      isWorkspacePool: true,
-      workspaceName: workspace.name,
-      isOwner: true,
+  const isOwner = currentUser && workspace.owner_id === currentUser.id;
+  let baseConfig;
+
+  if (isOwner) {
+    baseConfig = getUserQuotaConfig(currentUser);
+  } else {
+    const isWsPro = Boolean(workspace.is_upgraded || workspace.tier === 'pro');
+    const baseTier = isWsPro ? QUOTA_TIERS.pro : QUOTA_TIERS.confirmed;
+    baseConfig = {
+      ...baseTier,
+      isEmailConfirmed: true,
+      isUpgraded: isWsPro,
     };
   }
 
-  // Jika pengguna adalah anggota yang diundang
-  const isWsPro = Boolean(workspace.is_upgraded || workspace.tier === 'pro');
-  const baseTier = isWsPro ? QUOTA_TIERS.pro : QUOTA_TIERS.confirmed;
+  // Cek apakah ada batas foto kustom yang diatur pemilik untuk workspace ini
+  let effectiveMaxPhotos = baseConfig.maxPhotos;
+  const customLimit = workspace.custom_photo_limit;
+  if (typeof customLimit === 'number' && customLimit > 0) {
+    effectiveMaxPhotos = Math.min(baseConfig.maxPhotos, customLimit);
+  }
 
   return {
-    ...baseTier,
-    isEmailConfirmed: true,
-    isUpgraded: isWsPro,
+    ...baseConfig,
+    maxPhotos: effectiveMaxPhotos,
+    customPhotoLimit: typeof customLimit === 'number' && customLimit > 0 ? customLimit : null,
     isWorkspacePool: true,
     workspaceName: workspace.name,
-    isOwner: false,
+    isOwner: Boolean(isOwner),
   };
 }
 

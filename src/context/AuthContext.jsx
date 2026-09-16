@@ -3,9 +3,17 @@ import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
 
 const AuthContext = createContext({});
 
+const checkIsRecoveryMode = () => {
+  if (typeof window === 'undefined') return false;
+  const hash = window.location.hash || '';
+  const search = window.location.search || '';
+  return hash.includes('type=recovery') || search.includes('mode=reset') || search.includes('type=recovery');
+};
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isPasswordRecovery, setIsPasswordRecovery] = useState(checkIsRecoveryMode);
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
@@ -22,8 +30,11 @@ export const AuthProvider = ({ children }) => {
       setLoading(false);
     });
 
-    // Listener realtime untuk event autentikasi (SIGN_IN, SIGN_OUT, TOKEN_REFRESHED)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    // Listener realtime untuk event autentikasi (SIGN_IN, SIGN_OUT, PASSWORD_RECOVERY, TOKEN_REFRESHED)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setIsPasswordRecovery(true);
+      }
       setUser(session?.user ?? null);
       setLoading(false);
     });
@@ -33,7 +44,13 @@ export const AuthProvider = ({ children }) => {
 
   const signUp = (email, password) => {
     if (!isSupabaseConfigured) throw new Error('Supabase belum dikonfigurasi di file .env');
-    return supabase.auth.signUp({ email, password });
+    return supabase.auth.signUp({ 
+      email, 
+      password,
+      options: {
+        emailRedirectTo: `${window.location.origin}/workspace`,
+      }
+    });
   };
 
   const signIn = (email, password) => {
@@ -57,7 +74,17 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, signUp, signIn, signInWithGoogle, signOut, loading, isSupabaseConfigured }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      signUp, 
+      signIn, 
+      signInWithGoogle, 
+      signOut, 
+      loading, 
+      isSupabaseConfigured,
+      isPasswordRecovery,
+      setIsPasswordRecovery,
+    }}>
       {children}
     </AuthContext.Provider>
   );
