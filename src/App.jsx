@@ -4,6 +4,7 @@ import { ThemeLanguageProvider, useThemeLanguage } from './context/ThemeLanguage
 import Auth from './components/Auth';
 import Dashboard from './components/Dashboard';
 import LandingPage from './components/LandingPage';
+import EmailVerifiedScreen from './components/EmailVerifiedScreen';
 import { Loader2 } from 'lucide-react';
 
 function getPathView() {
@@ -23,7 +24,7 @@ function getPathView() {
 }
 
 function AppContent() {
-  const { user, loading, isPasswordRecovery, setIsPasswordRecovery } = useAuth();
+  const { user, loading, isPasswordRecovery, setIsPasswordRecovery, isEmailVerifiedJustNow, setIsEmailVerifiedJustNow } = useAuth();
   const { setCurrentScope } = useThemeLanguage();
   const [currentView, setCurrentView] = useState(() => getPathView());
   const [authIsSignUp, setAuthIsSignUp] = useState(false);
@@ -127,6 +128,28 @@ function AppContent() {
           <p className="text-xs text-neutral-400 dark:text-neutral-500 font-medium tracking-wide">Membuka Ersona Workspace...</p>
         </div>
       </div>
+    );
+  }
+
+  // Tampilkan layar konfirmasi verifikasi email jika pengguna baru saja mengklik tautan email
+  if (isEmailVerifiedJustNow) {
+    return (
+      <EmailVerifiedScreen
+        onRefresh={() => {
+          try {
+            sessionStorage.removeItem('ersona_email_verified_just_now');
+          } catch {}
+          if (setIsEmailVerifiedJustNow) setIsEmailVerifiedJustNow(false);
+          window.location.href = '/workspace';
+        }}
+        onContinue={() => {
+          try {
+            sessionStorage.removeItem('ersona_email_verified_just_now');
+          } catch {}
+          if (setIsEmailVerifiedJustNow) setIsEmailVerifiedJustNow(false);
+          handleGoToDashboard();
+        }}
+      />
     );
   }
 

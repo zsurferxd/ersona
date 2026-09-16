@@ -17,6 +17,13 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(checkIsRecoveryMode);
+  const [isEmailVerifiedJustNow, setIsEmailVerifiedJustNow] = useState(() => {
+    try {
+      return sessionStorage.getItem('ersona_email_verified_just_now') === 'true';
+    } catch {
+      return false;
+    }
+  });
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
@@ -36,6 +43,7 @@ export const AuthProvider = ({ children }) => {
           });
           if (!error && data?.user) {
             sessionStorage.setItem('ersona_email_verified_just_now', 'true');
+            setIsEmailVerifiedJustNow(true);
             sessionStorage.removeItem('ersona_unverified_banner_dismissed');
             return data.user;
           }
@@ -125,6 +133,8 @@ export const AuthProvider = ({ children }) => {
       isSupabaseConfigured,
       isPasswordRecovery,
       setIsPasswordRecovery,
+      isEmailVerifiedJustNow,
+      setIsEmailVerifiedJustNow,
     }}>
       {children}
     </AuthContext.Provider>
