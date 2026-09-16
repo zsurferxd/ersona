@@ -179,7 +179,7 @@ export default function Dashboard({ onGoToLanding }) {
   const handleToggleEmailVerified = async (isVerified) => {
     try {
       const { error } = await supabase.auth.updateUser({
-        data: { email_verified: isVerified }
+        data: { ersona_verified: isVerified }
       });
       if (error) throw error;
       await refreshStorageUsage();

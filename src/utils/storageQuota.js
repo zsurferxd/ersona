@@ -56,8 +56,8 @@ export function getUserQuotaConfig(user) {
   const isGoogleOAuth = user.app_metadata?.provider === 'google' || 
     (Array.isArray(user.identities) && user.identities.some(i => i.provider === 'google'));
 
-  // Akun email/password diperiksa berdasarkan flag custom email_verified di user_metadata
-  const isEmailConfirmed = isGoogleOAuth || Boolean(user.user_metadata?.email_verified === true);
+  // Akun email/password diperiksa berdasarkan flag custom ersona_verified di user_metadata
+  const isEmailConfirmed = isGoogleOAuth || Boolean(user.user_metadata?.ersona_verified === true);
 
   if (isUpgraded) {
     return {

@@ -49,7 +49,7 @@ export const AuthProvider = ({ children }) => {
       password,
       options: {
         data: {
-          email_verified: false,
+          ersona_verified: false,
         },
         emailRedirectTo: `${window.location.origin}/workspace`,
       }
