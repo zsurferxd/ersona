@@ -20,6 +20,7 @@ export default function SettingsModal({
   todos = [],
   notes = [],
   workspaces = [],
+  activeWorkspace = null,
 }) {
   if (!isOpen) return null;
 
@@ -44,17 +45,26 @@ export default function SettingsModal({
   };
 
   // Hitung kuota berbasis kuantitas file (Foto & Video)
-  const photoCount = (todos?.filter(t => t.media_url && t.media_type !== 'video' && !t.deleted_at).length || 0) +
-    (notes?.filter(n => !n.deleted_at).reduce((acc, n) => {
+  // Scoped ke activeWorkspace jika ada, atau ke personal jika null
+  const relevantTodos = activeWorkspace 
+    ? todos.filter(t => t.workspace_id === activeWorkspace.id)
+    : todos.filter(t => !t.workspace_id);
+
+  const relevantNotes = activeWorkspace
+    ? notes.filter(n => n.workspace_id === activeWorkspace.id)
+    : notes.filter(n => !n.workspace_id);
+
+  const photoCount = (relevantTodos?.filter(t => t.media_url && t.media_type !== 'video' && !t.deleted_at).length || 0) +
+    (relevantNotes?.filter(n => !n.deleted_at).reduce((acc, n) => {
       return acc + getNoteItems(n).filter(m => m?.type !== 'video').length;
     }, 0) || 0);
 
-  const videoCount = (todos?.filter(t => t.media_url && t.media_type === 'video' && !t.deleted_at).length || 0) +
-    (notes?.filter(n => !n.deleted_at).reduce((acc, n) => {
+  const videoCount = (relevantTodos?.filter(t => t.media_url && t.media_type === 'video' && !t.deleted_at).length || 0) +
+    (relevantNotes?.filter(n => !n.deleted_at).reduce((acc, n) => {
       return acc + getNoteItems(n).filter(m => m?.type === 'video').length;
     }, 0) || 0);
 
-  const maxPhotos = quotaConfig?.maxPhotos ?? (quotaConfig?.isUpgraded ? 500 : (quotaConfig?.isEmailConfirmed ? 150 : 50));
+  const maxPhotos = quotaConfig?.maxPhotos ?? (quotaConfig?.isUpgraded ? 1000 : (quotaConfig?.isEmailConfirmed ? 150 : 50));
   const maxVideos = quotaConfig?.maxVideos ?? (quotaConfig?.isUpgraded ? 5 : (quotaConfig?.isEmailConfirmed ? 2 : 0));
 
   // Handler Ekspor Data JSON
@@ -304,13 +314,28 @@ export default function SettingsModal({
               <div className="flex items-center space-x-2">
                 <ImageIcon className="w-4 h-4 text-blue-500" />
                 <h3 className="text-sm font-semibold text-neutral-900 dark:text-white">
-                  {isEn ? 'Media Limits (Photos & Videos)' : 'Batas Lampiran Foto & Video'}
+                  {quotaConfig?.isWorkspacePool 
+                    ? (isEn ? `Team Media Pool (${quotaConfig.workspaceName || 'Workspace'})` : `Pool Media Tim (${quotaConfig.workspaceName || 'Ruang Kerja'})`)
+                    : (isEn ? 'Personal Media Limits (Photos & Videos)' : 'Batas Lampiran Foto & Video')}
                 </h3>
               </div>
               <span className="text-[11px] font-mono px-2 py-0.5 rounded-md font-semibold bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 border border-neutral-200/60 dark:border-neutral-700">
                 {quotaConfig?.tierName}
               </span>
             </div>
+
+            {quotaConfig?.isWorkspacePool && (
+              <div className="text-[11px] text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/50 border border-blue-200/80 dark:border-blue-800/80 p-2.5 rounded-lg flex items-center justify-between">
+                <span>
+                  {isEn 
+                    ? '👥 This quota is shared across all members of this Team Workspace.' 
+                    : '👥 Kuota ini digunakan bersama oleh seluruh anggota di ruang kerja tim ini.'}
+                </span>
+                <span className="font-semibold shrink-0 ml-2">
+                  {quotaConfig.isOwner ? (isEn ? 'You are Owner' : 'Anda Pemilik') : (isEn ? 'Funded by Owner' : 'Disediakan Pemilik')}
+                </span>
+              </div>
+            )}
 
             {/* Photo Quota Card */}
             <div className="p-3 rounded-xl bg-neutral-50/80 dark:bg-[#202020] border border-neutral-200/70 dark:border-neutral-700/70 space-y-2">
@@ -360,7 +385,7 @@ export default function SettingsModal({
                 <span>
                   {maxVideos === 0 
                     ? (isEn ? '🔒 Locked: verify email to unlock 2 videos' : '🔒 Terkunci: verifikasi email untuk membuka 2 video') 
-                    : (isEn ? 'Max 25 MB per video' : 'Maksimal 25 MB per video')}
+                    : (isEn ? 'Max 15 MB per video/file' : 'Maksimal 15 MB per video/berkas')}
                 </span>
                 <span>{maxVideos === 0 ? (isEn ? '0 video' : '0 video') : `${Math.max(0, maxVideos - videoCount)} ${isEn ? 'slots left' : 'tersisa'}`}</span>
               </div>
@@ -395,16 +420,16 @@ export default function SettingsModal({
                 </div>
                 <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
                   {quotaConfig?.isUpgraded
-                    ? (isEn ? 'You have unlocked the maximum quota: 500 photos and 5 videos.' : 'Anda menikmati batas kuota maksimal: 500 foto dan 5 video.')
+                    ? (isEn ? 'You have unlocked the maximum quota: 1,000 photos and 5 videos.' : 'Anda menikmati batas kuota maksimal: 1.000 foto dan 5 video.')
                     : (!quotaConfig?.isEmailConfirmed
                       ? (isEn ? 'Verify your email to upgrade your quota from 50 photos (0 video) to 150 photos & 2 videos!' : 'Verifikasi email Anda untuk menaikkan kuota dari 50 foto (0 video) ke 150 foto & 2 video!')
-                      : (isEn ? 'Email verified! Upgrade to Pro for 500 photos & 5 videos.' : 'Email terverifikasi! Upgrade ke Pro untuk 500 foto & 5 video.'))}
+                      : (isEn ? 'Email verified! Upgrade to Pro for 1,000 photos & 5 videos.' : 'Email terverifikasi! Upgrade ke Pro untuk 1.000 foto & 5 video.'))}
                 </p>
               </div>
               <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full font-bold uppercase ${
                 quotaConfig?.isUpgraded ? 'bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300' : 'bg-neutral-200 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300'
               }`}>
-                {quotaConfig?.isUpgraded ? 'PRO 500' : 'FREE'}
+                {quotaConfig?.isUpgraded ? 'PRO 1000' : 'FREE'}
               </span>
             </div>
 
@@ -424,7 +449,7 @@ export default function SettingsModal({
                   <Sparkles className="w-2.5 h-2.5" />
                   <span>Pro</span>
                 </div>
-                <div className="font-bold text-amber-900 dark:text-amber-300 mt-0.5">500 Foto</div>
+                <div className="font-bold text-amber-900 dark:text-amber-300 mt-0.5">1.000 Foto</div>
                 <div className="text-[10px] text-amber-700 dark:text-amber-400">5 Video</div>
               </div>
             </div>

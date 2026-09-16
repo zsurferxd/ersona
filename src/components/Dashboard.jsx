@@ -16,7 +16,7 @@ import { id as localeId, enUS as localeEn } from 'date-fns/locale';
 import { compressImage } from '../utils/compressor';
 import { parseMediaUrl } from '../utils/embedHelper';
 import SettingsModal from './SettingsModal';
-import { getUserQuotaConfig, calculateUserStorageUsage, formatBytes } from '../utils/storageQuota';
+import { getUserQuotaConfig, getWorkspaceQuotaConfig, calculateUserStorageUsage, formatBytes } from '../utils/storageQuota';
 import { uploadMediaToR2OrSupabase, deleteMediaByUrl } from '../utils/r2Storage';
 
 // Helper normalisasi warna status untuk Notion-style Dark Mode
@@ -146,7 +146,13 @@ export default function Dashboard({ onGoToLanding }) {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [storageUsage, setStorageUsage] = useState(0);
 
-  const quotaConfig = getUserQuotaConfig(user);
+  const currentWorkspace = workspaces.find(w => w.id === activeWorkspaceId) || null;
+
+  // Kuota aktif: jika di dalam Team Workspace, ikuti Owner-Centric Workspace Pool
+  // jika di personal, ikuti kuota pribadi user
+  const quotaConfig = activeWorkspaceId 
+    ? getWorkspaceQuotaConfig(currentWorkspace, user)
+    : getUserQuotaConfig(user);
 
   const refreshStorageUsage = async () => {
     if (user?.id) {
@@ -185,30 +191,51 @@ export default function Dashboard({ onGoToLanding }) {
     return [];
   };
 
-  const currentPhotoCount = (todos?.filter(t => t.media_url && t.media_type !== 'video' && !t.deleted_at).length || 0) +
-    (notes?.filter(n => !n.deleted_at).reduce((acc, n) => {
+  // Item yang dihitung untuk kuota:
+  // - Jika berada di workspace tim (activeWorkspaceId != null): hanya hitung item dalam workspace tersebut
+  // - Jika berada di personal (activeWorkspaceId == null): hanya hitung item personal (!workspace_id)
+  const quotaTodos = activeWorkspaceId 
+    ? todos.filter(t => t.workspace_id === activeWorkspaceId)
+    : todos.filter(t => !t.workspace_id);
+
+  const quotaNotes = activeWorkspaceId 
+    ? notes.filter(n => n.workspace_id === activeWorkspaceId)
+    : notes.filter(n => !n.workspace_id);
+
+  const currentPhotoCount = (quotaTodos?.filter(t => t.media_url && t.media_type !== 'video' && !t.deleted_at).length || 0) +
+    (quotaNotes?.filter(n => !n.deleted_at).reduce((acc, n) => {
       return acc + getNoteItems(n).filter(m => m?.type !== 'video').length;
     }, 0) || 0);
 
-  const currentVideoCount = (todos?.filter(t => t.media_url && t.media_type === 'video' && !t.deleted_at).length || 0) +
-    (notes?.filter(n => !n.deleted_at).reduce((acc, n) => {
+  const currentVideoCount = (quotaTodos?.filter(t => t.media_url && t.media_type === 'video' && !t.deleted_at).length || 0) +
+    (quotaNotes?.filter(n => !n.deleted_at).reduce((acc, n) => {
       return acc + getNoteItems(n).filter(m => m?.type === 'video').length;
     }, 0) || 0);
 
   // Validasi Batas Kuota Media (Foto & Video) Sebelum Upload
   const validateMediaQuota = (mediaType = 'image', count = 1) => {
+    const isWs = Boolean(activeWorkspaceId && currentWorkspace);
+
     if (mediaType === 'video') {
       const maxVideos = quotaConfig.maxVideos;
       if (maxVideos === 0) {
         alert(isEn
-          ? '🔒 Video upload is locked for unverified accounts.\nPlease verify your email in Settings to get 2 video slots, or upgrade to Pro for 5 videos.'
-          : '🔒 Fitur upload video terkunci untuk akun belum terverifikasi.\nSilakan verifikasi email Anda di Pengaturan untuk mendapatkan kuota 2 video, atau upgrade ke Ersona Pro untuk 5 video.');
+          ? (isWs 
+              ? '🔒 Video upload is locked for this workspace.\nThe workspace owner needs to verify email or upgrade to Pro.' 
+              : '🔒 Video upload is locked for unverified accounts.\nPlease verify your email in Settings to get 2 video slots, or upgrade to Pro for 5 videos.')
+          : (isWs 
+              ? '🔒 Fitur upload video terkunci untuk workspace ini.\nPemilik workspace perlu verifikasi email atau upgrade ke Ersona Pro.' 
+              : '🔒 Fitur upload video terkunci untuk akun belum terverifikasi.\nSilakan verifikasi email Anda di Pengaturan untuk mendapatkan kuota 2 video, atau upgrade ke Ersona Pro untuk 5 video.'));
         return false;
       }
       if (currentVideoCount + count > maxVideos) {
         alert(isEn
-          ? `⚠️ Video quota reached! (${currentVideoCount} of ${maxVideos} videos used).\nUpgrade to Pro or delete older videos to upload more.`
-          : `⚠️ Batas kuota video tercapai! (${currentVideoCount} dari ${maxVideos} video terpakai).\nUpgrade ke Ersona Pro atau hapus video lama untuk mengunggah.`);
+          ? (isWs 
+              ? `⚠️ Team Workspace video quota reached! (${currentVideoCount} of ${maxVideos} videos used).\nAsk workspace owner to upgrade to Pro or delete older videos.` 
+              : `⚠️ Video quota reached! (${currentVideoCount} of ${maxVideos} videos used).\nUpgrade to Pro or delete older videos to upload more.`)
+          : (isWs 
+              ? `⚠️ Batas kuota video Ruang Kerja Tim tercapai! (${currentVideoCount} dari ${maxVideos} video terpakai).\nMinta pemilik ruang kerja untuk upgrade ke Ersona Pro atau hapus video lama.` 
+              : `⚠️ Batas kuota video tercapai! (${currentVideoCount} dari ${maxVideos} video terpakai).\nUpgrade ke Ersona Pro atau hapus video lama untuk mengunggah.`));
         return false;
       }
       return true;
@@ -217,8 +244,12 @@ export default function Dashboard({ onGoToLanding }) {
     const maxPhotos = quotaConfig.maxPhotos;
     if (currentPhotoCount + count > maxPhotos) {
       alert(isEn
-        ? `⚠️ Photo quota reached! (${currentPhotoCount} of ${maxPhotos} photos used).\n${!quotaConfig.isEmailConfirmed ? 'Verify your email to get 150 photos, or upgrade to Pro for 500 photos.' : (!quotaConfig.isUpgraded ? 'Upgrade to Pro for up to 500 photos.' : 'Please delete older photos to free up slots.')}`
-        : `⚠️ Batas kuota foto tercapai! (${currentPhotoCount} dari ${maxPhotos} foto terpakai).\n${!quotaConfig.isEmailConfirmed ? 'Verifikasi email Anda di Pengaturan untuk mendapatkan kuota 150 foto, atau upgrade ke Pro untuk 500 foto.' : (!quotaConfig.isUpgraded ? 'Upgrade ke Ersona Pro untuk kuota hingga 500 foto.' : 'Hapus foto lama untuk menambah ruang.')}`);
+        ? (isWs
+            ? `⚠️ Team Workspace photo quota reached! (${currentPhotoCount} of ${maxPhotos} photos used).\nAsk workspace owner to upgrade to Pro (up to 1,000 photos) or delete older photos.`
+            : `⚠️ Photo quota reached! (${currentPhotoCount} of ${maxPhotos} photos used).\n${!quotaConfig.isEmailConfirmed ? 'Verify your email to get 150 photos, or upgrade to Pro for 1,000 photos.' : (!quotaConfig.isUpgraded ? 'Upgrade to Pro for up to 1,000 photos.' : 'Please delete older photos to free up slots.')}`)
+        : (isWs
+            ? `⚠️ Batas kuota foto Ruang Kerja Tim tercapai! (${currentPhotoCount} dari ${maxPhotos} foto terpakai).\nMinta pemilik ruang kerja untuk upgrade ke Ersona Pro (hingga 1.000 foto) atau hapus foto lama.`
+            : `⚠️ Batas kuota foto tercapai! (${currentPhotoCount} dari ${maxPhotos} foto terpakai).\n${!quotaConfig.isEmailConfirmed ? 'Verifikasi email Anda di Pengaturan untuk mendapatkan kuota 150 foto, atau upgrade ke Pro untuk 1.000 foto.' : (!quotaConfig.isUpgraded ? 'Upgrade ke Ersona Pro untuk kuota hingga 1.000 foto.' : 'Hapus foto lama untuk menambah ruang.')}`));
       return false;
     }
     return true;
@@ -501,16 +532,48 @@ export default function Dashboard({ onGoToLanding }) {
   const fetchWorkspaces = async () => {
     if (!user) return;
     try {
+      let wsList = [];
       const { data, error } = await supabase
         .from('workspaces')
-        .select('id, name, owner_id, invite_code, created_at')
+        .select('id, name, owner_id, invite_code, created_at, is_upgraded, tier')
         .order('created_at', { ascending: true });
+
       if (!error && data) {
-        setWorkspaces(data);
-        if (activeWorkspaceId && !data.some(w => w.id === activeWorkspaceId)) {
+        wsList = data;
+      } else {
+        const fallbackRes = await supabase
+          .from('workspaces')
+          .select('id, name, owner_id, invite_code, created_at')
+          .order('created_at', { ascending: true });
+        if (!fallbackRes.error && fallbackRes.data) {
+          wsList = fallbackRes.data;
+        }
+      }
+
+      if (wsList.length > 0) {
+        const isUserPro = Boolean(user.user_metadata?.is_upgraded || user.user_metadata?.tier === 'pro');
+        const updatedList = wsList.map(w => {
+          if (w.owner_id === user.id) {
+            return { ...w, is_upgraded: isUserPro, tier: isUserPro ? 'pro' : 'free' };
+          }
+          return w;
+        });
+
+        // Background sync: update database record if owner is Pro
+        if (isUserPro) {
+          const ownedWs = wsList.filter(w => w.owner_id === user.id && !w.is_upgraded);
+          for (const ow of ownedWs) {
+            supabase.from('workspaces').update({ is_upgraded: true, tier: 'pro' }).eq('id', ow.id).then(() => {});
+          }
+        }
+
+        setWorkspaces(updatedList);
+        if (activeWorkspaceId && !updatedList.some(w => w.id === activeWorkspaceId)) {
           setActiveWorkspaceId(null);
           try { localStorage.removeItem('ersona_active_workspace_id'); } catch {}
         }
+      } else {
+        setWorkspaces([]);
       }
     } catch (err) {
       console.warn('Gagal memuat workspaces:', err);
@@ -555,26 +618,47 @@ export default function Dashboard({ onGoToLanding }) {
     setWsError('');
     try {
       const inviteCode = Math.random().toString(36).substring(2, 10).toUpperCase();
+      const isUserPro = Boolean(user.user_metadata?.is_upgraded || user.user_metadata?.tier === 'pro');
+      
+      let wsData = null;
       const { data, error } = await supabase
         .from('workspaces')
         .insert({
           name: newWsName.trim(),
           owner_id: user.id,
           invite_code: inviteCode,
+          is_upgraded: isUserPro,
+          tier: isUserPro ? 'pro' : 'free',
         })
         .select()
         .single();
-      if (error) throw error;
+
+      if (error) {
+        // Fallback jika kolom is_upgraded belum dibuat di database
+        const { data: fbData, error: fbError } = await supabase
+          .from('workspaces')
+          .insert({
+            name: newWsName.trim(),
+            owner_id: user.id,
+            invite_code: inviteCode,
+          })
+          .select()
+          .single();
+        if (fbError) throw fbError;
+        wsData = { ...fbData, is_upgraded: isUserPro, tier: isUserPro ? 'pro' : 'free' };
+      } else {
+        wsData = data;
+      }
 
       await supabase.from('workspace_members').insert({
-        workspace_id: data.id,
+        workspace_id: wsData.id,
         user_id: user.id,
         user_email: user.email,
         role: 'owner',
       });
 
-      setWorkspaces(prev => [...prev, data]);
-      handleSwitchWorkspace(data.id);
+      setWorkspaces(prev => [...prev, wsData]);
+      handleSwitchWorkspace(wsData.id);
       setNewWsName('');
       setIsCreateWsModalOpen(false);
     } catch (err) {
@@ -736,9 +820,6 @@ export default function Dashboard({ onGoToLanding }) {
     }
   }, [loading, taskStatuses]);
 
-  // Workspace aktif saat ini
-  const currentWorkspace = workspaces.find(w => w.id === activeWorkspaceId) || null;
-
   // Filter Data berdasarkan Workspace Aktif (Personal jika activeWorkspaceId null, atau Workspace Tim)
   const scopedTodos = activeWorkspaceId 
     ? todos.filter(t => t.workspace_id === activeWorkspaceId)
@@ -793,6 +874,13 @@ export default function Dashboard({ onGoToLanding }) {
         setIsCompressingTodoFile(false);
       }
     } else {
+      if (rawFile.size > 15 * 1024 * 1024) {
+        alert(isEn 
+          ? '⚠️ Maximum file size for video or attachment (PDF/file) is 15 MB.' 
+          : '⚠️ Ukuran maksimal untuk file video atau lampiran (PDF/berkas) adalah 15 MB.');
+        clearTodoFile();
+        return;
+      }
       setTodoFile(rawFile);
       setTodoFileType(rawFile.type.startsWith('video/') ? 'video' : 'file');
       setTodoFilePreview(URL.createObjectURL(rawFile));
@@ -832,6 +920,14 @@ export default function Dashboard({ onGoToLanding }) {
         setIsCompressingEditFile(false);
       }
     } else {
+      if (rawFile.size > 15 * 1024 * 1024) {
+        alert(isEn 
+          ? '⚠️ Maximum file size for video or attachment (PDF/file) is 15 MB.' 
+          : '⚠️ Ukuran maksimal untuk file video atau lampiran (PDF/berkas) adalah 15 MB.');
+        setEditFile(null);
+        if (editTodoFileInputRef.current) editTodoFileInputRef.current.value = '';
+        return;
+      }
       setEditFile(rawFile);
       setEditFilePreview(URL.createObjectURL(rawFile));
     }
@@ -1246,8 +1342,8 @@ export default function Dashboard({ onGoToLanding }) {
       setUploadError('Hanya file video (MP4, WebM) yang diperbolehkan.');
       return;
     }
-    if (file.size > 25 * 1024 * 1024) {
-      setUploadError('Ukuran video maksimal 25 MB.');
+    if (file.size > 15 * 1024 * 1024) {
+      setUploadError(isEn ? 'Maximum video size is 15 MB.' : 'Ukuran video maksimal 15 MB.');
       return;
     }
 
@@ -1409,8 +1505,8 @@ export default function Dashboard({ onGoToLanding }) {
       alert('Catatan hanya boleh memiliki maksimal 1 video.');
       return;
     }
-    if (file.size > 25 * 1024 * 1024) {
-      alert('Ukuran video maksimal 25 MB.');
+    if (file.size > 15 * 1024 * 1024) {
+      alert(isEn ? 'Maximum video size is 15 MB.' : 'Ukuran video maksimal 15 MB.');
       return;
     }
 
@@ -2107,7 +2203,7 @@ export default function Dashboard({ onGoToLanding }) {
                 <div className="flex items-center justify-between text-[11px] mb-1.5">
                   <div className="flex items-center space-x-1.5 font-medium text-neutral-700 dark:text-neutral-300">
                     <Image className="w-3.5 h-3.5 text-blue-500" />
-                    <span>Media Quota</span>
+                    <span>{quotaConfig.isWorkspacePool ? (isEn ? 'Team Media Pool' : 'Pool Media Tim') : (isEn ? 'Media Quota' : 'Kuota Media')}</span>
                   </div>
                   <span className="text-[10px] font-mono text-neutral-500 dark:text-neutral-400">
                     {currentPhotoCount}/{quotaConfig.maxPhotos} foto
@@ -2289,7 +2385,7 @@ export default function Dashboard({ onGoToLanding }) {
             <div className="flex items-center justify-between text-[11px] mb-1.5">
               <div className="flex items-center space-x-1.5 font-medium text-neutral-700 dark:text-neutral-300">
                 <Image className="w-3.5 h-3.5 text-blue-500" />
-                <span>Media Quota</span>
+                <span>{quotaConfig.isWorkspacePool ? (isEn ? 'Team Media Pool' : 'Pool Media Tim') : (isEn ? 'Media Quota' : 'Kuota Media')}</span>
               </div>
               <span className="text-[10px] font-mono text-neutral-500 dark:text-neutral-400">
                 {currentPhotoCount}/{quotaConfig.maxPhotos} foto
@@ -4219,6 +4315,7 @@ export default function Dashboard({ onGoToLanding }) {
         todos={todos}
         notes={notes}
         workspaces={workspaces}
+        activeWorkspace={currentWorkspace}
         storageUsage={storageUsage}
         onRefreshStorage={refreshStorageUsage}
         quotaConfig={quotaConfig}

@@ -29,12 +29,12 @@ export const QUOTA_TIERS = {
     desc: '150 foto & 2 video',
   },
   pro: {
-    maxPhotos: 500,
+    maxPhotos: 1000,
     maxVideos: 5,
     tierName: 'Ersona Pro',
     tierNameEn: 'Ersona Pro',
     tierCode: 'pro',
-    desc: '500 foto & 5 video',
+    desc: '1.000 foto & 5 video',
   },
 };
 
@@ -73,6 +73,42 @@ export function getUserQuotaConfig(user) {
     ...QUOTA_TIERS.unconfirmed,
     isEmailConfirmed: false,
     isUpgraded: false,
+  };
+}
+
+/**
+ * Mendapatkan konfigurasi kuota untuk Ruang Kerja Bersama (Team Workspace)
+ * Mengikuti arsitektur Owner-Centric Storage Pool:
+ * - Jika user yang login adalah pemilik (owner), ikuti tingkatan akun pemilik
+ * - Jika user adalah anggota tim (member), kuota mengikuti status Pro workspace
+ */
+export function getWorkspaceQuotaConfig(workspace, currentUser) {
+  if (!workspace) {
+    return getUserQuotaConfig(currentUser);
+  }
+
+  // Jika pengguna saat ini adalah pemilik workspace
+  if (currentUser && workspace.owner_id === currentUser.id) {
+    const userConfig = getUserQuotaConfig(currentUser);
+    return {
+      ...userConfig,
+      isWorkspacePool: true,
+      workspaceName: workspace.name,
+      isOwner: true,
+    };
+  }
+
+  // Jika pengguna adalah anggota yang diundang
+  const isWsPro = Boolean(workspace.is_upgraded || workspace.tier === 'pro');
+  const baseTier = isWsPro ? QUOTA_TIERS.pro : QUOTA_TIERS.confirmed;
+
+  return {
+    ...baseTier,
+    isEmailConfirmed: true,
+    isUpgraded: isWsPro,
+    isWorkspacePool: true,
+    workspaceName: workspace.name,
+    isOwner: false,
   };
 }
 
