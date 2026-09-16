@@ -52,15 +52,34 @@ export default function Auth({ onBackToHome, initialIsSignUp = false, initialMod
       if (mode === 'signup') {
         const { data: signUpData, error: signUpError } = await signUp(email, password);
         if (signUpError) throw signUpError;
-        if (signUpData?.user && !signUpData?.session) {
-          setMessage(isEn 
-            ? 'Account created! Please check your email inbox (and spam) to click the verification link before logging in.' 
-            : 'Akun berhasil dibuat! Silakan buka email Anda (dan folder spam) untuk klik tautan verifikasi sebelum masuk.');
-        } else {
-          setMessage(isEn 
-            ? 'Account created! Please check your email to verify your account.' 
-            : 'Akun berhasil dibuat! Silakan periksa email Anda untuk verifikasi akun.');
+        
+        // Jika sesi langsung aktif (Confirm email: OFF)
+        if (signUpData?.session) {
+          setMessage(isEn ? 'Account created! Welcome to Ersona...' : 'Akun berhasil dibuat! Mengalihkan ke ruang kerja...');
+          setTimeout(() => {
+            window.location.href = '/workspace';
+          }, 600);
+          return;
         }
+
+        // Coba login otomatis jika sesi belum terbentuk
+        try {
+          const { data: signInData, error: signInError } = await signIn(email, password);
+          if (!signInError && signInData?.session) {
+            setMessage(isEn ? 'Account created! Welcome to Ersona...' : 'Akun berhasil dibuat! Mengalihkan ke ruang kerja...');
+            setTimeout(() => {
+              window.location.href = '/workspace';
+            }, 600);
+            return;
+          }
+        } catch {
+          // Abaikan jika auto-login gagal
+        }
+
+        setMessage(isEn 
+          ? 'Account created! You can now sign in.' 
+          : 'Akun berhasil dibuat! Silakan masuk dengan akun Anda.');
+        setMode('signin');
       } else if (mode === 'signin') {
         const { error: signInError } = await signIn(email, password);
         if (signInError) throw signInError;

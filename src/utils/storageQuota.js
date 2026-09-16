@@ -51,7 +51,13 @@ export function getUserQuotaConfig(user) {
   }
 
   const isUpgraded = Boolean(user.user_metadata?.is_upgraded || user.user_metadata?.tier === 'pro');
-  const isEmailConfirmed = Boolean(user.email_confirmed_at);
+  
+  // Google OAuth otomatis dianggap terverifikasi oleh Google
+  const isGoogleOAuth = user.app_metadata?.provider === 'google' || 
+    (Array.isArray(user.identities) && user.identities.some(i => i.provider === 'google'));
+
+  // Akun email/password diperiksa berdasarkan flag custom email_verified di user_metadata
+  const isEmailConfirmed = isGoogleOAuth || Boolean(user.user_metadata?.email_verified === true);
 
   if (isUpgraded) {
     return {

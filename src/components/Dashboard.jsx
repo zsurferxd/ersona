@@ -176,6 +176,18 @@ export default function Dashboard({ onGoToLanding }) {
     }
   };
 
+  const handleToggleEmailVerified = async (isVerified) => {
+    try {
+      const { error } = await supabase.auth.updateUser({
+        data: { email_verified: isVerified }
+      });
+      if (error) throw error;
+      await refreshStorageUsage();
+    } catch (err) {
+      alert('Gagal mengubah status verifikasi email: ' + err.message);
+    }
+  };
+
   // State Data
   const [todos, setTodos] = useState([]);
   const [notes, setNotes] = useState([]);
@@ -2482,6 +2494,27 @@ export default function Dashboard({ onGoToLanding }) {
           </div>
         </div>
 
+        {/* Banner Akun Belum Terverifikasi (Limit 50 Foto & 0 Video) */}
+        {!quotaConfig.isEmailConfirmed && !quotaConfig.isUpgraded && (
+          <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/80 rounded-xl flex items-center justify-between gap-3 text-xs shadow-2xs">
+            <div className="flex items-center space-x-2 text-amber-800 dark:text-amber-300 min-w-0">
+              <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+              <span className="truncate">
+                {isEn 
+                  ? 'Email not verified (Limit: 50 photos & 0 videos). Verify to unlock 150 photos & 2 videos!' 
+                  : 'Email belum diverifikasi (Batas: 50 foto & 0 video). Verifikasi untuk membuka 150 foto & 2 video!'}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsSettingsOpen(true)}
+              className="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-medium text-xs transition shrink-0 cursor-pointer"
+            >
+              {isEn ? 'Verify' : 'Verifikasi'}
+            </button>
+          </div>
+        )}
+
         {/* Mobile: Compact toolbar for view/group/sort controls — only when relevant tab */}
         {(activeTab === 'all' || activeTab === 'todos' || activeTab === 'reminders') && (
           <div className="md:hidden flex items-center gap-1.5 overflow-x-auto no-scrollbar">
@@ -4477,6 +4510,7 @@ export default function Dashboard({ onGoToLanding }) {
         onSavePreferences={handleSavePreferences}
         onResetPreferences={handleResetPreferences}
         onToggleProTier={handleToggleProTier}
+        onToggleEmailVerified={handleToggleEmailVerified}
         onNavigateToTab={(tab) => {
           setActiveTab(tab);
           setIsSettingsOpen(false);

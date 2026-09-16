@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
   X, User, HardDrive, CheckCircle2, AlertTriangle,
   RefreshCw, Sparkles, Mail, Trash2, Sun, Moon, Globe,
-  Download, FileText, Check, Image as ImageIcon, Film
+  Download, FileText, Check, Image as ImageIcon, Film, Loader2
 } from 'lucide-react';
 import { formatBytes } from '../utils/storageQuota';
 import { supabase } from '../lib/supabaseClient';
@@ -16,6 +16,7 @@ export default function SettingsModal({
   onRefreshStorage,
   quotaConfig,
   onToggleProTier,
+  onToggleEmailVerified,
   onNavigateToTab,
   todos = [],
   notes = [],
@@ -32,6 +33,10 @@ export default function SettingsModal({
   const [emailSentNotice, setEmailSentNotice] = useState(false);
   const [isUpgrading, setIsUpgrading] = useState(false);
   const [exportedType, setExportedType] = useState(null);
+  const [showOtpInput, setShowOtpInput] = useState(false);
+  const [otpCode, setOtpCode] = useState('');
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
+  const [otpSuccessMsg, setOtpSuccessMsg] = useState('');
 
   // Helper menghitung media tanpa double counting media_url vs media_items
   const getNoteItems = (n) => {
@@ -132,23 +137,60 @@ export default function SettingsModal({
     }
   };
 
-  // Handler Kirim Ulang Email Konfirmasi
-  const handleResendConfirmation = async () => {
+  // Handler Kirim Kode Verifikasi ke Email (Supabase OTP / Magic Link)
+  const handleSendVerificationOtp = async () => {
     if (!user?.email) return;
     setResendingEmail(true);
     setEmailSentNotice(false);
+    setOtpSuccessMsg('');
     try {
-      const { error } = await supabase.auth.resend({
-        type: 'signup',
+      const { error } = await supabase.auth.signInWithOtp({
         email: user.email,
+        options: {
+          shouldCreateUser: false,
+          emailRedirectTo: `${window.location.origin}/workspace`,
+        }
       });
-      if (error) throw error;
+      if (error) {
+        const fallback = await supabase.auth.resend({
+          type: 'signup',
+          email: user.email,
+        });
+        if (fallback.error) throw error;
+      }
+      setShowOtpInput(true);
       setEmailSentNotice(true);
-      setTimeout(() => setEmailSentNotice(false), 5000);
     } catch (err) {
-      alert('Gagal mengirim ulang email konfirmasi: ' + err.message);
+      alert(isEn ? 'Failed to send verification email: ' + err.message : 'Gagal mengirim email verifikasi: ' + err.message);
     } finally {
       setResendingEmail(false);
+    }
+  };
+
+  const handleVerifyOtp = async (e) => {
+    e?.preventDefault();
+    if (!otpCode.trim() || !user?.email) return;
+    setIsVerifyingOtp(true);
+    try {
+      const { error } = await supabase.auth.verifyOtp({
+        email: user.email,
+        token: otpCode.trim(),
+        type: 'email',
+      });
+      if (error) {
+        throw error;
+      }
+      if (onToggleEmailVerified) {
+        await onToggleEmailVerified(true);
+      }
+      setShowOtpInput(false);
+      setOtpCode('');
+      setOtpSuccessMsg(isEn ? 'Email verified! Quota increased to 150 photos & 2 videos.' : 'Email berhasil diverifikasi! Kuota meningkat jadi 150 foto & 2 video.');
+      setTimeout(() => setOtpSuccessMsg(''), 4000);
+    } catch (err) {
+      alert(isEn ? 'Verification failed: ' + err.message : 'Verifikasi gagal: ' + err.message);
+    } finally {
+      setIsVerifyingOtp(false);
     }
   };
 
@@ -289,19 +331,89 @@ export default function SettingsModal({
             </div>
 
             {!quotaConfig?.isEmailConfirmed && (
+              <div className="flex flex-wrap items-center gap-2 self-start sm:self-center">
+                <button
+                  type="button"
+                  onClick={handleSendVerificationOtp}
+                  disabled={resendingEmail}
+                  className="px-3 py-1.5 text-xs bg-white dark:bg-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-200 border border-neutral-300 dark:border-neutral-700 rounded-lg transition font-medium flex items-center space-x-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  {resendingEmail ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Mail className="w-3.5 h-3.5" />}
+                  <span>{resendingEmail ? t('common.saving') : (isEn ? 'Send Verification Email' : 'Kirim Verifikasi')}</span>
+                </button>
+                {onToggleEmailVerified && (
+                  <button
+                    type="button"
+                    onClick={() => onToggleEmailVerified(true)}
+                    className="px-2.5 py-1.5 text-xs bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 rounded-lg transition font-medium cursor-pointer"
+                    title="Verifikasi instan untuk kemudahan pengujian akun"
+                  >
+                    {isEn ? 'Verify Now (Test)' : 'Verif Instan (Tes)'}
+                  </button>
+                )}
+              </div>
+            )}
+            {quotaConfig?.isEmailConfirmed && !quotaConfig?.isUpgraded && onToggleEmailVerified && (
               <button
                 type="button"
-                onClick={handleResendConfirmation}
-                disabled={resendingEmail}
-                className="self-start sm:self-center px-3 py-1.5 text-xs bg-white dark:bg-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-200 border border-neutral-300 dark:border-neutral-700 rounded-lg transition font-medium flex items-center space-x-1.5 cursor-pointer disabled:opacity-50"
+                onClick={() => onToggleEmailVerified(false)}
+                className="text-[11px] text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 underline cursor-pointer self-start sm:self-center"
+                title="Kembalikan ke status Belum Verif untuk pengujian"
               >
-                <Mail className="w-3.5 h-3.5" />
-                <span>{resendingEmail ? t('common.saving') : t('settings.resendEmail')}</span>
+                {isEn ? 'Reset to Unverified (Test)' : 'Set ke Belum Verif (Tes)'}
               </button>
             )}
           </div>
 
-          {emailSentNotice && (
+          {/* Form Masukkan Kode OTP */}
+          {showOtpInput && !quotaConfig?.isEmailConfirmed && (
+            <form onSubmit={handleVerifyOtp} className="p-3.5 bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/80 rounded-xl text-xs space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-blue-900 dark:text-blue-200">
+                  {isEn ? 'Enter 6-Digit Verification Code' : 'Masukkan 6 Digit Kode Verifikasi'}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowOtpInput(false)}
+                  className="text-blue-400 hover:text-blue-700 dark:hover:text-blue-200 cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+              <p className="text-[11px] text-blue-800/80 dark:text-blue-300/80 leading-relaxed">
+                {isEn 
+                  ? `We've sent a verification code to ${user?.email}. Enter it below to unlock 150 photos & 2 videos:`
+                  : `Kode verifikasi telah dikirim ke ${user?.email}. Masukkan kode di bawah untuk membuka kuota 150 foto & 2 video:`}
+              </p>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="text"
+                  maxLength="8"
+                  placeholder="123456"
+                  value={otpCode}
+                  onChange={(e) => setOtpCode(e.target.value.trim())}
+                  className="w-36 px-3 py-1.5 text-center font-mono font-bold tracking-widest text-sm bg-white dark:bg-[#1f1f1f] border border-blue-300 dark:border-blue-700 rounded-lg text-neutral-900 dark:text-white focus:outline-none"
+                />
+                <button
+                  type="submit"
+                  disabled={isVerifyingOtp || !otpCode.trim()}
+                  className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg disabled:opacity-50 transition cursor-pointer flex items-center space-x-1.5"
+                >
+                  {isVerifyingOtp && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  <span>{isEn ? 'Verify' : 'Verifikasi'}</span>
+                </button>
+              </div>
+            </form>
+          )}
+
+          {otpSuccessMsg && (
+            <div className="p-3 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 rounded-lg text-xs text-emerald-800 dark:text-emerald-200 flex items-center space-x-2 animate-fade-in">
+              <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+              <span>{otpSuccessMsg}</span>
+            </div>
+          )}
+
+          {emailSentNotice && !showOtpInput && (
             <div className="p-3 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 rounded-lg text-xs text-emerald-800 dark:text-emerald-200 flex items-center space-x-2 animate-fade-in">
               <CheckCircle2 className="w-4 h-4 shrink-0" />
               <span>{t('settings.emailSentNotice')}</span>
