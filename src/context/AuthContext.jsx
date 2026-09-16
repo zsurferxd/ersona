@@ -58,6 +58,15 @@ export const AuthProvider = ({ children }) => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       let activeUser = session?.user ?? null;
       if (activeUser) {
+        // Ambil data user segar langsung dari server Supabase agar selalu sinkron jika user memverifikasi dari perangkat lain (HP)
+        try {
+          const { data: serverUserData, error: serverUserErr } = await supabase.auth.getUser();
+          if (!serverUserErr && serverUserData?.user) {
+            activeUser = serverUserData.user;
+          }
+        } catch (e) {
+          console.warn('Could not fetch server user on mount:', e);
+        }
         activeUser = await handleAutoVerifyIfPending(activeUser);
       }
       setUser(activeUser);
@@ -85,8 +94,67 @@ export const AuthProvider = ({ children }) => {
       setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    // Auto-sync lintas perangkat: saat user berpindah tab atau fokus kembali ke tab PC
+    const handleTabSync = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          const { data: serverData, error } = await supabase.auth.getUser();
+          if (!error && serverData?.user) {
+            setUser((prev) => {
+              if (JSON.stringify(prev?.user_metadata) !== JSON.stringify(serverData.user.user_metadata)) {
+                return serverData.user;
+              }
+              return prev;
+            });
+          }
+        }
+      } catch {}
+    };
+
+    window.addEventListener('focus', handleTabSync);
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') handleTabSync();
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    // Polling aktif setiap 3 detik jika akun belum terverifikasi, agar PC otomatis langsung terverifikasi begitu link diklik di HP
+    const pollInterval = setInterval(async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user && session.user.user_metadata?.ersona_verified !== true) {
+          const { data, error } = await supabase.auth.getUser();
+          if (!error && data?.user) {
+            if (data.user.user_metadata?.ersona_verified === true) {
+              setUser(data.user);
+              clearInterval(pollInterval);
+            }
+          }
+        }
+      } catch {}
+    }, 3000);
+
+    return () => {
+      subscription.unsubscribe();
+      window.removeEventListener('focus', handleTabSync);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      clearInterval(pollInterval);
+    };
   }, []);
+
+  const refreshUser = async () => {
+    if (!isSupabaseConfigured) return null;
+    try {
+      const { data, error } = await supabase.auth.getUser();
+      if (!error && data?.user) {
+        setUser(data.user);
+        return data.user;
+      }
+    } catch (err) {
+      console.warn('Error refreshing user from server:', err);
+    }
+    return null;
+  };
 
   const signUp = (email, password) => {
     if (!isSupabaseConfigured) throw new Error('Supabase belum dikonfigurasi di file .env');
@@ -125,6 +193,7 @@ export const AuthProvider = ({ children }) => {
   return (
     <AuthContext.Provider value={{ 
       user, 
+      refreshUser,
       signUp, 
       signIn, 
       signInWithGoogle, 

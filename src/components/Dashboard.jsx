@@ -66,7 +66,7 @@ const DEFAULT_PREFERENCES = {
 };
 
 export default function Dashboard({ onGoToLanding }) {
-  const { user, signOut } = useAuth();
+  const { user, signOut, refreshUser } = useAuth();
   const { theme, toggleTheme, isDark, language, setLanguage, toggleLanguage, isEn, t } = useThemeLanguage();
   const notePhotoInputRef = useRef(null);
   const noteVideoInputRef = useRef(null);
@@ -188,6 +188,7 @@ export default function Dashboard({ onGoToLanding }) {
 
   const refreshStorageUsage = async () => {
     if (user?.id) {
+      if (refreshUser) await refreshUser();
       const bytes = await calculateUserStorageUsage(supabase, user.id);
       setStorageUsage(bytes);
     }

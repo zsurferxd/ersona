@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   X, User, HardDrive, CheckCircle2, AlertTriangle,
   RefreshCw, Sparkles, Mail, Trash2, Sun, Moon, Globe,
@@ -27,6 +27,12 @@ export default function SettingsModal({
 
   const { theme, setTheme, isDark, language, setLanguage, t } = useThemeLanguage();
   const isEn = language === 'en';
+
+  useEffect(() => {
+    if (isOpen && onRefreshStorage) {
+      onRefreshStorage();
+    }
+  }, [isOpen]);
 
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [resendingEmail, setResendingEmail] = useState(false);
