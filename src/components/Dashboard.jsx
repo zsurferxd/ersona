@@ -167,33 +167,64 @@ export default function Dashboard({ onGoToLanding }) {
     }
   };
 
-  // Validasi Batas Kuota Sebelum Upload File
-  const validateStorageLimit = (incomingBytes) => {
-    const maxBytes = quotaConfig.maxBytes;
-    if (storageUsage + incomingBytes > maxBytes) {
-      const currentMB = (storageUsage / (1024 * 1024)).toFixed(1);
-      const maxMB = quotaConfig.maxMB;
-      const fileMB = (incomingBytes / (1024 * 1024)).toFixed(1);
-
-      let suggestion = '';
-      if (!quotaConfig.isEmailConfirmed && !quotaConfig.isUpgraded) {
-        suggestion = '\n\n💡 Tip: Konfirmasi email akun Anda di Pengaturan untuk menaikkan kuota menjadi 300 MB!';
-      } else if (!quotaConfig.isUpgraded) {
-        suggestion = '\n\n💡 Tip: Upgrade ke Ersona Pro di Pengaturan untuk mendapatkan kuota 1 GB!';
-      }
-
-      alert(`⚠️ Batas Kuota Penyimpanan Terlampaui!\n\nPenggunaan saat ini: ${currentMB} MB dari ${maxMB} MB.\nFile yang ingin diunggah: ${fileMB} MB.${suggestion}\n\nSilakan hapus file lama atau kosongkan tempat sampah.`);
-      return false;
-    }
-    return true;
-  };
-
   // State Data
   const [todos, setTodos] = useState([]);
   const [notes, setNotes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('all'); // 'all', 'todos', 'notes', 'reminders', 'trash'
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Helper menghitung media catatan tanpa double counting
+  const getNoteItems = (n) => {
+    if (Array.isArray(n.media_items) && n.media_items.length > 0) {
+      return n.media_items;
+    }
+    if (n.media_url) {
+      return [{ url: n.media_url, type: n.media_type || 'image' }];
+    }
+    return [];
+  };
+
+  const currentPhotoCount = (todos?.filter(t => t.media_url && t.media_type !== 'video' && !t.deleted_at).length || 0) +
+    (notes?.filter(n => !n.deleted_at).reduce((acc, n) => {
+      return acc + getNoteItems(n).filter(m => m?.type !== 'video').length;
+    }, 0) || 0);
+
+  const currentVideoCount = (todos?.filter(t => t.media_url && t.media_type === 'video' && !t.deleted_at).length || 0) +
+    (notes?.filter(n => !n.deleted_at).reduce((acc, n) => {
+      return acc + getNoteItems(n).filter(m => m?.type === 'video').length;
+    }, 0) || 0);
+
+  // Validasi Batas Kuota Media (Foto & Video) Sebelum Upload
+  const validateMediaQuota = (mediaType = 'image', count = 1) => {
+    if (mediaType === 'video') {
+      const maxVideos = quotaConfig.maxVideos;
+      if (maxVideos === 0) {
+        alert(isEn
+          ? '🔒 Video upload is locked for unverified accounts.\nPlease verify your email in Settings to get 2 video slots, or upgrade to Pro for 5 videos.'
+          : '🔒 Fitur upload video terkunci untuk akun belum terverifikasi.\nSilakan verifikasi email Anda di Pengaturan untuk mendapatkan kuota 2 video, atau upgrade ke Ersona Pro untuk 5 video.');
+        return false;
+      }
+      if (currentVideoCount + count > maxVideos) {
+        alert(isEn
+          ? `⚠️ Video quota reached! (${currentVideoCount} of ${maxVideos} videos used).\nUpgrade to Pro or delete older videos to upload more.`
+          : `⚠️ Batas kuota video tercapai! (${currentVideoCount} dari ${maxVideos} video terpakai).\nUpgrade ke Ersona Pro atau hapus video lama untuk mengunggah.`);
+        return false;
+      }
+      return true;
+    }
+
+    const maxPhotos = quotaConfig.maxPhotos;
+    if (currentPhotoCount + count > maxPhotos) {
+      alert(isEn
+        ? `⚠️ Photo quota reached! (${currentPhotoCount} of ${maxPhotos} photos used).\n${!quotaConfig.isEmailConfirmed ? 'Verify your email to get 150 photos, or upgrade to Pro for 500 photos.' : (!quotaConfig.isUpgraded ? 'Upgrade to Pro for up to 500 photos.' : 'Please delete older photos to free up slots.')}`
+        : `⚠️ Batas kuota foto tercapai! (${currentPhotoCount} dari ${maxPhotos} foto terpakai).\n${!quotaConfig.isEmailConfirmed ? 'Verifikasi email Anda di Pengaturan untuk mendapatkan kuota 150 foto, atau upgrade ke Pro untuk 500 foto.' : (!quotaConfig.isUpgraded ? 'Upgrade ke Ersona Pro untuk kuota hingga 500 foto.' : 'Hapus foto lama untuk menambah ruang.')}`);
+      return false;
+    }
+    return true;
+  };
+
+  const validateStorageLimit = validateMediaQuota;
 
   // To-Do Sorting State
   const [todoSortBy, setTodoSortBy] = useState(preferences.defaultSort || 'created_desc');
@@ -740,12 +771,12 @@ export default function Dashboard({ onGoToLanding }) {
     const rawFile = e.target.files?.[0];
     if (!rawFile) return;
 
-    if (!validateStorageLimit(rawFile.size)) {
+    const isImg = rawFile.type.startsWith('image/');
+    if (!validateMediaQuota(isImg ? 'image' : 'video', 1)) {
       clearTodoFile();
       return;
     }
 
-    const isImg = rawFile.type.startsWith('image/');
     if (isImg) {
       setIsCompressingTodoFile(true);
       try {
@@ -779,14 +810,14 @@ export default function Dashboard({ onGoToLanding }) {
     const rawFile = e.target.files?.[0];
     if (!rawFile) return;
 
-    if (!validateStorageLimit(rawFile.size)) {
+    const isImg = rawFile.type.startsWith('image/');
+    if (!validateMediaQuota(isImg ? 'image' : 'video', 1)) {
       setEditFile(null);
       setEditFilePreview(null);
       if (editTodoFileInputRef.current) editTodoFileInputRef.current.value = '';
       return;
     }
 
-    const isImg = rawFile.type.startsWith('image/');
     if (isImg) {
       setIsCompressingEditFile(true);
       try {
@@ -1160,8 +1191,7 @@ export default function Dashboard({ onGoToLanding }) {
     }
 
     const filesToProcess = rawFiles.slice(0, remainingSlots);
-    const totalIncomingBytes = filesToProcess.reduce((acc, f) => acc + f.size, 0);
-    if (!validateStorageLimit(totalIncomingBytes)) {
+    if (!validateMediaQuota('image', filesToProcess.length)) {
       if (notePhotoInputRef.current) notePhotoInputRef.current.value = '';
       return;
     }
@@ -1221,7 +1251,7 @@ export default function Dashboard({ onGoToLanding }) {
       return;
     }
 
-    if (!validateStorageLimit(file.size)) {
+    if (!validateMediaQuota('video', 1)) {
       if (noteVideoInputRef.current) noteVideoInputRef.current.value = '';
       return;
     }
@@ -1344,8 +1374,7 @@ export default function Dashboard({ onGoToLanding }) {
     }
 
     const filesToProcess = rawFiles.slice(0, remainingSlots);
-    const totalIncomingBytes = filesToProcess.reduce((sum, f) => sum + f.size, 0);
-    if (!validateStorageLimit(totalIncomingBytes)) {
+    if (!validateMediaQuota('image', filesToProcess.length)) {
       if (editNotePhotoInputRef.current) editNotePhotoInputRef.current.value = '';
       return;
     }
@@ -1385,7 +1414,7 @@ export default function Dashboard({ onGoToLanding }) {
       return;
     }
 
-    if (!validateStorageLimit(file.size)) {
+    if (!validateMediaQuota('video', 1)) {
       if (editNoteVideoInputRef.current) editNoteVideoInputRef.current.value = '';
       return;
     }
@@ -2077,14 +2106,16 @@ export default function Dashboard({ onGoToLanding }) {
               >
                 <div className="flex items-center justify-between text-[11px] mb-1.5">
                   <div className="flex items-center space-x-1.5 font-medium text-neutral-700 dark:text-neutral-300">
-                    <HardDrive className="w-3.5 h-3.5 text-neutral-500" />
-                    <span>Storage</span>
+                    <Image className="w-3.5 h-3.5 text-blue-500" />
+                    <span>Media Quota</span>
                   </div>
-                  <span className="text-[10px] font-mono text-neutral-500 dark:text-neutral-400">{formatBytes(storageUsage)} / {formatBytes(quotaConfig.maxBytes)}</span>
+                  <span className="text-[10px] font-mono text-neutral-500 dark:text-neutral-400">
+                    {currentPhotoCount}/{quotaConfig.maxPhotos} foto
+                  </span>
                 </div>
                 <div className="w-full bg-neutral-200/80 dark:bg-neutral-700 rounded-full h-1.5 overflow-hidden">
-                  <div className={`h-full rounded-full transition-all duration-300 ${(storageUsage / quotaConfig.maxBytes) > 0.9 ? 'bg-red-500' : (storageUsage / quotaConfig.maxBytes) > 0.7 ? 'bg-amber-500' : 'bg-emerald-500'}`}
-                    style={{ width: `${Math.min(100, Math.max(3, (storageUsage / quotaConfig.maxBytes) * 100))}%` }} />
+                  <div className={`h-full rounded-full transition-all duration-300 ${(currentPhotoCount / quotaConfig.maxPhotos) > 0.9 ? 'bg-red-500' : (currentPhotoCount / quotaConfig.maxPhotos) > 0.7 ? 'bg-amber-500' : 'bg-blue-500'}`}
+                    style={{ width: `${Math.min(100, Math.max(3, (currentPhotoCount / quotaConfig.maxPhotos) * 100))}%` }} />
                 </div>
               </div>
               <div className="text-[11px] text-neutral-400 dark:text-neutral-500 flex items-center justify-between px-1">
@@ -2256,11 +2287,16 @@ export default function Dashboard({ onGoToLanding }) {
         <div className="pt-3 border-t border-neutral-200/60 dark:border-neutral-800 space-y-3">
           <div onClick={() => setIsSettingsOpen(true)} className="p-2.5 bg-neutral-200/40 dark:bg-neutral-800/40 hover:bg-neutral-200/70 dark:hover:bg-neutral-800/70 rounded-xl border border-neutral-200/60 dark:border-neutral-800 transition cursor-pointer group">
             <div className="flex items-center justify-between text-[11px] mb-1.5">
-              <div className="flex items-center space-x-1.5 font-medium text-neutral-700 dark:text-neutral-300"><HardDrive className="w-3.5 h-3.5 text-neutral-500" /><span>Storage</span></div>
-              <span className="text-[10px] font-mono text-neutral-500 dark:text-neutral-400">{formatBytes(storageUsage)} / {formatBytes(quotaConfig.maxBytes)}</span>
+              <div className="flex items-center space-x-1.5 font-medium text-neutral-700 dark:text-neutral-300">
+                <Image className="w-3.5 h-3.5 text-blue-500" />
+                <span>Media Quota</span>
+              </div>
+              <span className="text-[10px] font-mono text-neutral-500 dark:text-neutral-400">
+                {currentPhotoCount}/{quotaConfig.maxPhotos} foto
+              </span>
             </div>
             <div className="w-full bg-neutral-200/80 dark:bg-neutral-700 rounded-full h-1.5 overflow-hidden">
-              <div className={`h-full rounded-full transition-all duration-300 ${(storageUsage / quotaConfig.maxBytes) > 0.9 ? 'bg-red-500' : (storageUsage / quotaConfig.maxBytes) > 0.7 ? 'bg-amber-500' : 'bg-emerald-500'}`} style={{ width: `${Math.min(100, Math.max(3, (storageUsage / quotaConfig.maxBytes) * 100))}%` }} />
+              <div className={`h-full rounded-full transition-all duration-300 ${(currentPhotoCount / quotaConfig.maxPhotos) > 0.9 ? 'bg-red-500' : (currentPhotoCount / quotaConfig.maxPhotos) > 0.7 ? 'bg-amber-500' : 'bg-blue-500'}`} style={{ width: `${Math.min(100, Math.max(3, (currentPhotoCount / quotaConfig.maxPhotos) * 100))}%` }} />
             </div>
           </div>
           <div className="text-[11px] text-neutral-400 dark:text-neutral-500 flex items-center justify-between px-1">

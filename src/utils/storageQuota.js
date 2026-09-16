@@ -11,16 +11,40 @@ export const QUOTA_UNCONFIRMED = 500 * 1024 * 1024;       // 500 MB
 export const QUOTA_CONFIRMED = 2 * 1024 * 1024 * 1024;   // 2 GB
 export const QUOTA_UPGRADED = 10 * 1024 * 1024 * 1024;   // 10 GB (Cloudflare R2 Free Tier)
 
+export const QUOTA_TIERS = {
+  unconfirmed: {
+    maxPhotos: 50,
+    maxVideos: 0,
+    tierName: 'Free (Email Belum Verif)',
+    tierNameEn: 'Free (Unverified)',
+    tierCode: 'unconfirmed',
+    desc: '50 foto & 0 video',
+  },
+  confirmed: {
+    maxPhotos: 150,
+    maxVideos: 2,
+    tierName: 'Free (Terverifikasi)',
+    tierNameEn: 'Free (Verified)',
+    tierCode: 'confirmed',
+    desc: '150 foto & 2 video',
+  },
+  pro: {
+    maxPhotos: 500,
+    maxVideos: 5,
+    tierName: 'Ersona Pro',
+    tierNameEn: 'Ersona Pro',
+    tierCode: 'pro',
+    desc: '500 foto & 5 video',
+  },
+};
+
 /**
  * Mendapatkan konfigurasi kuota pengguna berdasarkan objek user Supabase
  */
 export function getUserQuotaConfig(user) {
   if (!user) {
     return {
-      maxBytes: QUOTA_UNCONFIRMED,
-      maxMB: 500,
-      tierName: 'Free Tamu (500 MB)',
-      tierCode: 'unconfirmed',
+      ...QUOTA_TIERS.unconfirmed,
       isEmailConfirmed: false,
       isUpgraded: false,
     };
@@ -31,10 +55,7 @@ export function getUserQuotaConfig(user) {
 
   if (isUpgraded) {
     return {
-      maxBytes: QUOTA_UPGRADED,
-      maxMB: 10240,
-      tierName: 'Ersona Pro (10 GB Cloudflare R2)',
-      tierCode: 'pro',
+      ...QUOTA_TIERS.pro,
       isEmailConfirmed,
       isUpgraded: true,
     };
@@ -42,20 +63,14 @@ export function getUserQuotaConfig(user) {
 
   if (isEmailConfirmed) {
     return {
-      maxBytes: QUOTA_CONFIRMED,
-      maxMB: 2048,
-      tierName: 'Free Terverifikasi (2 GB)',
-      tierCode: 'confirmed',
+      ...QUOTA_TIERS.confirmed,
       isEmailConfirmed: true,
       isUpgraded: false,
     };
   }
 
   return {
-    maxBytes: QUOTA_UNCONFIRMED,
-    maxMB: 500,
-    tierName: 'Free Belum Konfirmasi (500 MB)',
-    tierCode: 'unconfirmed',
+    ...QUOTA_TIERS.unconfirmed,
     isEmailConfirmed: false,
     isUpgraded: false,
   };

@@ -32,29 +32,30 @@ export default function SettingsModal({
   const [isUpgrading, setIsUpgrading] = useState(false);
   const [exportedType, setExportedType] = useState(null);
 
+  // Helper menghitung media tanpa double counting media_url vs media_items
+  const getNoteItems = (n) => {
+    if (Array.isArray(n.media_items) && n.media_items.length > 0) {
+      return n.media_items;
+    }
+    if (n.media_url) {
+      return [{ url: n.media_url, type: n.media_type || 'image' }];
+    }
+    return [];
+  };
+
   // Hitung kuota berbasis kuantitas file (Foto & Video)
-  const photoCount = (todos?.filter(t => t.media_url && t.media_type !== 'video').length || 0) +
-    (notes?.reduce((acc, n) => {
-      let c = 0;
-      if (n.media_url && n.media_type !== 'video') c++;
-      if (Array.isArray(n.media_items)) {
-        c += n.media_items.filter(m => m?.type !== 'video').length;
-      }
-      return acc + c;
+  const photoCount = (todos?.filter(t => t.media_url && t.media_type !== 'video' && !t.deleted_at).length || 0) +
+    (notes?.filter(n => !n.deleted_at).reduce((acc, n) => {
+      return acc + getNoteItems(n).filter(m => m?.type !== 'video').length;
     }, 0) || 0);
 
-  const videoCount = (todos?.filter(t => t.media_type === 'video').length || 0) +
-    (notes?.reduce((acc, n) => {
-      let c = 0;
-      if (n.media_type === 'video') c++;
-      if (Array.isArray(n.media_items)) {
-        c += n.media_items.filter(m => m?.type === 'video').length;
-      }
-      return acc + c;
+  const videoCount = (todos?.filter(t => t.media_url && t.media_type === 'video' && !t.deleted_at).length || 0) +
+    (notes?.filter(n => !n.deleted_at).reduce((acc, n) => {
+      return acc + getNoteItems(n).filter(m => m?.type === 'video').length;
     }, 0) || 0);
 
-  const maxPhotos = quotaConfig?.isUpgraded ? 500 : (quotaConfig?.isEmailConfirmed ? 150 : 50);
-  const maxVideos = quotaConfig?.isUpgraded ? 25 : (quotaConfig?.isEmailConfirmed ? 5 : 2);
+  const maxPhotos = quotaConfig?.maxPhotos ?? (quotaConfig?.isUpgraded ? 500 : (quotaConfig?.isEmailConfirmed ? 150 : 50));
+  const maxVideos = quotaConfig?.maxVideos ?? (quotaConfig?.isUpgraded ? 5 : (quotaConfig?.isEmailConfirmed ? 2 : 0));
 
   // Handler Ekspor Data JSON
   const handleExportJSON = () => {
@@ -265,12 +266,12 @@ export default function SettingsModal({
                   {quotaConfig?.isEmailConfirmed ? (
                     <span className="inline-flex items-center space-x-1 text-[11px] text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
                       <CheckCircle2 className="w-3 h-3" />
-                      <span>{t('settings.emailStatusConfirmed')} (300 MB)</span>
+                      <span>{t('settings.emailStatusConfirmed')} (150 Foto & 2 Video)</span>
                     </span>
                   ) : (
                     <span className="inline-flex items-center space-x-1 text-[11px] text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50 px-2 py-0.5 rounded-full border border-amber-200 dark:border-amber-800">
                       <AlertTriangle className="w-3 h-3" />
-                      <span>{t('settings.emailStatusUnconfirmed')} (100 MB)</span>
+                      <span>{t('settings.emailStatusUnconfirmed')} (50 Foto & 0 Video)</span>
                     </span>
                   )}
                 </div>
@@ -297,79 +298,76 @@ export default function SettingsModal({
             </div>
           )}
 
-          {/* 3. VISUAL STORAGE METER */}
-          <div className="p-4 sm:p-5 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-[#252525] space-y-4 shadow-2xs">
+          {/* 3. BATAS KUOTA FOTO & VIDEO (MEDIA QUOTA) */}
+          <div className="p-4 sm:p-5 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-[#252525] space-y-3.5 shadow-2xs">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
-                <HardDrive className="w-4 h-4 text-neutral-700 dark:text-neutral-300" />
-                <h3 className="text-sm font-semibold text-neutral-900 dark:text-white">{t('settings.storageUsage')}</h3>
+                <ImageIcon className="w-4 h-4 text-blue-500" />
+                <h3 className="text-sm font-semibold text-neutral-900 dark:text-white">
+                  {isEn ? 'Media Limits (Photos & Videos)' : 'Batas Lampiran Foto & Video'}
+                </h3>
               </div>
-              <button
-                onClick={handleRefresh}
-                disabled={isRefreshing}
-                title="Hitung ulang ukuran penyimpanan"
-                className="text-xs text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white flex items-center space-x-1 p-1 rounded hover:bg-neutral-100 dark:hover:bg-neutral-800 transition cursor-pointer"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-neutral-800 dark:text-white' : ''}`} />
-                <span>{isRefreshing ? t('common.loading') : 'Refresh'}</span>
-              </button>
+              <span className="text-[11px] font-mono px-2 py-0.5 rounded-md font-semibold bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 border border-neutral-200/60 dark:border-neutral-700">
+                {quotaConfig?.tierName}
+              </span>
             </div>
 
-            {/* Progress Bar */}
-            <div>
-              <div className="flex items-baseline justify-between text-xs mb-1.5">
-                <span className="font-semibold text-neutral-800 dark:text-neutral-200">
-                  {formatBytes(usedBytes)} <span className="font-normal text-neutral-500 dark:text-neutral-400">{t('settings.usedOf')} {formatBytes(maxBytes)}</span>
-                </span>
-                <span className="font-mono text-neutral-500 dark:text-neutral-400 text-[11px]">
-                  {usagePercent.toFixed(1)}%
+            {/* Photo Quota Card */}
+            <div className="p-3 rounded-xl bg-neutral-50/80 dark:bg-[#202020] border border-neutral-200/70 dark:border-neutral-700/70 space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <div className="flex items-center space-x-1.5 text-neutral-700 dark:text-neutral-200 font-medium">
+                  <ImageIcon className="w-3.5 h-3.5 text-blue-500" />
+                  <span>{isEn ? 'Photos' : 'Foto'}</span>
+                </div>
+                <span className="font-mono font-semibold text-neutral-800 dark:text-neutral-200 text-xs">
+                  {photoCount} / {maxPhotos}
                 </span>
               </div>
-
-              <div className="w-full bg-neutral-100 dark:bg-neutral-800 rounded-full h-3 overflow-hidden p-0.5 border border-neutral-200/70 dark:border-neutral-700">
-                <div
-                  className={`h-full rounded-full transition-all duration-500 ${
-                    usagePercent > 90
-                      ? 'bg-red-500'
-                      : usagePercent > 70
-                      ? 'bg-amber-500'
-                      : 'bg-emerald-500'
+              <div className="w-full bg-neutral-200 dark:bg-neutral-700 rounded-full h-2 overflow-hidden">
+                <div 
+                  className={`h-full rounded-full transition-all duration-300 ${
+                    (photoCount / maxPhotos) >= 1 ? 'bg-red-500' : (photoCount / maxPhotos) > 0.8 ? 'bg-amber-500' : 'bg-blue-500'
                   }`}
-                  style={{ width: `${usagePercent}%` }}
+                  style={{ width: `${Math.min(100, Math.max(2, (photoCount / maxPhotos) * 100))}%` }}
                 />
               </div>
-
-              <div className="flex items-center justify-between text-[11px] text-neutral-400 dark:text-neutral-500 mt-2">
-                <span>Sisa: <strong className="text-neutral-600 dark:text-neutral-300">{formatBytes(remainingBytes)}</strong></span>
-                <span>Tier: <strong className="text-neutral-700 dark:text-neutral-300">{quotaConfig?.tierName}</strong></span>
-              </div>
-
-              {/* Media Count Badges (Foto & Video) */}
-              <div className="grid grid-cols-2 gap-2 pt-2.5 mt-2 border-t border-neutral-100 dark:border-neutral-800">
-                <div className="p-2 rounded-lg bg-neutral-50 dark:bg-[#202020] border border-neutral-200/80 dark:border-neutral-700/80 flex items-center justify-between text-xs">
-                  <div className="flex items-center space-x-1.5 text-neutral-700 dark:text-neutral-300">
-                    <ImageIcon className="w-3.5 h-3.5 text-blue-500" />
-                    <span className="font-medium">{isEn ? 'Photos' : 'Foto'}</span>
-                  </div>
-                  <span className="font-mono font-semibold text-neutral-800 dark:text-neutral-200 text-[11px]">
-                    {photoCount} / {maxPhotos}
-                  </span>
-                </div>
-                <div className="p-2 rounded-lg bg-neutral-50 dark:bg-[#202020] border border-neutral-200/80 dark:border-neutral-700/80 flex items-center justify-between text-xs">
-                  <div className="flex items-center space-x-1.5 text-neutral-700 dark:text-neutral-300">
-                    <Film className="w-3.5 h-3.5 text-purple-500" />
-                    <span className="font-medium">Video</span>
-                  </div>
-                  <span className="font-mono font-semibold text-neutral-800 dark:text-neutral-200 text-[11px]">
-                    {videoCount} / {maxVideos}
-                  </span>
-                </div>
+              <div className="flex items-center justify-between text-[10px] text-neutral-400 dark:text-neutral-500 pt-0.5">
+                <span>{isEn ? 'Auto WebP compressor active (~200 KB/photo)' : 'Kompresi WebP otomatis aktif (~200 KB/foto)'}</span>
+                <span>{Math.max(0, maxPhotos - photoCount)} {isEn ? 'slots left' : 'tersisa'}</span>
               </div>
             </div>
 
-            {/* Storage Info Tips */}
-            <div className="pt-3 border-t border-neutral-100 dark:border-neutral-800 flex items-center justify-between text-xs">
-              <span className="text-neutral-500 dark:text-neutral-400">Penuh? Bersihkan tempat sampah.</span>
+            {/* Video Quota Card */}
+            <div className="p-3 rounded-xl bg-neutral-50/80 dark:bg-[#202020] border border-neutral-200/70 dark:border-neutral-700/70 space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <div className="flex items-center space-x-1.5 text-neutral-700 dark:text-neutral-200 font-medium">
+                  <Film className="w-3.5 h-3.5 text-purple-500" />
+                  <span>Video (MP4/WebM)</span>
+                </div>
+                <span className="font-mono font-semibold text-neutral-800 dark:text-neutral-200 text-xs">
+                  {videoCount} / {maxVideos}
+                </span>
+              </div>
+              <div className="w-full bg-neutral-200 dark:bg-neutral-700 rounded-full h-2 overflow-hidden">
+                <div 
+                  className={`h-full rounded-full transition-all duration-300 ${
+                    maxVideos === 0 ? 'bg-neutral-300 dark:bg-neutral-600' : (videoCount / maxVideos) >= 1 ? 'bg-red-500' : 'bg-purple-500'
+                  }`}
+                  style={{ width: `${maxVideos > 0 ? Math.min(100, Math.max(3, (videoCount / maxVideos) * 100)) : 0}%` }}
+                />
+              </div>
+              <div className="flex items-center justify-between text-[10px] text-neutral-400 dark:text-neutral-500 pt-0.5">
+                <span>
+                  {maxVideos === 0 
+                    ? (isEn ? '🔒 Locked: verify email to unlock 2 videos' : '🔒 Terkunci: verifikasi email untuk membuka 2 video') 
+                    : (isEn ? 'Max 25 MB per video' : 'Maksimal 25 MB per video')}
+                </span>
+                <span>{maxVideos === 0 ? (isEn ? '0 video' : '0 video') : `${Math.max(0, maxVideos - videoCount)} ${isEn ? 'slots left' : 'tersisa'}`}</span>
+              </div>
+            </div>
+
+            <div className="pt-2 border-t border-neutral-100 dark:border-neutral-800 flex items-center justify-between text-xs">
+              <span className="text-neutral-500 dark:text-neutral-400">{isEn ? 'Need to free up slots? Check trash.' : 'Ingin menambah kuota? Cek tempat sampah.'}</span>
               <button
                 onClick={() => {
                   onClose();
@@ -390,37 +388,44 @@ export default function SettingsModal({
                 <div className="flex items-center space-x-2">
                   <Sparkles className="w-4 h-4 text-amber-500" />
                   <h3 className="text-sm font-semibold text-neutral-900 dark:text-white">
-                    {quotaConfig?.isUpgraded ? t('settings.proTierTitle') : t('settings.freeTierTitle')}
+                    {quotaConfig?.isUpgraded 
+                      ? (isEn ? 'Ersona Pro Account' : 'Akun Ersona Pro')
+                      : (isEn ? 'Account Tier Status' : 'Tingkatan Akun')}
                   </h3>
                 </div>
                 <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
                   {quotaConfig?.isUpgraded
-                    ? t('settings.proDescActive')
-                    : t('settings.proDescInactive')}
+                    ? (isEn ? 'You have unlocked the maximum quota: 500 photos and 5 videos.' : 'Anda menikmati batas kuota maksimal: 500 foto dan 5 video.')
+                    : (!quotaConfig?.isEmailConfirmed
+                      ? (isEn ? 'Verify your email to upgrade your quota from 50 photos (0 video) to 150 photos & 2 videos!' : 'Verifikasi email Anda untuk menaikkan kuota dari 50 foto (0 video) ke 150 foto & 2 video!')
+                      : (isEn ? 'Email verified! Upgrade to Pro for 500 photos & 5 videos.' : 'Email terverifikasi! Upgrade ke Pro untuk 500 foto & 5 video.'))}
                 </p>
               </div>
               <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full font-bold uppercase ${
                 quotaConfig?.isUpgraded ? 'bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300' : 'bg-neutral-200 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300'
               }`}>
-                {quotaConfig?.isUpgraded ? 'PRO 1GB' : 'FREE'}
+                {quotaConfig?.isUpgraded ? 'PRO 500' : 'FREE'}
               </span>
             </div>
 
             <div className="grid grid-cols-3 gap-2 text-center text-xs">
               <div className={`p-2.5 rounded-lg border ${!quotaConfig?.isEmailConfirmed && !quotaConfig?.isUpgraded ? 'border-neutral-800 dark:border-white bg-white dark:bg-[#303030] ring-1 ring-neutral-800 dark:ring-white' : 'border-neutral-200 dark:border-neutral-700 bg-white/60 dark:bg-neutral-800/60'}`}>
-                <div className="text-[10px] text-neutral-400 dark:text-neutral-400 font-medium">100 MB</div>
-                <div className="font-bold text-neutral-800 dark:text-neutral-200 mt-0.5">Free</div>
+                <div className="text-[10px] text-neutral-400 dark:text-neutral-400 font-medium">Belum Verif</div>
+                <div className="font-bold text-neutral-800 dark:text-neutral-200 mt-0.5">50 Foto</div>
+                <div className="text-[10px] text-neutral-500 dark:text-neutral-400">0 Video</div>
               </div>
               <div className={`p-2.5 rounded-lg border ${quotaConfig?.isEmailConfirmed && !quotaConfig?.isUpgraded ? 'border-neutral-800 dark:border-white bg-white dark:bg-[#303030] ring-1 ring-neutral-800 dark:ring-white' : 'border-neutral-200 dark:border-neutral-700 bg-white/60 dark:bg-neutral-800/60'}`}>
-                <div className="text-[10px] text-neutral-400 dark:text-neutral-400 font-medium">300 MB</div>
-                <div className="font-bold text-neutral-800 dark:text-neutral-200 mt-0.5">Verified</div>
+                <div className="text-[10px] text-neutral-400 dark:text-neutral-400 font-medium">Terverifikasi</div>
+                <div className="font-bold text-neutral-800 dark:text-neutral-200 mt-0.5">150 Foto</div>
+                <div className="text-[10px] text-neutral-500 dark:text-neutral-400">2 Video</div>
               </div>
               <div className={`p-2.5 rounded-lg border ${quotaConfig?.isUpgraded ? 'border-amber-600 bg-amber-50/50 dark:bg-amber-950/40 ring-1 ring-amber-600' : 'border-neutral-200 dark:border-neutral-700 bg-white/60 dark:bg-neutral-800/60'}`}>
                 <div className="text-[10px] text-amber-600 dark:text-amber-400 font-medium flex items-center justify-center space-x-0.5">
                   <Sparkles className="w-2.5 h-2.5" />
                   <span>Pro</span>
                 </div>
-                <div className="font-bold text-amber-900 dark:text-amber-300 mt-0.5">1 GB</div>
+                <div className="font-bold text-amber-900 dark:text-amber-300 mt-0.5">500 Foto</div>
+                <div className="text-[10px] text-amber-700 dark:text-amber-400">5 Video</div>
               </div>
             </div>
 
