@@ -282,6 +282,11 @@ export const translations = {
       notificationsUnsupported: 'Browser Tidak Mendukung',
       sendTestNotif: 'Kirim Notifikasi Uji Coba',
       testNotifSent: 'Notifikasi Terkirim!',
+      pwaTitle: 'Aplikasi Ersona (PWA)',
+      pwaDesc: 'Pasang Ersona ke layar utama HP atau desktop untuk pengalaman aplikasi full-screen, lebih cepat, dan offline.',
+      pwaInstallBtn: 'Pasang Aplikasi',
+      pwaInstalled: 'Aplikasi Terpasang',
+      pwaIosTip: 'Pengguna iOS / Safari: Tekan tombol Bagikan (Share) lalu pilih "Tambah ke Layar Utama".',
       footerAccount: 'Ersona Workspace Account',
     }
   },
@@ -566,6 +571,11 @@ export const translations = {
       notificationsUnsupported: 'Not Supported by Browser',
       sendTestNotif: 'Send Test Notification',
       testNotifSent: 'Notification Sent!',
+      pwaTitle: 'Ersona App (PWA)',
+      pwaDesc: 'Install Ersona to your home screen or desktop for a fast, full-screen, native app experience.',
+      pwaInstallBtn: 'Install App',
+      pwaInstalled: 'App Installed',
+      pwaIosTip: 'iOS / Safari users: Tap the Share icon, then select "Add to Home Screen".',
       footerAccount: 'Ersona Workspace Account',
     }
   }

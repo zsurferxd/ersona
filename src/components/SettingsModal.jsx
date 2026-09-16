@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   X, User, HardDrive, CheckCircle2, AlertTriangle,
   RefreshCw, Sparkles, Mail, Trash2, Sun, Moon, Globe,
-  Download, FileText, Check, Image as ImageIcon, Film, Loader2, Bell
+  Download, FileText, Check, Image as ImageIcon, Film, Loader2, Bell, Smartphone
 } from 'lucide-react';
 import { formatBytes } from '../utils/storageQuota';
 import { supabase } from '../lib/supabaseClient';
@@ -16,6 +16,11 @@ import {
   disableNotifications,
   sendTestNotification
 } from '../utils/notificationManager';
+import {
+  isPWAInstalled,
+  promptPWAInstall,
+  onInstallAvailabilityChange
+} from '../utils/pwaManager';
 
 export default function SettingsModal({
   isOpen,
@@ -41,13 +46,35 @@ export default function SettingsModal({
   const [notifEnabled, setNotifEnabled] = useState(() => isNotificationEnabled());
   const [testNotifSent, setTestNotifSent] = useState(false);
 
+  const [isInstalled, setIsInstalled] = useState(() => isPWAInstalled());
+  const [canInstallPWA, setCanInstallPWA] = useState(false);
+
   useEffect(() => {
     if (isOpen) {
       if (onRefreshStorage) onRefreshStorage();
       setNotifPermission(getNotificationPermission());
       setNotifEnabled(isNotificationEnabled());
+      setIsInstalled(isPWAInstalled());
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    const cleanup = onInstallAvailabilityChange((available) => {
+      setCanInstallPWA(available);
+    });
+    return cleanup;
+  }, []);
+
+  const handleInstallPWA = async () => {
+    const outcome = await promptPWAInstall();
+    if (outcome === 'accepted') {
+      setIsInstalled(true);
+    } else if (outcome === 'unavailable') {
+      alert(isEn 
+        ? 'To install on iOS Safari, tap the Share icon and select "Add to Home Screen". On Chrome/Edge, click the install icon in the address bar.' 
+        : 'Untuk memasang di iOS Safari, tekan tombol Bagikan lalu pilih "Tambah ke Layar Utama". Di Chrome/Edge PC, klik ikon pasang di bilah alamat browser.');
+    }
+  };
 
   const handleToggleNotification = async () => {
     if (!isNotificationSupported()) {
@@ -723,7 +750,57 @@ export default function SettingsModal({
             </div>
           </div>
 
-          {/* 6. DATA BACKUP & EKSPOR */}
+          {/* 6. PWA INSTALLATION CARD */}
+          <div className="p-4 sm:p-5 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-[#252525] space-y-3 shadow-2xs">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Smartphone className="w-4 h-4 text-neutral-700 dark:text-neutral-300" />
+                <h3 className="text-sm font-semibold text-neutral-900 dark:text-white">
+                  {t('settings.pwaTitle')}
+                </h3>
+              </div>
+              <div>
+                {isInstalled ? (
+                  <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 font-medium border border-emerald-200 dark:border-emerald-800 flex items-center space-x-1">
+                    <CheckCircle2 className="w-3 h-3" />
+                    <span>{t('settings.pwaInstalled')}</span>
+                  </span>
+                ) : (
+                  <span className="text-[11px] px-2 py-0.5 rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 font-medium">
+                    {isEn ? 'Browser Mode' : 'Mode Browser'}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <p className="text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed">
+              {t('settings.pwaDesc')}
+            </p>
+
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              {!isInstalled ? (
+                <button
+                  type="button"
+                  onClick={handleInstallPWA}
+                  className="px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-neutral-900 hover:bg-neutral-800 dark:bg-white dark:hover:bg-neutral-200 text-white dark:text-neutral-900 shadow-xs transition flex items-center space-x-1.5 cursor-pointer"
+                >
+                  <Smartphone className="w-3.5 h-3.5" />
+                  <span>{t('settings.pwaInstallBtn')}</span>
+                </button>
+              ) : (
+                <div className="text-xs text-emerald-600 dark:text-emerald-400 font-medium flex items-center space-x-1.5">
+                  <Check className="w-4 h-4" />
+                  <span>{isEn ? 'Running as standalone application' : 'Berjalan sebagai aplikasi mandiri'}</span>
+                </div>
+              )}
+            </div>
+
+            <p className="text-[11px] text-neutral-400 dark:text-neutral-500 italic pt-0.5">
+              💡 {t('settings.pwaIosTip')}
+            </p>
+          </div>
+
+          {/* 7. DATA BACKUP & EKSPOR */}
           <div className="p-4 sm:p-5 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-[#252525] space-y-3 shadow-2xs">
             <div className="flex items-center space-x-2">
               <Download className="w-4 h-4 text-neutral-700 dark:text-neutral-300" />

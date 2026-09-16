@@ -1,0 +1,58 @@
+{
+  "id": "ersona-workspace-pwa",
+  "name": "Ersona — Modern Minimalist Workspace",
+  "short_name": "Ersona",
+  "description": "Manage daily tasks, multimedia notes, Kanban boards, and team collaboration in real-time.",
+  "start_url": "/workspace",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": [
+    "window-controls-overlay",
+    "standalone",
+    "minimal-ui"
+  ],
+  "background_color": "#191919",
+  "theme_color": "#191919",
+  "orientation": "portrait-primary",
+  "lang": "en",
+  "dir": "ltr",
+  "categories": [
+    "productivity",
+    "utilities",
+    "business"
+  ],
+  "icons": [
+    {
+      "src": "/pwa-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-maskable-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Open Workspace",
+      "short_name": "Workspace",
+      "description": "Open your tasks and notes workspace",
+      "url": "/workspace",
+      "icons": [{ "src": "/pwa-192x192.png", "sizes": "192x192" }]
+    }
+  ]
+}
