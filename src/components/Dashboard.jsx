@@ -9,7 +9,7 @@ import {
   ArrowUpDown, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, ZoomIn, Eye, MessageSquare,
   Edit3, Flag, Check, RotateCcw, AlertTriangle, Film, Settings,
   HardDrive, Flame, Columns3, List, Layers, Settings2, ArrowRight, Menu, Globe,
-  Sun, Moon, Users, UserPlus, UserMinus, Copy, Share2, ShieldCheck
+  Sun, Moon, Users, UserPlus, UserMinus, Copy, Share2, ShieldCheck, EyeOff
 } from 'lucide-react';
 import { format, isPast, isToday, parseISO, differenceInDays } from 'date-fns';
 import { id as localeId, enUS as localeEn } from 'date-fns/locale';
@@ -189,8 +189,8 @@ export default function Dashboard({ onGoToLanding }) {
   // Kuota aktif: jika di dalam Team Workspace, ikuti Owner-Centric Workspace Pool
   // jika di personal, ikuti kuota pribadi user
   const quotaConfig = activeWorkspaceId 
-    ? getWorkspaceQuotaConfig(currentWorkspace, user)
-    : getUserQuotaConfig(user);
+    ? getWorkspaceQuotaConfig(currentWorkspace, user, workspaces)
+    : getUserQuotaConfig(user, workspaces);
 
   const refreshStorageUsage = async () => {
     if (user?.id) {
@@ -306,7 +306,7 @@ export default function Dashboard({ onGoToLanding }) {
         return false;
       }
       if (isWs && currentWorkspace?.owner_id === user?.id) {
-        const ownerConfig = getUserQuotaConfig(user);
+        const ownerConfig = getUserQuotaConfig(user, workspaces);
         if (totalOwnerVideoCount + count > ownerConfig.maxVideos) {
           alert(isEn
             ? `⚠️ Your account's overall video pool is full (${totalOwnerVideoCount}/${ownerConfig.maxVideos} videos used across personal & owned workspaces).`
@@ -329,11 +329,12 @@ export default function Dashboard({ onGoToLanding }) {
       return false;
     }
     if (isWs && currentWorkspace?.owner_id === user?.id) {
-      const ownerConfig = getUserQuotaConfig(user);
-      if (totalOwnerPhotoCount + count > ownerConfig.maxPhotos) {
+      const ownerConfig = getUserQuotaConfig(user, workspaces);
+      const totalPool = ownerConfig.totalOwnerPool || ownerConfig.maxPhotos;
+      if (totalOwnerPhotoCount + count > totalPool) {
         alert(isEn
-          ? `⚠️ Your account's overall photo pool is full (${totalOwnerPhotoCount}/${ownerConfig.maxPhotos} photos used across personal & owned workspaces).\nUpgrade to Pro or delete older photos to free up space.`
-          : `⚠️ Kuota total foto akun Anda sudah penuh (${totalOwnerPhotoCount}/${ownerConfig.maxPhotos} foto terpakai di akun pribadi & ruang kerja yang Anda miliki).\nUpgrade ke Ersona Pro atau hapus foto lama untuk menambah ruang.`);
+          ? `⚠️ Your account's overall photo pool is full (${totalOwnerPhotoCount}/${totalPool} photos used across personal & owned workspaces).\nUpgrade to Pro or delete older photos to free up space.`
+          : `⚠️ Kuota total foto akun Anda sudah penuh (${totalOwnerPhotoCount}/${totalPool} foto terpakai di akun pribadi & ruang kerja yang Anda miliki).\nUpgrade ke Ersona Pro atau hapus foto lama untuk menambah ruang.`);
         return false;
       }
     }
@@ -620,7 +621,7 @@ export default function Dashboard({ onGoToLanding }) {
       let wsList = [];
       const { data, error } = await supabase
         .from('workspaces')
-        .select('id, name, owner_id, invite_code, created_at, is_upgraded, tier, custom_photo_limit, requires_approval')
+        .select('id, name, owner_id, invite_code, created_at, is_upgraded, tier, custom_photo_limit, requires_approval, hide_invite_code')
         .order('created_at', { ascending: true });
 
       if (!error && data) {
@@ -628,20 +629,38 @@ export default function Dashboard({ onGoToLanding }) {
       } else {
         const fallbackRes = await supabase
           .from('workspaces')
-          .select('id, name, owner_id, invite_code, created_at, is_upgraded, tier, custom_photo_limit')
+          .select('id, name, owner_id, invite_code, created_at, is_upgraded, tier, custom_photo_limit, requires_approval')
           .order('created_at', { ascending: true });
         if (!fallbackRes.error && fallbackRes.data) {
           wsList = fallbackRes.data;
+        } else {
+          const fallbackRes2 = await supabase
+            .from('workspaces')
+            .select('id, name, owner_id, invite_code, created_at, is_upgraded, tier, custom_photo_limit')
+            .order('created_at', { ascending: true });
+          if (!fallbackRes2.error && fallbackRes2.data) {
+            wsList = fallbackRes2.data;
+          }
         }
       }
 
       if (wsList.length > 0) {
         const isUserPro = Boolean(user.user_metadata?.is_upgraded || user.user_metadata?.tier === 'pro');
         const updatedList = wsList.map(w => {
-          if (w.owner_id === user.id) {
-            return { ...w, is_upgraded: isUserPro, tier: isUserPro ? 'pro' : 'free' };
+          let hideInvite = w.hide_invite_code;
+          if (typeof hideInvite !== 'boolean') {
+            try {
+              const localVal = localStorage.getItem('ersona_hide_invite_' + w.id);
+              hideInvite = localVal !== null ? localVal === 'true' : false;
+            } catch {
+              hideInvite = false;
+            }
           }
-          return w;
+          const base = { ...w, hide_invite_code: Boolean(hideInvite) };
+          if (w.owner_id === user.id) {
+            return { ...base, is_upgraded: isUserPro, tier: isUserPro ? 'pro' : 'free' };
+          }
+          return base;
         });
 
         // Background sync: update database record if owner is Pro
@@ -746,6 +765,30 @@ export default function Dashboard({ onGoToLanding }) {
     }
   };
 
+  // Handler Toggle Sembunyikan Kode Undangan dari Anggota (Hide Invite Code)
+  const handleToggleHideInviteCode = async (newVal) => {
+    if (!currentWorkspace || currentWorkspace.owner_id !== user?.id) return;
+
+    try {
+      try {
+        localStorage.setItem('ersona_hide_invite_' + currentWorkspace.id, String(newVal));
+      } catch {}
+
+      setWorkspaces(prev => prev.map(w => w.id === currentWorkspace.id ? { ...w, hide_invite_code: newVal } : w));
+
+      const { error } = await supabase
+        .from('workspaces')
+        .update({ hide_invite_code: newVal, updated_at: new Date().toISOString() })
+        .eq('id', currentWorkspace.id);
+
+      if (error) {
+        console.warn('Supabase update hide_invite_code fallback:', error.message);
+      }
+    } catch (err) {
+      console.warn('Gagal mengubah pengaturan sembunyikan kode:', err);
+    }
+  };
+
   const handleSwitchWorkspace = (wsId) => {
     setActiveWorkspaceId(wsId);
     try {
@@ -836,6 +879,23 @@ export default function Dashboard({ onGoToLanding }) {
       const trimmed = wsCustomPhotoLimit.trim();
       const parsed = trimmed === '' ? null : parseInt(trimmed, 10);
       const finalLimit = isNaN(parsed) || parsed <= 0 ? null : parsed;
+
+      // Hitung batas pool pemilik yang tersedia (Strict Quota Pooling)
+      const ownerQuota = getUserQuotaConfig(user, workspaces);
+      const totalOwnerPool = ownerQuota.totalOwnerPool || ownerQuota.maxPhotos;
+      const allocatedInOtherWs = (workspaces || [])
+        .filter(w => w.owner_id === user.id && w.id !== currentWorkspace.id)
+        .reduce((acc, w) => acc + (typeof w.custom_photo_limit === 'number' && w.custom_photo_limit > 0 ? w.custom_photo_limit : 0), 0);
+      const maxAllocatable = Math.max(0, totalOwnerPool - allocatedInOtherWs);
+
+      if (finalLimit !== null && finalLimit > maxAllocatable) {
+        alert(isEn
+          ? `${t('dashboard.poolExceededError')}\nMaximum available pool for this workspace is ${maxAllocatable} photos (Total account quota: ${totalOwnerPool}, allocated to other workspaces: ${allocatedInOtherWs}).`
+          : `${t('dashboard.poolExceededError')}\nMaksimal sisa pool untuk workspace ini adalah ${maxAllocatable} foto (Total kuota akun: ${totalOwnerPool}, teralokasi di workspace lain: ${allocatedInOtherWs}).`);
+        setIsSavingWsLimit(false);
+        return;
+      }
+
       const { error } = await supabase
         .from('workspaces')
         .update({ custom_photo_limit: finalLimit, updated_at: new Date().toISOString() })
@@ -4578,36 +4638,87 @@ export default function Dashboard({ onGoToLanding }) {
             </div>
 
             {/* Invite Code & Link Box */}
-            <div className="p-3 bg-neutral-50 dark:bg-[#282828] rounded-xl border border-neutral-200 dark:border-neutral-700 space-y-2 shrink-0">
-              <div className="flex items-center justify-between text-xs">
-                <span className="font-medium text-neutral-700 dark:text-neutral-300">{t('dashboard.inviteCode')}</span>
-                <span className="font-mono font-bold bg-white dark:bg-[#202020] px-2 py-0.5 rounded border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100">
-                  {currentWorkspace.invite_code}
-                </span>
+            {currentWorkspace.owner_id === user.id ? (
+              <div className="p-3 bg-neutral-50 dark:bg-[#282828] rounded-xl border border-neutral-200 dark:border-neutral-700 space-y-2 shrink-0">
+                <div className="flex items-center justify-between text-xs">
+                  <div className="flex items-center space-x-2">
+                    <span className="font-medium text-neutral-700 dark:text-neutral-300">{t('dashboard.inviteCode')}</span>
+                    {currentWorkspace.hide_invite_code ? (
+                      <span className="inline-flex items-center space-x-1 text-[10px] font-medium text-amber-700 dark:text-amber-400 bg-amber-100/70 dark:bg-amber-950/60 px-1.5 py-0.5 rounded border border-amber-200/80 dark:border-amber-800/80">
+                        <EyeOff className="w-2.5 h-2.5" />
+                        <span>{t('dashboard.hiddenFromMembersBadge')}</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center space-x-1 text-[10px] font-medium text-neutral-600 dark:text-neutral-400 bg-neutral-200/70 dark:bg-neutral-700 px-1.5 py-0.5 rounded">
+                        <Eye className="w-2.5 h-2.5" />
+                        <span>{t('dashboard.visibleToMembersBadge')}</span>
+                      </span>
+                    )}
+                  </div>
+                  <span className="font-mono font-bold bg-white dark:bg-[#202020] px-2 py-0.5 rounded border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100">
+                    {currentWorkspace.invite_code}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const inviteLink = `${window.location.origin}/workspace?join=${currentWorkspace.invite_code}`;
+                    navigator.clipboard?.writeText(inviteLink);
+                    setCopiedInvite(true);
+                    setTimeout(() => setCopiedInvite(false), 2500);
+                  }}
+                  className="w-full flex items-center justify-center space-x-1.5 p-2 bg-white dark:bg-[#202020] hover:bg-neutral-100 dark:hover:bg-[#303030] text-neutral-800 dark:text-neutral-200 border border-neutral-200 dark:border-neutral-700 rounded-lg text-xs font-medium transition cursor-pointer"
+                >
+                  {copiedInvite ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      <span className="text-emerald-600 font-semibold">{t('dashboard.inviteLinkCopied')}</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
+                      <span>{t('dashboard.copyInviteLink')}</span>
+                    </>
+                  )}
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  const inviteLink = `${window.location.origin}/workspace?join=${currentWorkspace.invite_code}`;
-                  navigator.clipboard?.writeText(inviteLink);
-                  setCopiedInvite(true);
-                  setTimeout(() => setCopiedInvite(false), 2500);
-                }}
-                className="w-full flex items-center justify-center space-x-1.5 p-2 bg-white dark:bg-[#202020] hover:bg-neutral-100 dark:hover:bg-[#303030] text-neutral-800 dark:text-neutral-200 border border-neutral-200 dark:border-neutral-700 rounded-lg text-xs font-medium transition cursor-pointer"
-              >
-                {copiedInvite ? (
-                  <>
-                    <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                    <span className="text-emerald-600 font-semibold">{t('dashboard.inviteLinkCopied')}</span>
-                  </>
-                ) : (
-                  <>
-                    <Copy className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
-                    <span>{t('dashboard.copyInviteLink')}</span>
-                  </>
-                )}
-              </button>
-            </div>
+            ) : currentWorkspace.hide_invite_code ? (
+              <div className="p-3 bg-neutral-50 dark:bg-[#282828] rounded-xl border border-neutral-200 dark:border-neutral-700 flex items-center space-x-2.5 text-xs text-neutral-500 dark:text-neutral-400 shrink-0">
+                <EyeOff className="w-4 h-4 text-neutral-400 shrink-0" />
+                <span>{t('dashboard.inviteCodeHiddenForMembers')}</span>
+              </div>
+            ) : (
+              <div className="p-3 bg-neutral-50 dark:bg-[#282828] rounded-xl border border-neutral-200 dark:border-neutral-700 space-y-2 shrink-0">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-medium text-neutral-700 dark:text-neutral-300">{t('dashboard.inviteCode')}</span>
+                  <span className="font-mono font-bold bg-white dark:bg-[#202020] px-2 py-0.5 rounded border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100">
+                    {currentWorkspace.invite_code}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const inviteLink = `${window.location.origin}/workspace?join=${currentWorkspace.invite_code}`;
+                    navigator.clipboard?.writeText(inviteLink);
+                    setCopiedInvite(true);
+                    setTimeout(() => setCopiedInvite(false), 2500);
+                  }}
+                  className="w-full flex items-center justify-center space-x-1.5 p-2 bg-white dark:bg-[#202020] hover:bg-neutral-100 dark:hover:bg-[#303030] text-neutral-800 dark:text-neutral-200 border border-neutral-200 dark:border-neutral-700 rounded-lg text-xs font-medium transition cursor-pointer"
+                >
+                  {copiedInvite ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      <span className="text-emerald-600 font-semibold">{t('dashboard.inviteLinkCopied')}</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
+                      <span>{t('dashboard.copyInviteLink')}</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
 
             {/* Live Sync Active Banner */}
             <div className="flex items-center space-x-2 text-[11px] text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 p-2 rounded-lg border border-emerald-200 dark:border-emerald-900/60 shrink-0">
@@ -4639,6 +4750,34 @@ export default function Dashboard({ onGoToLanding }) {
                 </div>
                 <p className="text-[11px] text-neutral-500 dark:text-neutral-400 leading-tight">
                   {t('dashboard.requiresApprovalDesc')}
+                </p>
+              </div>
+            )}
+
+            {/* Khusus Pemilik: Toggle Sembunyikan Kode Undangan dari Anggota */}
+            {currentWorkspace.owner_id === user.id && (
+              <div className="p-3 bg-neutral-50 dark:bg-[#282828] rounded-xl border border-neutral-200 dark:border-neutral-700 space-y-1.5 shrink-0">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-1.5 text-xs font-semibold text-neutral-800 dark:text-neutral-200">
+                    <EyeOff className="w-3.5 h-3.5 text-amber-500" />
+                    <span>{t('dashboard.hideInviteCode')}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleToggleHideInviteCode(!currentWorkspace.hide_invite_code)}
+                    className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
+                      currentWorkspace.hide_invite_code ? 'bg-neutral-900 dark:bg-white' : 'bg-neutral-300 dark:bg-neutral-700'
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white dark:bg-neutral-900 shadow-sm ring-0 transition duration-200 ease-in-out ${
+                        currentWorkspace.hide_invite_code ? 'translate-x-4' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+                <p className="text-[11px] text-neutral-500 dark:text-neutral-400 leading-tight">
+                  {t('dashboard.hideInviteCodeDesc')}
                 </p>
               </div>
             )}
@@ -4724,59 +4863,77 @@ export default function Dashboard({ onGoToLanding }) {
               ))}
             </div>
 
-            {/* Pengaturan Batas Foto Khusus Workspace */}
-            <div className="p-3 bg-neutral-50 dark:bg-[#282828] rounded-xl border border-neutral-200 dark:border-neutral-700 space-y-2 shrink-0">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-1.5 text-xs font-semibold text-neutral-800 dark:text-neutral-200">
-                  <Image className="w-3.5 h-3.5 text-neutral-500" />
-                  <span>{isEn ? 'Workspace Photo Limit' : 'Batas Foto Workspace'}</span>
+            {/* Pengaturan Batas Foto Khusus Workspace (Strict Quota Pooling) */}
+            {(() => {
+              const ownerQuotaInfo = getUserQuotaConfig(user, workspaces);
+              const ownerTotal = ownerQuotaInfo.totalOwnerPool || ownerQuotaInfo.maxPhotos;
+              const allocatedOther = (workspaces || [])
+                .filter(w => w.owner_id === user?.id && w.id !== currentWorkspace.id)
+                .reduce((acc, w) => acc + (typeof w.custom_photo_limit === 'number' && w.custom_photo_limit > 0 ? w.custom_photo_limit : 0), 0);
+              const maxAllocatable = Math.max(0, ownerTotal - allocatedOther);
+
+              return (
+                <div className="p-3 bg-neutral-50 dark:bg-[#282828] rounded-xl border border-neutral-200 dark:border-neutral-700 space-y-2 shrink-0">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-1.5 text-xs font-semibold text-neutral-800 dark:text-neutral-200">
+                      <Image className="w-3.5 h-3.5 text-neutral-500" />
+                      <span>{t('dashboard.workspacePhotoLimitTitle')}</span>
+                    </div>
+                    {currentWorkspace.custom_photo_limit ? (
+                      <span className="text-[10px] font-medium bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded">
+                        {currentWorkspace.custom_photo_limit} {isEn ? 'photos' : 'foto'}
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-medium bg-neutral-200 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300 px-1.5 py-0.5 rounded">
+                        {isEn ? `Inherited (${maxAllocatable})` : `Otomatis (${maxAllocatable})`}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-neutral-500 dark:text-neutral-400 leading-tight">
+                    {isEn 
+                      ? 'Set a custom photo limit for this workspace deducted from your shared owner pool, or leave blank to use the remaining available quota.'
+                      : 'Atur batas foto khusus untuk workspace ini yang dipotong dari kuota pool pemilik, atau kosongkan untuk memakai sisa kuota yang tersedia.'}
+                  </p>
+                  {currentWorkspace.owner_id === user.id ? (
+                    <div className="space-y-1.5 pt-1">
+                      <div className="flex items-center justify-between text-[11px] text-neutral-500 dark:text-neutral-400 bg-neutral-100/70 dark:bg-[#202020] px-2.5 py-1 rounded-md border border-neutral-200/60 dark:border-neutral-700/60">
+                        <span>{t('dashboard.remainingPoolHint')}:</span>
+                        <span className="font-semibold text-neutral-800 dark:text-neutral-200">{maxAllocatable} {isEn ? 'photos' : 'foto'}</span>
+                      </div>
+                      <form onSubmit={handleSaveWorkspacePhotoLimit} className="flex items-center space-x-2">
+                        <input
+                          type="number"
+                          min="1"
+                          max={maxAllocatable}
+                          placeholder={isEn ? `Max ${maxAllocatable} (blank for default)` : `Maks ${maxAllocatable} (kosongkan = default)`}
+                          value={wsCustomPhotoLimit}
+                          onChange={(e) => setWsCustomPhotoLimit(e.target.value)}
+                          className="flex-1 px-3 py-1.5 text-xs rounded-lg bg-white dark:bg-[#1f1f1f] border border-neutral-200 dark:border-neutral-700 text-neutral-800 dark:text-neutral-200 focus:outline-hidden focus:ring-1 focus:ring-neutral-400 dark:focus:ring-neutral-500"
+                        />
+                        <button
+                          type="submit"
+                          disabled={isSavingWsLimit}
+                          className="px-3 py-1.5 text-xs font-medium bg-neutral-900 hover:bg-neutral-800 dark:bg-white dark:hover:bg-neutral-100 text-white dark:text-neutral-900 rounded-lg transition disabled:opacity-50 cursor-pointer shrink-0 flex items-center space-x-1"
+                        >
+                          {isSavingWsLimit && <Loader2 className="w-3 h-3 animate-spin" />}
+                          <span>{isEn ? 'Save' : 'Simpan'}</span>
+                        </button>
+                      </form>
+                    </div>
+                  ) : (
+                    <div className="text-[11px] text-neutral-500 dark:text-neutral-400 italic">
+                      {isEn ? 'Only workspace owner can change photo limit.' : 'Hanya pemilik workspace yang dapat mengubah batas foto.'}
+                    </div>
+                  )}
+                  {wsLimitSaveMsg && (
+                    <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center space-x-1">
+                      <Check className="w-3 h-3" />
+                      <span>{wsLimitSaveMsg}</span>
+                    </div>
+                  )}
                 </div>
-                {currentWorkspace.custom_photo_limit ? (
-                  <span className="text-[10px] font-medium bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded">
-                    {currentWorkspace.custom_photo_limit} {isEn ? 'photos' : 'foto'}
-                  </span>
-                ) : (
-                  <span className="text-[10px] font-medium bg-neutral-200 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300 px-1.5 py-0.5 rounded">
-                    {isEn ? 'Default (Tier limit)' : 'Default (Ikuti akun)'}
-                  </span>
-                )}
-              </div>
-              <p className="text-[11px] text-neutral-500 dark:text-neutral-400 leading-tight">
-                {isEn 
-                  ? 'Set a custom photo limit for this workspace, or leave blank to follow your account tier limit (Free: 50/150, Pro: 1,000).'
-                  : 'Atur batas foto khusus untuk workspace ini, atau kosongkan untuk mengikuti limit akun Anda (Free: 50/150, Pro: 1.000).'}
-              </p>
-              {currentWorkspace.owner_id === user.id ? (
-                <form onSubmit={handleSaveWorkspacePhotoLimit} className="flex items-center space-x-2 pt-1">
-                  <input
-                    type="number"
-                    min="1"
-                    placeholder={isEn ? "e.g. 100 (blank for default)" : "contoh: 100 (kosongkan = default)"}
-                    value={wsCustomPhotoLimit}
-                    onChange={(e) => setWsCustomPhotoLimit(e.target.value)}
-                    className="flex-1 px-3 py-1.5 text-xs rounded-lg bg-white dark:bg-[#1f1f1f] border border-neutral-200 dark:border-neutral-700 text-neutral-800 dark:text-neutral-200 focus:outline-hidden focus:ring-1 focus:ring-neutral-400 dark:focus:ring-neutral-500"
-                  />
-                  <button
-                    type="submit"
-                    disabled={isSavingWsLimit}
-                    className="px-3 py-1.5 text-xs font-medium bg-neutral-900 hover:bg-neutral-800 dark:bg-white dark:hover:bg-neutral-100 text-white dark:text-neutral-900 rounded-lg transition disabled:opacity-50 cursor-pointer shrink-0 flex items-center space-x-1"
-                  >
-                    {isSavingWsLimit && <Loader2 className="w-3 h-3 animate-spin" />}
-                    <span>{isEn ? 'Save' : 'Simpan'}</span>
-                  </button>
-                </form>
-              ) : (
-                <div className="text-[11px] text-neutral-500 dark:text-neutral-400 italic">
-                  {isEn ? 'Only workspace owner can change photo limit.' : 'Hanya pemilik workspace yang dapat mengubah batas foto.'}
-                </div>
-              )}
-              {wsLimitSaveMsg && (
-                <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center space-x-1">
-                  <Check className="w-3 h-3" />
-                  <span>{wsLimitSaveMsg}</span>
-                </div>
-              )}
-            </div>
+              );
+            })()}
 
             {/* Danger Zone Actions */}
             <div className="pt-3 border-t border-neutral-100 dark:border-neutral-800 flex items-center justify-between shrink-0">

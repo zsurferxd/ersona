@@ -257,6 +257,14 @@ export const translations = {
       kickMember: 'Keluarkan',
       confirmKickMember: 'Apakah Anda yakin ingin mengeluarkan anggota ini dari ruang kerja?',
       onlyOwnerEmptyTrash: 'Hanya pemilik ruang kerja yang dapat mengosongkan tempat sampah.',
+      hideInviteCode: 'Sembunyikan Kode Undangan dari Anggota',
+      hideInviteCodeDesc: 'Jika diaktifkan, hanya Anda (pemilik) yang dapat melihat dan membagikan kode undangan. Anggota tim tidak dapat melihat atau membagikannya.',
+      inviteCodeHiddenForMembers: 'Kode undangan ruang kerja ini disembunyikan oleh pemilik.',
+      hiddenFromMembersBadge: 'Disembunyikan dari anggota',
+      visibleToMembersBadge: 'Terlihat oleh anggota',
+      workspacePhotoLimitTitle: 'Batas Foto Workspace',
+      remainingPoolHint: 'Sisa kuota pool yang dapat dialokasikan untuk workspace ini',
+      poolExceededError: 'Batas foto melebihi sisa kuota pool Anda!',
     },
 
     // Settings Modal
@@ -551,6 +559,14 @@ export const translations = {
       kickMember: 'Remove',
       confirmKickMember: 'Are you sure you want to remove this member from the workspace?',
       onlyOwnerEmptyTrash: 'Only the workspace owner can empty the trash can.',
+      hideInviteCode: 'Hide Invite Code from Members',
+      hideInviteCodeDesc: 'When enabled, only you (the owner) can view and share the invite code. Team members will not be able to view or copy it.',
+      inviteCodeHiddenForMembers: 'Team invite code is hidden by the workspace owner.',
+      hiddenFromMembersBadge: 'Hidden from members',
+      visibleToMembersBadge: 'Visible to members',
+      workspacePhotoLimitTitle: 'Workspace Photo Limit',
+      remainingPoolHint: 'Remaining pool quota that can be allocated to this workspace',
+      poolExceededError: 'Photo limit exceeds your remaining pool quota!',
     },
 
     // Settings Modal

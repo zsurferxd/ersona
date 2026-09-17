@@ -41,12 +41,13 @@ export const QUOTA_TIERS = {
 /**
  * Mendapatkan konfigurasi kuota pengguna berdasarkan objek user Supabase
  */
-export function getUserQuotaConfig(user) {
+export function getUserQuotaConfig(user, workspaces = []) {
   if (!user) {
     return {
       ...QUOTA_TIERS.unconfirmed,
       isEmailConfirmed: false,
       isUpgraded: false,
+      totalOwnerPool: QUOTA_TIERS.unconfirmed.maxPhotos,
     };
   }
 
@@ -59,26 +60,36 @@ export function getUserQuotaConfig(user) {
   // Akun email/password diperiksa berdasarkan flag custom ersona_verified di user_metadata
   const isEmailConfirmed = isGoogleOAuth || Boolean(user.user_metadata?.ersona_verified === true);
 
-  if (isUpgraded) {
-    return {
-      ...QUOTA_TIERS.pro,
-      isEmailConfirmed,
-      isUpgraded: true,
-    };
-  }
+  const baseConfig = isUpgraded
+    ? {
+        ...QUOTA_TIERS.pro,
+        isEmailConfirmed,
+        isUpgraded: true,
+      }
+    : isEmailConfirmed
+      ? {
+          ...QUOTA_TIERS.confirmed,
+          isEmailConfirmed: true,
+          isUpgraded: false,
+        }
+      : {
+          ...QUOTA_TIERS.unconfirmed,
+          isEmailConfirmed: false,
+          isUpgraded: false,
+        };
 
-  if (isEmailConfirmed) {
-    return {
-      ...QUOTA_TIERS.confirmed,
-      isEmailConfirmed: true,
-      isUpgraded: false,
-    };
-  }
+  // Jika ada workspace tim milik user yang memiliki alokasi batas foto, hitung sisa kuota untuk Personal
+  const totalAllocatedToTeamWs = (workspaces || [])
+    .filter((w) => w.owner_id === user.id)
+    .reduce((acc, w) => acc + (typeof w.custom_photo_limit === 'number' && w.custom_photo_limit > 0 ? w.custom_photo_limit : 0), 0);
+
+  const effectiveMaxPhotos = Math.max(0, baseConfig.maxPhotos - totalAllocatedToTeamWs);
 
   return {
-    ...QUOTA_TIERS.unconfirmed,
-    isEmailConfirmed: false,
-    isUpgraded: false,
+    ...baseConfig,
+    totalOwnerPool: baseConfig.maxPhotos,
+    totalAllocatedToTeamWs,
+    maxPhotos: totalAllocatedToTeamWs > 0 ? effectiveMaxPhotos : baseConfig.maxPhotos,
   };
 }
 
@@ -87,10 +98,11 @@ export function getUserQuotaConfig(user) {
  * Mengikuti arsitektur Owner-Centric Storage Pool:
  * - Jika user yang login adalah pemilik (owner), ikuti tingkatan akun pemilik
  * - Jika user adalah anggota tim (member), kuota mengikuti status Pro workspace
+ * - Memperhitungkan batas foto yang dialokasikan ke workspace lain milik pemilik (Strict Pooling)
  */
-export function getWorkspaceQuotaConfig(workspace, currentUser) {
+export function getWorkspaceQuotaConfig(workspace, currentUser, workspaces = []) {
   if (!workspace) {
-    return getUserQuotaConfig(currentUser);
+    return getUserQuotaConfig(currentUser, workspaces);
   }
 
   const isOwner = currentUser && workspace.owner_id === currentUser.id;
@@ -108,15 +120,30 @@ export function getWorkspaceQuotaConfig(workspace, currentUser) {
     };
   }
 
+  // Hitung total limit yang sudah dialokasikan ke workspace lain milik owner yang sama
+  const ownerId = workspace.owner_id;
+  const otherOwnedWorkspaces = (workspaces || []).filter(
+    (w) => w.owner_id === ownerId && w.id !== workspace.id
+  );
+  const allocatedInOtherWs = otherOwnedWorkspaces.reduce((acc, w) => {
+    return acc + (typeof w.custom_photo_limit === 'number' && w.custom_photo_limit > 0 ? w.custom_photo_limit : 0);
+  }, 0);
+
+  // Sisa kuota pool pemilik yang tersedia untuk workspace ini
+  const remainingOwnerPool = Math.max(0, baseConfig.maxPhotos - allocatedInOtherWs);
+
   // Cek apakah ada batas foto kustom yang diatur pemilik untuk workspace ini
-  let effectiveMaxPhotos = baseConfig.maxPhotos;
+  let effectiveMaxPhotos = remainingOwnerPool;
   const customLimit = workspace.custom_photo_limit;
   if (typeof customLimit === 'number' && customLimit > 0) {
-    effectiveMaxPhotos = Math.min(baseConfig.maxPhotos, customLimit);
+    effectiveMaxPhotos = Math.min(customLimit, remainingOwnerPool);
   }
 
   return {
     ...baseConfig,
+    totalOwnerPool: baseConfig.maxPhotos,
+    allocatedInOtherWs,
+    remainingPool: remainingOwnerPool,
     maxPhotos: effectiveMaxPhotos,
     customPhotoLimit: typeof customLimit === 'number' && customLimit > 0 ? customLimit : null,
     isWorkspacePool: true,
