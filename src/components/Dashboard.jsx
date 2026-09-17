@@ -9,7 +9,7 @@ import {
   ArrowUpDown, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, ZoomIn, Eye, MessageSquare,
   Edit3, Flag, Check, RotateCcw, AlertTriangle, Film, Settings,
   HardDrive, Flame, Columns3, List, Layers, Settings2, ArrowRight, Menu, Globe,
-  Sun, Moon, Users, UserPlus, UserMinus, Copy, Share2
+  Sun, Moon, Users, UserPlus, UserMinus, Copy, Share2, ShieldCheck
 } from 'lucide-react';
 import { format, isPast, isToday, parseISO, differenceInDays } from 'date-fns';
 import { id as localeId, enUS as localeEn } from 'date-fns/locale';
@@ -973,7 +973,7 @@ export default function Dashboard({ onGoToLanding }) {
     if (activeWorkspaceId) {
       fetchWorkspaceMembers(activeWorkspaceId);
     }
-  }, [activeWorkspaceId]);
+  }, [activeWorkspaceId, isWsMembersModalOpen]);
 
   useEffect(() => {
     if (currentWorkspace) {
@@ -2320,14 +2320,17 @@ export default function Dashboard({ onGoToLanding }) {
 
               {/* Mobile Member Badge for Team Workspace */}
               {currentWorkspace && (
-                <div className="mb-3 flex items-center justify-between p-2 rounded-xl bg-blue-50/80 dark:bg-blue-950/30 border border-blue-200/80 dark:border-blue-900/50 text-xs">
+                <div
+                  onClick={() => setIsWsMembersModalOpen(true)}
+                  className="mb-3 flex items-center justify-between p-2 rounded-xl bg-blue-50/80 hover:bg-blue-100/80 dark:bg-blue-950/30 dark:hover:bg-blue-950/50 border border-blue-200/80 dark:border-blue-900/50 text-xs cursor-pointer transition"
+                >
                   <div className="flex items-center space-x-1.5 text-blue-900 dark:text-blue-300 min-w-0">
                     <Users className="w-3.5 h-3.5 shrink-0 text-blue-600" />
                     <span className="font-medium truncate">{workspaceMembers.length} {isEn ? 'members' : 'anggota'}</span>
                   </div>
                   <button
                     type="button"
-                    onClick={() => setIsWsMembersModalOpen(true)}
+                    onClick={(e) => { e.stopPropagation(); setIsWsMembersModalOpen(true); }}
                     className="px-2 py-0.5 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-medium transition cursor-pointer shrink-0"
                   >
                     {t('dashboard.workspaceMembers')}
@@ -2549,14 +2552,17 @@ export default function Dashboard({ onGoToLanding }) {
 
           {/* Quick Member Badge & Settings for Team Workspace */}
           {currentWorkspace && (
-            <div className="mb-3 flex items-center justify-between p-2 rounded-xl bg-blue-50/80 dark:bg-blue-950/30 border border-blue-200/80 dark:border-blue-900/50 text-xs">
+            <div
+              onClick={() => setIsWsMembersModalOpen(true)}
+              className="mb-3 flex items-center justify-between p-2 rounded-xl bg-blue-50/80 hover:bg-blue-100/80 dark:bg-blue-950/30 dark:hover:bg-blue-950/50 border border-blue-200/80 dark:border-blue-900/50 text-xs cursor-pointer transition"
+            >
               <div className="flex items-center space-x-1.5 text-blue-900 dark:text-blue-300 min-w-0">
                 <Users className="w-3.5 h-3.5 shrink-0 text-blue-600" />
                 <span className="font-medium truncate">{workspaceMembers.length} {isEn ? 'members' : 'anggota'}</span>
               </div>
               <button
                 type="button"
-                onClick={() => setIsWsMembersModalOpen(true)}
+                onClick={(e) => { e.stopPropagation(); setIsWsMembersModalOpen(true); }}
                 className="px-2 py-0.5 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-medium transition cursor-pointer shrink-0"
               >
                 {t('dashboard.workspaceMembers')}
