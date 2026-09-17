@@ -286,8 +286,8 @@ export default function Dashboard({ onGoToLanding }) {
     // Pengguna belum terverifikasi dilarang mengunggah attachment apapun
     if (!quotaConfig.isEmailConfirmed && !quotaConfig.isUpgraded) {
       alert(isEn
-        ? '🔒 Attachment uploads are locked for unverified accounts.\nPlease verify your email in Settings to unlock uploads (up to 150 photos & 2 videos)!'
-        : '🔒 Fitur upload lampiran terkunci untuk akun belum terverifikasi.\nSilakan verifikasi email Anda di Pengaturan untuk membuka akses upload (hingga 150 foto & 2 video)!');
+        ? '🔒 Email not verified. Please verify your email in Settings to unlock attachment uploads and more features!'
+        : '🔒 Email belum diverifikasi. Silakan verifikasi email Anda di Pengaturan untuk membuka fitur upload lampiran dan fitur lainnya!');
       return false;
     }
 
@@ -2124,14 +2124,14 @@ export default function Dashboard({ onGoToLanding }) {
       const activeNotesCount = notes.filter(n => !n.deleted_at).length;
       if (activeNotesCount >= 100) {
         alert(isEn
-          ? '⚠️ Note limit reached (100 notes) for unverified accounts.\nPlease verify your email in Settings to enjoy unlimited notes!'
-          : '⚠️ Batas catatan tercapai (maksimal 100 catatan) untuk akun belum terverifikasi.\nSilakan verifikasi email Anda di Pengaturan untuk menikmati catatan tanpa batas!');
+          ? '⚠️ Email not verified. Please verify your email in Settings to unlock unlimited notes and more features!'
+          : '⚠️ Email belum diverifikasi. Silakan verifikasi email Anda di Pengaturan untuk membuka catatan tanpa batas dan fitur lainnya!');
         return;
       }
       if (notePhotos.length > 0 || noteVideo) {
         alert(isEn
-          ? '🔒 Attachment uploads are locked for unverified accounts.\nPlease verify your email in Settings to unlock uploads (up to 150 photos & 2 videos)!'
-          : '🔒 Fitur upload lampiran terkunci untuk akun belum terverifikasi.\nSilakan verifikasi email Anda di Pengaturan untuk membuka akses upload lampiran!');
+          ? '🔒 Email not verified. Please verify your email in Settings to unlock attachment uploads and more features!'
+          : '🔒 Email belum diverifikasi. Silakan verifikasi email Anda di Pengaturan untuk membuka fitur upload lampiran dan fitur lainnya!');
         return;
       }
     }
@@ -3398,8 +3398,8 @@ export default function Dashboard({ onGoToLanding }) {
                 </p>
                 <p className="text-amber-800/80 dark:text-amber-300/80 text-[11px] leading-tight truncate">
                   {isEn 
-                    ? 'Current limit: max 100 notes & no attachments. Verify to unlock unlimited notes, 150 photos & 2 videos.' 
-                    : 'Batas saat ini: maks. 100 catatan & tanpa lampiran (0 foto/video). Verifikasi untuk membuka catatan tanpa batas, 150 foto & 2 video.'}
+                    ? 'Verify your email to unlock more features.' 
+                    : 'Verifikasi email Anda untuk membuka lebih banyak fitur.'}
                 </p>
               </div>
             </div>
@@ -3916,11 +3916,11 @@ export default function Dashboard({ onGoToLanding }) {
                                 type="button"
                                 onClick={() => {
                                   alert(isEn
-                                    ? '🔒 Attachment uploads are locked for unverified accounts.\nPlease verify your email in Settings to unlock uploads (up to 150 photos & 2 videos)!'
-                                    : '🔒 Fitur upload lampiran terkunci untuk akun belum terverifikasi.\nSilakan verifikasi email Anda di Pengaturan untuk membuka akses upload (hingga 150 foto & 2 video)!');
+                                    ? '🔒 Email not verified. Please verify your email in Settings to unlock attachments and more features!'
+                                    : '🔒 Email belum diverifikasi. Silakan verifikasi email Anda di Pengaturan untuk membuka fitur lampiran dan fitur lainnya!');
                                 }}
                                 className="text-xs text-neutral-400 dark:text-neutral-500 bg-neutral-100/60 dark:bg-[#252525] border border-neutral-200/50 dark:border-neutral-800 px-2.5 py-1 rounded-lg cursor-pointer transition flex items-center space-x-1"
-                                title={isEn ? 'Attachments locked for unverified accounts' : 'Lampiran terkunci untuk akun belum verifikasi'}
+                                title={isEn ? 'Email not verified' : 'Email belum diverifikasi'}
                               >
                                 <Lock className="w-3 h-3 text-amber-600" />
                                 <span>{t('dashboard.attachPhoto')}</span>
@@ -4222,11 +4222,6 @@ export default function Dashboard({ onGoToLanding }) {
                   <h2 className="text-sm font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 flex items-center space-x-2">
                     <FileText className="w-4 h-4" />
                     <span>{labels.notesTab}</span>
-                    {!quotaConfig.isEmailConfirmed && !quotaConfig.isUpgraded && (
-                      <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-300/60 dark:border-amber-800/60 font-semibold lowercase tracking-normal">
-                        {notes.filter(n => !n.deleted_at).length}/100
-                      </span>
-                    )}
                   </h2>
                   <button
                     onClick={() => {
@@ -4234,8 +4229,8 @@ export default function Dashboard({ onGoToLanding }) {
                         const activeNotesCount = notes.filter(n => !n.deleted_at).length;
                         if (activeNotesCount >= 100) {
                           alert(isEn
-                            ? '⚠️ Note limit reached (100 notes) for unverified accounts.\nPlease verify your email in Settings to enjoy unlimited notes!'
-                            : '⚠️ Batas catatan tercapai (maksimal 100 catatan) untuk akun belum terverifikasi.\nSilakan verifikasi email Anda di Pengaturan untuk menikmati catatan tanpa batas!');
+                            ? '⚠️ Email not verified. Please verify your email in Settings to unlock unlimited notes and more features!'
+                            : '⚠️ Email belum diverifikasi. Silakan verifikasi email Anda di Pengaturan untuk membuka catatan tanpa batas dan fitur lainnya!');
                           return;
                         }
                       }
@@ -4454,12 +4449,12 @@ export default function Dashboard({ onGoToLanding }) {
                   <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 rounded-xl space-y-1.5 text-xs">
                     <div className="flex items-center space-x-1.5 font-semibold text-amber-900 dark:text-amber-200">
                       <Lock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                      <span>{isEn ? 'Attachments locked for unverified accounts' : 'Lampiran terkunci untuk akun belum verifikasi'}</span>
+                      <span>{isEn ? 'Email not verified' : 'Email belum diverifikasi'}</span>
                     </div>
                     <p className="text-[11px] text-amber-800/80 dark:text-amber-300/80 leading-relaxed">
                       {isEn 
-                        ? 'Verify your email in Settings to upload up to 150 photos & 2 videos.' 
-                        : 'Verifikasi email Anda di Pengaturan untuk membuka kuota upload 150 foto & 2 video.'}
+                        ? 'Verify your email to unlock attachment uploads and more features.' 
+                        : 'Verifikasi email Anda untuk membuka fitur upload lampiran dan fitur lainnya.'}
                     </p>
                     <button
                       type="button"
@@ -4469,7 +4464,7 @@ export default function Dashboard({ onGoToLanding }) {
                       }}
                       className="inline-flex items-center space-x-1 text-[11px] font-semibold text-amber-700 dark:text-amber-400 hover:underline pt-0.5 cursor-pointer"
                     >
-                      <span>{isEn ? 'Open Settings to verify email →' : 'Buka Pengaturan untuk verifikasi email →'}</span>
+                      <span>{isEn ? 'Verify email in Settings →' : 'Verifikasi email di Pengaturan →'}</span>
                     </button>
                   </div>
                 ) : (
@@ -5094,8 +5089,8 @@ export default function Dashboard({ onGoToLanding }) {
                           type="button"
                           onClick={() => {
                             alert(isEn
-                              ? '🔒 Attachment uploads are locked for unverified accounts.\nPlease verify your email in Settings to unlock uploads (up to 150 photos & 2 videos)!'
-                              : '🔒 Fitur upload lampiran terkunci untuk akun belum terverifikasi.\nSilakan verifikasi email Anda di Pengaturan untuk membuka akses upload (hingga 150 foto & 2 video)!');
+                              ? '🔒 Email not verified. Please verify your email in Settings to unlock attachments and more features!'
+                              : '🔒 Email belum diverifikasi. Silakan verifikasi email Anda di Pengaturan untuk membuka fitur lampiran dan fitur lainnya!');
                           }}
                           className="text-xs text-neutral-400 dark:text-neutral-500 bg-neutral-100/60 dark:bg-[#252525] border border-neutral-200/50 dark:border-neutral-800 px-3 py-1.5 rounded-lg cursor-pointer transition flex items-center space-x-1"
                         >
@@ -5103,7 +5098,7 @@ export default function Dashboard({ onGoToLanding }) {
                           <span>{t('dashboard.attachPhoto')}</span>
                         </button>
                         <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">
-                          {isEn ? 'Verification required' : 'Perlu verifikasi email'}
+                          {isEn ? 'Email not verified' : 'Email belum diverifikasi'}
                         </span>
                       </div>
                     ) : (
@@ -5362,12 +5357,12 @@ export default function Dashboard({ onGoToLanding }) {
                       <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 rounded-xl space-y-1.5 text-xs">
                         <div className="flex items-center space-x-1.5 font-semibold text-amber-900 dark:text-amber-200">
                           <Lock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                          <span>{isEn ? 'Attachments locked for unverified accounts' : 'Lampiran terkunci untuk akun belum verifikasi'}</span>
+                          <span>{isEn ? 'Email not verified' : 'Email belum diverifikasi'}</span>
                         </div>
                         <p className="text-[11px] text-amber-800/80 dark:text-amber-300/80 leading-relaxed">
                           {isEn 
-                            ? 'Verify your email in Settings to upload up to 150 photos & 2 videos. You can still use the "Link / Embed" tab to attach Drive or YouTube links without using storage.' 
-                            : 'Verifikasi email Anda di Pengaturan untuk membuka kuota upload 150 foto & 2 video. Anda tetap bisa menggunakan tab "Link / Embed" untuk menempel tautan.'}
+                            ? 'Verify your email to unlock attachment uploads and more features. You can still use the "Link / Embed" tab.' 
+                            : 'Verifikasi email Anda untuk membuka fitur upload lampiran dan fitur lainnya. Anda tetap dapat menggunakan tab "Link / Embed".'}
                         </p>
                         <button
                           type="button"
@@ -5377,7 +5372,7 @@ export default function Dashboard({ onGoToLanding }) {
                           }}
                           className="inline-flex items-center space-x-1 text-[11px] font-semibold text-amber-700 dark:text-amber-400 hover:underline pt-0.5 cursor-pointer"
                         >
-                          <span>{isEn ? 'Open Settings to verify email →' : 'Buka Pengaturan untuk verifikasi email →'}</span>
+                          <span>{isEn ? 'Verify email in Settings →' : 'Verifikasi email di Pengaturan →'}</span>
                         </button>
                       </div>
                     ) : (

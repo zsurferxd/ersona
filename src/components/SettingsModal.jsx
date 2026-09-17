@@ -641,7 +641,7 @@ export default function SettingsModal({
                   {quotaConfig?.isUpgraded
                     ? (isEn ? 'You have unlocked the maximum quota: 1,000 photos and 5 videos.' : 'Anda menikmati batas kuota maksimal: 1.000 foto dan 5 video.')
                     : (!quotaConfig?.isEmailConfirmed
-                      ? (isEn ? 'Verify your email to unlock unlimited notes, 150 photos & 2 videos!' : 'Verifikasi email Anda untuk membuka catatan tanpa batas, 150 foto & 2 video!')
+                      ? (isEn ? 'Verify your email to unlock more features!' : 'Verifikasi email Anda untuk membuka lebih banyak fitur!')
                       : (isEn ? 'Email verified! Upgrade to Pro for 1,000 photos & 5 videos.' : 'Email terverifikasi! Upgrade ke Pro untuk 1.000 foto & 5 video.'))}
                 </p>
               </div>
