@@ -1,25 +1,31 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useContext, createContext } from 'react';
 import {
   CheckCircle2, Circle, Flag, Calendar, Bell, Paperclip,
-  Columns3, List, Layers, Sparkles, ArrowRight,
-  ShieldCheck, Smartphone, Eye, ExternalLink, Check,
+  Columns3, List, Layers, Sparkles, ArrowRight, ArrowUp,
+  ShieldCheck, Eye, ExternalLink, Check,
   ArrowUpDown, Sun, Moon, Users, Zap, Image as ImageIcon,
   ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { useThemeLanguage } from '../context/ThemeLanguageContext';
 import BrandLogo from './BrandLogo';
 
+// Context untuk mendistribusikan arah scroll (up / down) secara efisien ke semua ScrollReveal
+const ScrollDirectionContext = createContext('down');
+
 // Komponen ScrollReveal berbasis Native IntersectionObserver & GPU-accelerated CSS
+// Mendukung bidirectional re-entrance (animasi kembali menyala halus saat scroll ke atas)
 function ScrollReveal({
   children,
   className = '',
   delay = 0,
   direction = 'up', // 'up' | 'down' | 'left' | 'right' | 'scale'
-  duration = 700,
-  once = true,
+  duration = 600,
+  once = false, // Bi-directional scroll: re-triggers smoothly when scrolling back into view!
 }) {
   const [isVisible, setIsVisible] = useState(false);
+  const [hasRevealedOnce, setHasRevealedOnce] = useState(false);
   const domRef = useRef(null);
+  const scrollDirection = useContext(ScrollDirectionContext);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -27,6 +33,7 @@ function ScrollReveal({
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
             setIsVisible(true);
+            setHasRevealedOnce(true);
             if (once) observer.unobserve(entry.target);
           } else if (!once) {
             setIsVisible(false);
@@ -34,8 +41,8 @@ function ScrollReveal({
         });
       },
       {
-        threshold: 0.12,
-        rootMargin: '0px 0px -40px 0px',
+        threshold: 0.08,
+        rootMargin: '20px 0px -30px 0px',
       }
     );
 
@@ -55,27 +62,33 @@ function ScrollReveal({
       return 'opacity-100 translate-x-0 translate-y-0 scale-100';
     }
     switch (direction) {
-      case 'up':
-        return 'opacity-0 translate-y-8';
-      case 'down':
-        return 'opacity-0 -translate-y-8';
-      case 'left':
-        return 'opacity-0 translate-x-8';
-      case 'right':
-        return 'opacity-0 -translate-x-8';
       case 'scale':
-        return 'opacity-0 scale-95 translate-y-4';
+        return 'opacity-0 scale-95 translate-y-3';
+      case 'left':
+        return 'opacity-0 translate-x-6';
+      case 'right':
+        return 'opacity-0 -translate-x-6';
+      case 'down':
+        return 'opacity-0 -translate-y-6';
+      case 'up':
       default:
-        return 'opacity-0 translate-y-8';
+        // Adaptif sesuai momentum arah scroll: saat scroll ke atas, turun dari atas (-translate-y-5)
+        if (scrollDirection === 'up') {
+          return 'opacity-0 -translate-y-5 scale-[0.985]';
+        }
+        return 'opacity-0 translate-y-6 scale-[0.985]';
     }
   };
+
+  // Gunakan delay penuh saat pertama kali masuk, dan delay lebih lincah saat scroll bolak-balik
+  const activeDelay = hasRevealedOnce ? Math.min(delay, 80) : delay;
 
   return (
     <div
       ref={domRef}
       style={{
         transitionDuration: `${duration}ms`,
-        transitionDelay: `${delay}ms`,
+        transitionDelay: `${activeDelay}ms`,
       }}
       className={`transition-all ease-out will-change-transform ${getTransformClasses()} ${className}`}
     >
@@ -199,8 +212,57 @@ export default function LandingPage({ onStartAuth, user, onGoToDashboard }) {
     { id: 'completed', label: isEn ? 'Complete' : 'Selesai', color: 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-900' },
   ];
 
+  // Pemantau scroll terpadu (Arah scroll, Progress bar atas, & Tombol dinamis kembali ke atas)
+  const [scrollDirection, setScrollDirection] = useState('down');
+  const [scrollProgress, setScrollProgress] = useState(0);
+  const [showBackToTop, setShowBackToTop] = useState(false);
+
+  useEffect(() => {
+    let lastScrollY = window.scrollY;
+    let ticking = false;
+
+    const onScroll = () => {
+      const currentScrollY = window.scrollY;
+      const scrollHeight = document.documentElement.scrollHeight - window.innerHeight;
+      const progress = scrollHeight > 0 ? Math.min(1, Math.max(0, currentScrollY / scrollHeight)) : 0;
+      const diff = currentScrollY - lastScrollY;
+
+      if (Math.abs(diff) > 4) {
+        const newDirection = diff > 0 ? 'down' : 'up';
+        setScrollDirection(newDirection);
+        // Tampilkan tombol back-to-top jika scroll ke atas dan sudah lewat hero (> 400px)
+        setShowBackToTop(currentScrollY > 400 && newDirection === 'up');
+      } else if (currentScrollY <= 200) {
+        setShowBackToTop(false);
+      }
+
+      setScrollProgress(progress);
+      lastScrollY = currentScrollY;
+      ticking = false;
+    };
+
+    const handleScroll = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(onScroll);
+        ticking = true;
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
   return (
-    <div className="min-h-[100dvh] bg-[#FBFBFA] dark:bg-[#151515] text-neutral-900 dark:text-neutral-100 selection:bg-neutral-900 selection:text-white dark:selection:bg-white dark:selection:text-neutral-900 font-sans antialiased transition-colors duration-200 flex flex-col">
+    <ScrollDirectionContext.Provider value={scrollDirection}>
+      <div className="min-h-[100dvh] bg-[#FBFBFA] dark:bg-[#151515] text-neutral-900 dark:text-neutral-100 selection:bg-neutral-900 selection:text-white dark:selection:bg-white dark:selection:text-neutral-900 font-sans antialiased transition-colors duration-200 flex flex-col relative">
+        
+        {/* Dynamic Micro Scroll Progress Bar (Memberi feedback visual aktif scroll ke atas & bawah) */}
+        <div className="fixed top-0 left-0 right-0 h-[2px] z-50 pointer-events-none bg-neutral-200/20 dark:bg-neutral-800/20">
+          <div
+            className="h-full bg-gradient-to-r from-blue-500 via-indigo-500 to-emerald-500 transition-all duration-75 ease-out"
+            style={{ width: `${(scrollProgress * 100).toFixed(1)}%` }}
+          />
+        </div>
       
       {/* 1. STICKY TOP NAVIGATION BAR */}
       <header className="sticky top-0 z-40 bg-[#FBFBFA]/90 dark:bg-[#151515]/90 backdrop-blur-md border-b border-neutral-200/70 dark:border-neutral-800/80 transition">
@@ -361,7 +423,7 @@ export default function LandingPage({ onStartAuth, user, onGoToDashboard }) {
                 <span>{t('landing.hero.badgePrivacy')}</span>
               </div>
               <div className="flex items-center space-x-1.5">
-                <Smartphone className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                <Zap className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
                 <span>{t('landing.hero.badgeResponsive')}</span>
               </div>
             </div>
@@ -401,7 +463,7 @@ export default function LandingPage({ onStartAuth, user, onGoToDashboard }) {
                 {/* Window Address Bar */}
                 <div className="hidden sm:flex items-center space-x-2 bg-white dark:bg-[#252525] border border-neutral-200/80 dark:border-neutral-700/80 rounded-xl px-3 py-1 text-xs text-neutral-600 dark:text-neutral-300 font-mono shadow-2xs">
                   <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold">https://</span>
-                  <span>ersona.app/workspace/team</span>
+                  <span>ersona.site/workspace</span>
                 </div>
 
                 {/* Toolbar: Scroll Controls + View Mode Switcher */}
@@ -956,6 +1018,26 @@ export default function LandingPage({ onStartAuth, user, onGoToDashboard }) {
           </div>
         </div>
       </footer>
+
+      {/* Floating Dynamic 'Back to Top' Pill (Muncul saat scroll ke atas melewati hero) */}
+      <div
+        className={`fixed bottom-6 right-6 z-40 transition-all duration-300 ${
+          showBackToTop ? 'opacity-100 translate-y-0 pointer-events-auto scale-100' : 'opacity-0 translate-y-4 pointer-events-none scale-95'
+        }`}
+      >
+        <button
+          type="button"
+          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+          className="group flex items-center space-x-2 px-3.5 py-2.5 rounded-2xl bg-white/95 dark:bg-[#202020]/95 backdrop-blur-md border border-neutral-200/90 dark:border-neutral-700/90 shadow-xl hover:shadow-2xl text-neutral-700 dark:text-neutral-200 hover:text-neutral-950 dark:hover:text-white transition active:scale-95 cursor-pointer text-xs font-semibold"
+          title={t('landing.nav.backToTop')}
+        >
+          <div className="w-5 h-5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center group-hover:-translate-y-0.5 transition-transform">
+            <ArrowUp className="w-3 h-3" />
+          </div>
+          <span className="text-[11px] tracking-wide">{t('landing.nav.backToTop')}</span>
+        </button>
+      </div>
     </div>
+  </ScrollDirectionContext.Provider>
   );
 }

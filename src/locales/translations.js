@@ -39,6 +39,7 @@ export const translations = {
         signIn: 'Masuk',
         getStarted: 'Mulai Gratis',
         openWorkspace: 'Buka Workspace',
+        backToTop: 'Kembali ke Atas',
       },
       hero: {
         badge: 'Ersona - Your Personal Workspace',
@@ -50,7 +51,7 @@ export const translations = {
         ctaSecondary: 'Lihat Antarmuka',
         badgeNoCreditCard: 'Tanpa Kartu Kredit',
         badgePrivacy: 'Privasi Terlindungi & Terenkripsi',
-        badgeResponsive: 'Responsif di Semua Layar & Perangkat',
+        badgeResponsive: 'Selesaikan Tugas Lebih Cepat',
       },
       preview: {
         tag: 'Antarmuka',
@@ -341,6 +342,7 @@ export const translations = {
         signIn: 'Sign In',
         getStarted: 'Get Started Free',
         openWorkspace: 'Open Workspace',
+        backToTop: 'Back to Top',
       },
       hero: {
         badge: 'Ersona - Your Personal Workspace',
@@ -352,7 +354,7 @@ export const translations = {
         ctaSecondary: 'Explore Interface',
         badgeNoCreditCard: 'No Credit Card Required',
         badgePrivacy: 'Encrypted & Private',
-        badgeResponsive: 'Responsive on All Screens & Devices',
+        badgeResponsive: 'Accomplish Tasks Faster',
       },
       preview: {
         tag: 'Interface',
