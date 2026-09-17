@@ -13,28 +13,37 @@ export const QUOTA_UPGRADED = 10 * 1024 * 1024 * 1024;   // 10 GB (Cloudflare R2
 
 export const QUOTA_TIERS = {
   unconfirmed: {
-    maxPhotos: 50,
+    maxPhotos: 0,
     maxVideos: 0,
+    maxNotes: 100,
+    allowAttachments: false,
     tierName: 'Free (Email Belum Verif)',
     tierNameEn: 'Free (Unverified)',
     tierCode: 'unconfirmed',
-    desc: '50 foto & 0 video',
+    desc: 'Maks. 100 catatan & tanpa lampiran (0 foto/video)',
+    descEn: 'Max 100 notes & no attachments (0 photo/video)',
   },
   confirmed: {
     maxPhotos: 150,
     maxVideos: 2,
+    maxNotes: Infinity,
+    allowAttachments: true,
     tierName: 'Free (Terverifikasi)',
     tierNameEn: 'Free (Verified)',
     tierCode: 'confirmed',
-    desc: '150 foto & 2 video',
+    desc: 'Catatan tanpa batas, 150 foto & 2 video',
+    descEn: 'Unlimited notes, 150 photos & 2 videos',
   },
   pro: {
     maxPhotos: 1000,
     maxVideos: 5,
+    maxNotes: Infinity,
+    allowAttachments: true,
     tierName: 'Ersona Pro',
     tierNameEn: 'Ersona Pro',
     tierCode: 'pro',
-    desc: '1.000 foto & 5 video',
+    desc: 'Catatan tanpa batas, 1.000 foto & 5 video',
+    descEn: 'Unlimited notes, 1,000 photos & 5 videos',
   },
 };
 

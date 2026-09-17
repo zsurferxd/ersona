@@ -167,7 +167,7 @@ export default function SettingsModal({
     }, 0) || 0);
   const workspaceVideoCount = Math.max(0, videoCount - personalOnlyVideoCount);
 
-  const maxPhotos = quotaConfig?.maxPhotos ?? (quotaConfig?.isUpgraded ? 1000 : (quotaConfig?.isEmailConfirmed ? 150 : 50));
+  const maxPhotos = quotaConfig?.maxPhotos ?? (quotaConfig?.isUpgraded ? 1000 : (quotaConfig?.isEmailConfirmed ? 150 : 0));
   const maxVideos = quotaConfig?.maxVideos ?? (quotaConfig?.isUpgraded ? 5 : (quotaConfig?.isEmailConfirmed ? 2 : 0));
 
   // Handler Ekspor Data JSON
@@ -286,7 +286,7 @@ export default function SettingsModal({
       }
       setShowOtpInput(false);
       setOtpCode('');
-      setOtpSuccessMsg(isEn ? 'Email verified! Quota increased to 150 photos & 2 videos.' : 'Email berhasil diverifikasi! Kuota meningkat jadi 150 foto & 2 video.');
+      setOtpSuccessMsg(isEn ? 'Email verified! Unlocked unlimited notes, 150 photos & 2 videos.' : 'Email berhasil diverifikasi! Catatan tanpa batas, 150 foto & 2 video telah terbuka.');
       setTimeout(() => setOtpSuccessMsg(''), 4000);
     } catch (err) {
       alert(isEn ? 'Verification failed: ' + err.message : 'Verifikasi gagal: ' + err.message);
@@ -483,8 +483,8 @@ export default function SettingsModal({
               </div>
               <p className="text-[11px] text-blue-800/80 dark:text-blue-300/80 leading-relaxed">
                 {isEn 
-                  ? `We've sent a verification code to ${user?.email}. Enter it below to unlock 150 photos & 2 videos:`
-                  : `Kode verifikasi telah dikirim ke ${user?.email}. Masukkan kode di bawah untuk membuka kuota 150 foto & 2 video:`}
+                  ? `We've sent a verification code to ${user?.email}. Enter it below to unlock unlimited notes, 150 photos & 2 videos:`
+                  : `Kode verifikasi telah dikirim ke ${user?.email}. Masukkan kode di bawah untuk membuka catatan tanpa batas, 150 foto & 2 video:`}
               </p>
               <div className="flex items-center space-x-2">
                 <input
@@ -641,7 +641,7 @@ export default function SettingsModal({
                   {quotaConfig?.isUpgraded
                     ? (isEn ? 'You have unlocked the maximum quota: 1,000 photos and 5 videos.' : 'Anda menikmati batas kuota maksimal: 1.000 foto dan 5 video.')
                     : (!quotaConfig?.isEmailConfirmed
-                      ? (isEn ? 'Verify your email to upgrade your quota from 50 photos (0 video) to 150 photos & 2 videos!' : 'Verifikasi email Anda untuk menaikkan kuota dari 50 foto (0 video) ke 150 foto & 2 video!')
+                      ? (isEn ? 'Verify your email to unlock unlimited notes, 150 photos & 2 videos!' : 'Verifikasi email Anda untuk membuka catatan tanpa batas, 150 foto & 2 video!')
                       : (isEn ? 'Email verified! Upgrade to Pro for 1,000 photos & 5 videos.' : 'Email terverifikasi! Upgrade ke Pro untuk 1.000 foto & 5 video.'))}
                 </p>
               </div>
@@ -655,21 +655,21 @@ export default function SettingsModal({
             <div className="grid grid-cols-3 gap-2 text-center text-xs">
               <div className={`p-2.5 rounded-lg border ${!quotaConfig?.isEmailConfirmed && !quotaConfig?.isUpgraded ? 'border-neutral-800 dark:border-white bg-white dark:bg-[#303030] ring-1 ring-neutral-800 dark:ring-white' : 'border-neutral-200 dark:border-neutral-700 bg-white/60 dark:bg-neutral-800/60'}`}>
                 <div className="text-[10px] text-neutral-400 dark:text-neutral-400 font-medium">{isEn ? 'Unverified' : 'Belum Verif'}</div>
-                <div className="font-bold text-neutral-800 dark:text-neutral-200 mt-0.5">{isEn ? '50 Photos' : '50 Foto'}</div>
-                <div className="text-[10px] text-neutral-500 dark:text-neutral-400">{isEn ? '0 Video' : '0 Video'}</div>
+                <div className="font-bold text-neutral-800 dark:text-neutral-200 mt-0.5">{isEn ? '100 Notes' : '100 Catatan'}</div>
+                <div className="text-[10px] text-neutral-500 dark:text-neutral-400">{isEn ? '0 Attachments' : '0 Lampiran'}</div>
               </div>
               <div className={`p-2.5 rounded-lg border ${quotaConfig?.isEmailConfirmed && !quotaConfig?.isUpgraded ? 'border-neutral-800 dark:border-white bg-white dark:bg-[#303030] ring-1 ring-neutral-800 dark:ring-white' : 'border-neutral-200 dark:border-neutral-700 bg-white/60 dark:bg-neutral-800/60'}`}>
                 <div className="text-[10px] text-neutral-400 dark:text-neutral-400 font-medium">{isEn ? 'Verified' : 'Terverifikasi'}</div>
-                <div className="font-bold text-neutral-800 dark:text-neutral-200 mt-0.5">{isEn ? '150 Photos' : '150 Foto'}</div>
-                <div className="text-[10px] text-neutral-500 dark:text-neutral-400">{isEn ? '2 Videos' : '2 Video'}</div>
+                <div className="font-bold text-neutral-800 dark:text-neutral-200 mt-0.5">{isEn ? 'Unlimited' : 'Bebas Catatan'}</div>
+                <div className="text-[10px] text-neutral-500 dark:text-neutral-400">{isEn ? '150 Photos & 2 Videos' : '150 Foto & 2 Video'}</div>
               </div>
               <div className={`p-2.5 rounded-lg border ${quotaConfig?.isUpgraded ? 'border-amber-600 bg-amber-50/50 dark:bg-amber-950/40 ring-1 ring-amber-600' : 'border-neutral-200 dark:border-neutral-700 bg-white/60 dark:bg-neutral-800/60'}`}>
                 <div className="text-[10px] text-amber-600 dark:text-amber-400 font-medium flex items-center justify-center space-x-0.5">
                   <Sparkles className="w-2.5 h-2.5" />
                   <span>Pro</span>
                 </div>
-                <div className="font-bold text-amber-900 dark:text-amber-300 mt-0.5">{isEn ? '1,000 Photos' : '1.000 Foto'}</div>
-                <div className="text-[10px] text-amber-700 dark:text-amber-400">{isEn ? '5 Videos' : '5 Video'}</div>
+                <div className="font-bold text-amber-900 dark:text-amber-300 mt-0.5">{isEn ? 'Unlimited' : 'Bebas Catatan'}</div>
+                <div className="text-[10px] text-amber-700 dark:text-amber-400">{isEn ? '1,000 Photos & 5 Videos' : '1.000 Foto & 5 Video'}</div>
               </div>
             </div>
 

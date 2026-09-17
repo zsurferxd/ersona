@@ -10,7 +10,7 @@ import {
   Edit3, Flag, Check, RotateCcw, AlertTriangle, Film, Settings,
   HardDrive, Flame, Columns3, List, Layers, Settings2, ArrowRight, ArrowLeft, Menu, Globe,
   Sun, Moon, Users, UserPlus, UserMinus, Copy, Share2, ShieldCheck, EyeOff,
-  Send, UserCheck, MessageCircle
+  Send, UserCheck, MessageCircle, Lock
 } from 'lucide-react';
 import { format, isPast, isToday, parseISO, differenceInDays } from 'date-fns';
 import { id as localeId, enUS as localeEn } from 'date-fns/locale';
@@ -282,6 +282,14 @@ export default function Dashboard({ onGoToLanding }) {
   // Validasi Batas Kuota Media (Foto & Video) Sebelum Upload
   const validateMediaQuota = (mediaType = 'image', count = 1) => {
     const isWs = Boolean(activeWorkspaceId && currentWorkspace);
+
+    // Pengguna belum terverifikasi dilarang mengunggah attachment apapun
+    if (!quotaConfig.isEmailConfirmed && !quotaConfig.isUpgraded) {
+      alert(isEn
+        ? '🔒 Attachment uploads are locked for unverified accounts.\nPlease verify your email in Settings to unlock uploads (up to 150 photos & 2 videos)!'
+        : '🔒 Fitur upload lampiran terkunci untuk akun belum terverifikasi.\nSilakan verifikasi email Anda di Pengaturan untuk membuka akses upload (hingga 150 foto & 2 video)!');
+      return false;
+    }
 
     if (mediaType === 'video') {
       const maxVideos = quotaConfig.maxVideos;
@@ -2111,6 +2119,23 @@ export default function Dashboard({ onGoToLanding }) {
     const cleanTitle = newNoteTitle.trim();
     if (!cleanTitle) return;
 
+    // Batasi 100 catatan untuk pengguna belum terverifikasi
+    if (!quotaConfig.isEmailConfirmed && !quotaConfig.isUpgraded) {
+      const activeNotesCount = notes.filter(n => !n.deleted_at).length;
+      if (activeNotesCount >= 100) {
+        alert(isEn
+          ? '⚠️ Note limit reached (100 notes) for unverified accounts.\nPlease verify your email in Settings to enjoy unlimited notes!'
+          : '⚠️ Batas catatan tercapai (maksimal 100 catatan) untuk akun belum terverifikasi.\nSilakan verifikasi email Anda di Pengaturan untuk menikmati catatan tanpa batas!');
+        return;
+      }
+      if (notePhotos.length > 0 || noteVideo) {
+        alert(isEn
+          ? '🔒 Attachment uploads are locked for unverified accounts.\nPlease verify your email in Settings to unlock uploads (up to 150 photos & 2 videos)!'
+          : '🔒 Fitur upload lampiran terkunci untuk akun belum terverifikasi.\nSilakan verifikasi email Anda di Pengaturan untuk membuka akses upload lampiran!');
+        return;
+      }
+    }
+
     setIsSubmittingNote(true);
     const mediaItems = [];
 
@@ -3360,7 +3385,7 @@ export default function Dashboard({ onGoToLanding }) {
           </div>
         )}
 
-        {/* Banner Akun Belum Terverifikasi (Limit 50 Foto & 0 Video) */}
+        {/* Banner Akun Belum Terverifikasi (Limit 100 Catatan & Tanpa Lampiran) */}
         {!quotaConfig.isEmailConfirmed && !quotaConfig.isUpgraded && !isUnverifiedBannerDismissed && (
           <div className="p-3.5 sm:p-4 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent dark:from-amber-950/40 dark:via-amber-950/20 dark:to-transparent border border-amber-300/80 dark:border-amber-800/80 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-xs transition-all animate-in fade-in duration-200">
             <div className="flex items-center space-x-3 min-w-0">
@@ -3373,8 +3398,8 @@ export default function Dashboard({ onGoToLanding }) {
                 </p>
                 <p className="text-amber-800/80 dark:text-amber-300/80 text-[11px] leading-tight truncate">
                   {isEn 
-                    ? 'Current limit: 50 photos & 0 videos. Verify to unlock 150 photos & 2 videos.' 
-                    : 'Batas saat ini: 50 foto & 0 video. Verifikasi untuk membuka 150 foto & 2 video.'}
+                    ? 'Current limit: max 100 notes & no attachments. Verify to unlock unlimited notes, 150 photos & 2 videos.' 
+                    : 'Batas saat ini: maks. 100 catatan & tanpa lampiran (0 foto/video). Verifikasi untuk membuka catatan tanpa batas, 150 foto & 2 video.'}
                 </p>
               </div>
             </div>
@@ -3886,21 +3911,39 @@ export default function Dashboard({ onGoToLanding }) {
                           </div>
 
                           <div className="flex items-center space-x-2">
-                            <input
-                              type="file"
-                              ref={todoFileInputRef}
-                              onChange={handleTodoFileChange}
-                              accept="image/*,video/mp4"
-                              className="hidden"
-                              id="todo-file-input"
-                            />
-                            <label
-                              htmlFor="todo-file-input"
-                              className="text-xs text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white bg-neutral-100 dark:bg-[#282828] hover:bg-neutral-200 dark:hover:bg-[#323232] border border-neutral-200/60 dark:border-neutral-700 px-2.5 py-1 rounded-lg cursor-pointer transition flex items-center space-x-1"
-                            >
-                              <Paperclip className="w-3 h-3" />
-                              <span>{todoFile ? t('dashboard.changePhoto') : t('dashboard.attachPhoto')}</span>
-                            </label>
+                            {!quotaConfig.isEmailConfirmed && !quotaConfig.isUpgraded ? (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  alert(isEn
+                                    ? '🔒 Attachment uploads are locked for unverified accounts.\nPlease verify your email in Settings to unlock uploads (up to 150 photos & 2 videos)!'
+                                    : '🔒 Fitur upload lampiran terkunci untuk akun belum terverifikasi.\nSilakan verifikasi email Anda di Pengaturan untuk membuka akses upload (hingga 150 foto & 2 video)!');
+                                }}
+                                className="text-xs text-neutral-400 dark:text-neutral-500 bg-neutral-100/60 dark:bg-[#252525] border border-neutral-200/50 dark:border-neutral-800 px-2.5 py-1 rounded-lg cursor-pointer transition flex items-center space-x-1"
+                                title={isEn ? 'Attachments locked for unverified accounts' : 'Lampiran terkunci untuk akun belum verifikasi'}
+                              >
+                                <Lock className="w-3 h-3 text-amber-600" />
+                                <span>{t('dashboard.attachPhoto')}</span>
+                              </button>
+                            ) : (
+                              <>
+                                <input
+                                  type="file"
+                                  ref={todoFileInputRef}
+                                  onChange={handleTodoFileChange}
+                                  accept="image/*,video/mp4"
+                                  className="hidden"
+                                  id="todo-file-input"
+                                />
+                                <label
+                                  htmlFor="todo-file-input"
+                                  className="text-xs text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white bg-neutral-100 dark:bg-[#282828] hover:bg-neutral-200 dark:hover:bg-[#323232] border border-neutral-200/60 dark:border-neutral-700 px-2.5 py-1 rounded-lg cursor-pointer transition flex items-center space-x-1"
+                                >
+                                  <Paperclip className="w-3 h-3" />
+                                  <span>{todoFile ? t('dashboard.changePhoto') : t('dashboard.attachPhoto')}</span>
+                                </label>
+                              </>
+                            )}
                             {todoFile && (
                               <div className="flex items-center space-x-1">
                                 {todoFileType === 'image' && (
@@ -4179,9 +4222,23 @@ export default function Dashboard({ onGoToLanding }) {
                   <h2 className="text-sm font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 flex items-center space-x-2">
                     <FileText className="w-4 h-4" />
                     <span>{labels.notesTab}</span>
+                    {!quotaConfig.isEmailConfirmed && !quotaConfig.isUpgraded && (
+                      <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-300/60 dark:border-amber-800/60 font-semibold lowercase tracking-normal">
+                        {notes.filter(n => !n.deleted_at).length}/100
+                      </span>
+                    )}
                   </h2>
                   <button
                     onClick={() => {
+                      if (!quotaConfig.isEmailConfirmed && !quotaConfig.isUpgraded) {
+                        const activeNotesCount = notes.filter(n => !n.deleted_at).length;
+                        if (activeNotesCount >= 100) {
+                          alert(isEn
+                            ? '⚠️ Note limit reached (100 notes) for unverified accounts.\nPlease verify your email in Settings to enjoy unlimited notes!'
+                            : '⚠️ Batas catatan tercapai (maksimal 100 catatan) untuk akun belum terverifikasi.\nSilakan verifikasi email Anda di Pengaturan untuk menikmati catatan tanpa batas!');
+                          return;
+                        }
+                      }
                       clearNoteCreateModal();
                       setShowNoteModal(true);
                     }}
@@ -4393,47 +4450,71 @@ export default function Dashboard({ onGoToLanding }) {
                 )}
 
                 {/* Tombol Tambah Foto & Tambah Video */}
-                <div className="flex items-center gap-2 pt-1">
-                  <input
-                    type="file"
-                    ref={editNotePhotoInputRef}
-                    onChange={handleEditNotePhotosSelect}
-                    multiple
-                    accept="image/*"
-                    className="hidden"
-                    id="edit-note-photos-input"
-                  />
-                  <label
-                    htmlFor="edit-note-photos-input"
-                    className="text-xs bg-white dark:bg-[#282828] hover:bg-neutral-100 dark:hover:bg-[#323232] text-neutral-700 dark:text-neutral-200 border border-neutral-200 dark:border-neutral-700 px-3 py-1.5 rounded-lg cursor-pointer transition flex items-center space-x-1 shadow-2xs"
-                  >
-                    <Image className="w-3.5 h-3.5 text-blue-600" />
-                    <span>+ {t('dashboard.uploadPhoto')}</span>
-                  </label>
+                {!quotaConfig.isEmailConfirmed && !quotaConfig.isUpgraded ? (
+                  <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 rounded-xl space-y-1.5 text-xs">
+                    <div className="flex items-center space-x-1.5 font-semibold text-amber-900 dark:text-amber-200">
+                      <Lock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                      <span>{isEn ? 'Attachments locked for unverified accounts' : 'Lampiran terkunci untuk akun belum verifikasi'}</span>
+                    </div>
+                    <p className="text-[11px] text-amber-800/80 dark:text-amber-300/80 leading-relaxed">
+                      {isEn 
+                        ? 'Verify your email in Settings to upload up to 150 photos & 2 videos.' 
+                        : 'Verifikasi email Anda di Pengaturan untuk membuka kuota upload 150 foto & 2 video.'}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingNote(null);
+                        setIsSettingsOpen(true);
+                      }}
+                      className="inline-flex items-center space-x-1 text-[11px] font-semibold text-amber-700 dark:text-amber-400 hover:underline pt-0.5 cursor-pointer"
+                    >
+                      <span>{isEn ? 'Open Settings to verify email →' : 'Buka Pengaturan untuk verifikasi email →'}</span>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 pt-1">
+                    <input
+                      type="file"
+                      ref={editNotePhotoInputRef}
+                      onChange={handleEditNotePhotosSelect}
+                      multiple
+                      accept="image/*"
+                      className="hidden"
+                      id="edit-note-photos-input"
+                    />
+                    <label
+                      htmlFor="edit-note-photos-input"
+                      className="text-xs bg-white dark:bg-[#282828] hover:bg-neutral-100 dark:hover:bg-[#323232] text-neutral-700 dark:text-neutral-200 border border-neutral-200 dark:border-neutral-700 px-3 py-1.5 rounded-lg cursor-pointer transition flex items-center space-x-1 shadow-2xs"
+                    >
+                      <Image className="w-3.5 h-3.5 text-blue-600" />
+                      <span>+ {t('dashboard.uploadPhoto')}</span>
+                    </label>
 
-                  <input
-                    type="file"
-                    ref={editNoteVideoInputRef}
-                    onChange={handleEditNoteVideoSelect}
-                    accept="video/mp4,video/webm"
-                    className="hidden"
-                    id="edit-note-video-input"
-                  />
-                  <label
-                    htmlFor="edit-note-video-input"
-                    className="text-xs bg-white dark:bg-[#282828] hover:bg-neutral-100 dark:hover:bg-[#323232] text-neutral-700 dark:text-neutral-200 border border-neutral-200 dark:border-neutral-700 px-3 py-1.5 rounded-lg cursor-pointer transition flex items-center space-x-1 shadow-2xs"
-                  >
-                    <Film className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>+ {t('dashboard.uploadVideo')}</span>
-                  </label>
+                    <input
+                      type="file"
+                      ref={editNoteVideoInputRef}
+                      onChange={handleEditNoteVideoSelect}
+                      accept="video/mp4,video/webm"
+                      className="hidden"
+                      id="edit-note-video-input"
+                    />
+                    <label
+                      htmlFor="edit-note-video-input"
+                      className="text-xs bg-white dark:bg-[#282828] hover:bg-neutral-100 dark:hover:bg-[#323232] text-neutral-700 dark:text-neutral-200 border border-neutral-200 dark:border-neutral-700 px-3 py-1.5 rounded-lg cursor-pointer transition flex items-center space-x-1 shadow-2xs"
+                    >
+                      <Film className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>+ {t('dashboard.uploadVideo')}</span>
+                    </label>
 
-                  {isCompressingEditPhotos && (
-                    <span className="text-xs text-neutral-400 flex items-center space-x-1">
-                      <Loader2 className="w-3 h-3 animate-spin" />
-                      <span>Mengompres...</span>
-                    </span>
-                  )}
-                </div>
+                    {isCompressingEditPhotos && (
+                      <span className="text-xs text-neutral-400 flex items-center space-x-1">
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                        <span>Mengompres...</span>
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Action Buttons */}
@@ -5007,29 +5088,49 @@ export default function Dashboard({ onGoToLanding }) {
                       </div>
                     )}
 
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="file"
-                        ref={editTodoFileInputRef}
-                        onChange={handleEditTodoFileChange}
-                        accept="image/*,video/mp4"
-                        className="hidden"
-                        id="edit-todo-file"
-                      />
-                      <label
-                        htmlFor="edit-todo-file"
-                        className="text-xs text-neutral-700 dark:text-neutral-200 bg-neutral-100 dark:bg-[#282828] hover:bg-neutral-200 dark:hover:bg-[#323232] border border-neutral-200/60 dark:border-neutral-700 px-3 py-1.5 rounded-lg cursor-pointer transition flex items-center space-x-1"
-                      >
-                        <Image className="w-3.5 h-3.5 text-blue-600" />
-                        <span>{editFile || editMediaUrl ? t('dashboard.changePhoto') : t('dashboard.attachPhoto')}</span>
-                      </label>
-                      {isCompressingEditFile && (
-                        <span className="text-xs text-neutral-400 flex items-center space-x-1">
-                          <Loader2 className="w-3 h-3 animate-spin" />
-                          <span>Mengompres...</span>
+                    {!quotaConfig.isEmailConfirmed && !quotaConfig.isUpgraded ? (
+                      <div className="flex items-center space-x-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            alert(isEn
+                              ? '🔒 Attachment uploads are locked for unverified accounts.\nPlease verify your email in Settings to unlock uploads (up to 150 photos & 2 videos)!'
+                              : '🔒 Fitur upload lampiran terkunci untuk akun belum terverifikasi.\nSilakan verifikasi email Anda di Pengaturan untuk membuka akses upload (hingga 150 foto & 2 video)!');
+                          }}
+                          className="text-xs text-neutral-400 dark:text-neutral-500 bg-neutral-100/60 dark:bg-[#252525] border border-neutral-200/50 dark:border-neutral-800 px-3 py-1.5 rounded-lg cursor-pointer transition flex items-center space-x-1"
+                        >
+                          <Lock className="w-3.5 h-3.5 text-amber-600" />
+                          <span>{t('dashboard.attachPhoto')}</span>
+                        </button>
+                        <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">
+                          {isEn ? 'Verification required' : 'Perlu verifikasi email'}
                         </span>
-                      )}
-                    </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="file"
+                          ref={editTodoFileInputRef}
+                          onChange={handleEditTodoFileChange}
+                          accept="image/*,video/mp4"
+                          className="hidden"
+                          id="edit-todo-file"
+                        />
+                        <label
+                          htmlFor="edit-todo-file"
+                          className="text-xs text-neutral-700 dark:text-neutral-200 bg-neutral-100 dark:bg-[#282828] hover:bg-neutral-200 dark:hover:bg-[#323232] border border-neutral-200/60 dark:border-neutral-700 px-3 py-1.5 rounded-lg cursor-pointer transition flex items-center space-x-1"
+                        >
+                          <Image className="w-3.5 h-3.5 text-blue-600" />
+                          <span>{editFile || editMediaUrl ? t('dashboard.changePhoto') : t('dashboard.attachPhoto')}</span>
+                        </label>
+                        {isCompressingEditFile && (
+                          <span className="text-xs text-neutral-400 flex items-center space-x-1">
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                            <span>Mengompres...</span>
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex items-center justify-between pt-3 border-t border-neutral-100 dark:border-neutral-800">
@@ -5257,55 +5358,79 @@ export default function Dashboard({ onGoToLanding }) {
                     )}
 
                     {/* Tombol Input File Foto & Video */}
-                    <div className="flex items-center gap-2 pt-1">
-                      {notePhotos.length < 5 && (
-                        <div>
-                          <input
-                            type="file"
-                            ref={notePhotoInputRef}
-                            onChange={handleNotePhotosSelect}
-                            multiple
-                            accept="image/*"
-                            className="hidden"
-                            id="modal-note-photos"
-                          />
-                          <label
-                            htmlFor="modal-note-photos"
-                            className="text-xs bg-white dark:bg-[#282828] hover:bg-neutral-100 dark:hover:bg-[#323232] text-neutral-700 dark:text-neutral-200 border border-neutral-200 dark:border-neutral-700 px-3 py-1.5 rounded-lg cursor-pointer transition flex items-center space-x-1.5 shadow-2xs"
-                          >
-                            <Image className="w-3.5 h-3.5 text-blue-600" />
-                            <span>+ {t('dashboard.uploadPhoto')} ({notePhotos.length}/5)</span>
-                          </label>
+                    {!quotaConfig.isEmailConfirmed && !quotaConfig.isUpgraded ? (
+                      <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 rounded-xl space-y-1.5 text-xs">
+                        <div className="flex items-center space-x-1.5 font-semibold text-amber-900 dark:text-amber-200">
+                          <Lock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                          <span>{isEn ? 'Attachments locked for unverified accounts' : 'Lampiran terkunci untuk akun belum verifikasi'}</span>
                         </div>
-                      )}
+                        <p className="text-[11px] text-amber-800/80 dark:text-amber-300/80 leading-relaxed">
+                          {isEn 
+                            ? 'Verify your email in Settings to upload up to 150 photos & 2 videos. You can still use the "Link / Embed" tab to attach Drive or YouTube links without using storage.' 
+                            : 'Verifikasi email Anda di Pengaturan untuk membuka kuota upload 150 foto & 2 video. Anda tetap bisa menggunakan tab "Link / Embed" untuk menempel tautan.'}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowNoteModal(false);
+                            setIsSettingsOpen(true);
+                          }}
+                          className="inline-flex items-center space-x-1 text-[11px] font-semibold text-amber-700 dark:text-amber-400 hover:underline pt-0.5 cursor-pointer"
+                        >
+                          <span>{isEn ? 'Open Settings to verify email →' : 'Buka Pengaturan untuk verifikasi email →'}</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 pt-1">
+                        {notePhotos.length < 5 && (
+                          <div>
+                            <input
+                              type="file"
+                              ref={notePhotoInputRef}
+                              onChange={handleNotePhotosSelect}
+                              multiple
+                              accept="image/*"
+                              className="hidden"
+                              id="modal-note-photos"
+                            />
+                            <label
+                              htmlFor="modal-note-photos"
+                              className="text-xs bg-white dark:bg-[#282828] hover:bg-neutral-100 dark:hover:bg-[#323232] text-neutral-700 dark:text-neutral-200 border border-neutral-200 dark:border-neutral-700 px-3 py-1.5 rounded-lg cursor-pointer transition flex items-center space-x-1.5 shadow-2xs"
+                            >
+                              <Image className="w-3.5 h-3.5 text-blue-600" />
+                              <span>+ {t('dashboard.uploadPhoto')} ({notePhotos.length}/5)</span>
+                            </label>
+                          </div>
+                        )}
 
-                      {!noteVideo && (
-                        <div>
-                          <input
-                            type="file"
-                            ref={noteVideoInputRef}
-                            onChange={handleNoteVideoSelect}
-                            accept="video/mp4,video/webm"
-                            className="hidden"
-                            id="modal-note-video"
-                          />
-                          <label
-                            htmlFor="modal-note-video"
-                            className="text-xs bg-white dark:bg-[#282828] hover:bg-neutral-100 dark:hover:bg-[#323232] text-neutral-700 dark:text-neutral-200 border border-neutral-200 dark:border-neutral-700 px-3 py-1.5 rounded-lg cursor-pointer transition flex items-center space-x-1.5 shadow-2xs"
-                          >
-                            <Film className="w-3.5 h-3.5 text-emerald-600" />
-                            <span>+ {t('dashboard.uploadVideo')}</span>
-                          </label>
-                        </div>
-                      )}
+                        {!noteVideo && (
+                          <div>
+                            <input
+                              type="file"
+                              ref={noteVideoInputRef}
+                              onChange={handleNoteVideoSelect}
+                              accept="video/mp4,video/webm"
+                              className="hidden"
+                              id="modal-note-video"
+                            />
+                            <label
+                              htmlFor="modal-note-video"
+                              className="text-xs bg-white dark:bg-[#282828] hover:bg-neutral-100 dark:hover:bg-[#323232] text-neutral-700 dark:text-neutral-200 border border-neutral-200 dark:border-neutral-700 px-3 py-1.5 rounded-lg cursor-pointer transition flex items-center space-x-1.5 shadow-2xs"
+                            >
+                              <Film className="w-3.5 h-3.5 text-emerald-600" />
+                              <span>+ {t('dashboard.uploadVideo')}</span>
+                            </label>
+                          </div>
+                        )}
 
-                      {isCompressingNotePhotos && (
-                        <span className="text-xs text-neutral-400 flex items-center space-x-1">
-                          <Loader2 className="w-3 h-3 animate-spin" />
-                          <span>Mengompres foto...</span>
-                        </span>
-                      )}
-                    </div>
+                        {isCompressingNotePhotos && (
+                          <span className="text-xs text-neutral-400 flex items-center space-x-1">
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                            <span>Mengompres foto...</span>
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
 

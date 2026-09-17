@@ -1,6 +1,6 @@
 import React from 'react';
 import { useThemeLanguage } from '../context/ThemeLanguageContext';
-import { CheckCircle2, RotateCcw, ArrowRight, Sun, Moon, Sparkles, Image, Video } from 'lucide-react';
+import { CheckCircle2, RotateCcw, ArrowRight, Sun, Moon, Sparkles, Image, Video, FileText } from 'lucide-react';
 import BrandLogo from './BrandLogo';
 
 export default function EmailVerifiedScreen({ onRefresh, onContinue }) {
@@ -78,21 +78,23 @@ export default function EmailVerifiedScreen({ onRefresh, onContinue }) {
             <span>{isEn ? 'New Verified Quota Unlocked:' : 'Kuota Baru Akun Terverifikasi:'}</span>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 pt-1">
-            <div className="p-2.5 bg-white dark:bg-[#262626] border border-neutral-200/60 dark:border-neutral-700/60 rounded-lg flex items-center space-x-2">
-              <Image className="w-4 h-4 text-emerald-500 shrink-0" />
-              <div>
-                <p className="text-[10px] text-neutral-400 dark:text-neutral-500 font-medium">{isEn ? 'Photo Limit' : 'Batas Foto'}</p>
-                <p className="text-xs font-bold text-neutral-800 dark:text-neutral-200">{isEn ? '150 Photos' : '150 Foto'}</p>
-              </div>
+          <div className="grid grid-cols-3 gap-2 pt-1">
+            <div className="p-2.5 bg-white dark:bg-[#262626] border border-neutral-200/60 dark:border-neutral-700/60 rounded-lg flex flex-col items-center text-center">
+              <FileText className="w-4 h-4 text-amber-500 mb-1" />
+              <p className="text-[10px] text-neutral-400 dark:text-neutral-500 font-medium">{isEn ? 'Notes' : 'Catatan'}</p>
+              <p className="text-xs font-bold text-neutral-800 dark:text-neutral-200">{isEn ? 'Unlimited' : 'Bebas'}</p>
             </div>
 
-            <div className="p-2.5 bg-white dark:bg-[#262626] border border-neutral-200/60 dark:border-neutral-700/60 rounded-lg flex items-center space-x-2">
-              <Video className="w-4 h-4 text-blue-500 shrink-0" />
-              <div>
-                <p className="text-[10px] text-neutral-400 dark:text-neutral-500 font-medium">{isEn ? 'Video Limit' : 'Batas Video'}</p>
-                <p className="text-xs font-bold text-neutral-800 dark:text-neutral-200">{isEn ? '2 Videos' : '2 Video'}</p>
-              </div>
+            <div className="p-2.5 bg-white dark:bg-[#262626] border border-neutral-200/60 dark:border-neutral-700/60 rounded-lg flex flex-col items-center text-center">
+              <Image className="w-4 h-4 text-emerald-500 mb-1" />
+              <p className="text-[10px] text-neutral-400 dark:text-neutral-500 font-medium">{isEn ? 'Photo Limit' : 'Batas Foto'}</p>
+              <p className="text-xs font-bold text-neutral-800 dark:text-neutral-200">{isEn ? '150 Photos' : '150 Foto'}</p>
+            </div>
+
+            <div className="p-2.5 bg-white dark:bg-[#262626] border border-neutral-200/60 dark:border-neutral-700/60 rounded-lg flex flex-col items-center text-center">
+              <Video className="w-4 h-4 text-blue-500 mb-1" />
+              <p className="text-[10px] text-neutral-400 dark:text-neutral-500 font-medium">{isEn ? 'Video Limit' : 'Batas Video'}</p>
+              <p className="text-xs font-bold text-neutral-800 dark:text-neutral-200">{isEn ? '2 Videos' : '2 Video'}</p>
             </div>
           </div>
         </div>
