@@ -4,7 +4,7 @@ import {
   Columns3, List, Layers, Sparkles, ArrowRight,
   ShieldCheck, Smartphone, Eye, ExternalLink, Check,
   ArrowUpDown, Sun, Moon, Users, Zap, Image as ImageIcon,
-  ChevronLeft, ChevronRight, Film
+  ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { useThemeLanguage } from '../context/ThemeLanguageContext';
 import BrandLogo from './BrandLogo';
@@ -117,7 +117,7 @@ export default function LandingPage({ onStartAuth, user, onGoToDashboard }) {
     },
     {
       id: 3,
-      title: isEn ? 'Attach high-resolution visuals and video references' : 'Sematkan visual beresolusi tinggi dan referensi video',
+      title: isEn ? 'Embed photos and media references' : 'Sematkan foto dan referensi media',
       status: 'review',
       priority: 'medium',
       priorityLabel: isEn ? 'Medium' : 'Sedang',
@@ -370,7 +370,7 @@ export default function LandingPage({ onStartAuth, user, onGoToDashboard }) {
       </section>
 
       {/* 3. SHOWCASE SECTION (Interactive Live Mockup Window - Kanban Model) */}
-      <section id="preview" className="w-full max-w-5xl mx-auto px-3 sm:px-6 pb-20 sm:pb-32 overflow-hidden">
+      <section id="preview" className="scroll-mt-20 w-full max-w-5xl mx-auto px-3 sm:px-6 pb-20 sm:pb-32 overflow-hidden">
         <ScrollReveal delay={0} direction="up">
           <div className="text-center space-y-2 mb-8">
             <h2 className="text-2xl sm:text-3xl font-bold text-neutral-900 dark:text-white tracking-tight">
@@ -724,8 +724,9 @@ export default function LandingPage({ onStartAuth, user, onGoToDashboard }) {
         </ScrollReveal>
       </section>
 
-      {/* 4. WHY ERSONA (Highlighting Core Uniqueness: Work with Team & Unified Flow) */}
-      <section id="keunggulan" className="max-w-6xl mx-auto px-4 sm:px-6 py-16 sm:py-24 border-t border-neutral-200/70 dark:border-neutral-800">
+      {/* 4. WHY ERSONA & CORE CAPABILITIES (Features Bento Grid) */}
+      <section id="fitur" className="scroll-mt-20 relative max-w-6xl mx-auto px-4 sm:px-6 py-16 sm:py-24 border-t border-neutral-200/70 dark:border-neutral-800">
+        <span id="keunggulan" className="absolute -top-20" />
         <ScrollReveal delay={0} direction="up">
           <div className="max-w-2xl mx-auto text-center space-y-3 mb-14">
             <h2 className="text-2xl sm:text-4xl font-bold text-neutral-950 dark:text-white tracking-tight">
@@ -767,7 +768,7 @@ export default function LandingPage({ onStartAuth, user, onGoToDashboard }) {
                   <div className="w-8 h-8 rounded-full ring-2 ring-white dark:ring-[#1f1f1f] bg-emerald-600 text-white text-xs font-bold flex items-center justify-center shadow-xs shrink-0">E</div>
                 </div>
                 <span className="text-xs text-neutral-500 dark:text-neutral-400 font-medium leading-relaxed">
-                  {isEn ? 'Live realtime updates, invite approval controls & member roles' : 'Pembaruan realtime langsung, kontrol persetujuan undangan & peran akses'}
+                  {isEn ? 'Live realtime sync, shared task coordination & instant updates' : 'Sinkronisasi realtime, koordinasi tugas bersama & pembaruan instan'}
                 </span>
               </div>
             </div>
@@ -788,8 +789,8 @@ export default function LandingPage({ onStartAuth, user, onGoToDashboard }) {
                 </p>
               </div>
               <div className="text-xs text-neutral-600 dark:text-neutral-300 bg-neutral-50 dark:bg-neutral-800/60 p-2.5 rounded-xl border border-neutral-200/60 dark:border-neutral-700/60 flex items-center space-x-2 font-medium">
-                <Film className="w-4 h-4 text-purple-500 shrink-0" />
-                <span>{isEn ? 'Inline photo galleries & video embeds' : 'Galeri foto & sematan video terpadu'}</span>
+                <ImageIcon className="w-4 h-4 text-purple-500 shrink-0" />
+                <span>{isEn ? 'Embed photos & media attachments' : 'Sematkan foto & lampiran media'}</span>
               </div>
             </div>
           </ScrollReveal>
@@ -835,18 +836,18 @@ export default function LandingPage({ onStartAuth, user, onGoToDashboard }) {
                   {t('landing.features.f4Desc')}
                 </p>
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-2 text-xs text-neutral-700 dark:text-neutral-300 font-medium">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 text-xs text-neutral-700 dark:text-neutral-300 font-medium">
                 <div className="flex items-center space-x-1.5">
                   <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                  <span>PWA Offline Cache</span>
+                  <span>{isEn ? 'No Noisy Notifications' : 'Bebas Notifikasi Berisik'}</span>
                 </div>
                 <div className="flex items-center space-x-1.5">
                   <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                  <span>Web Push Alerts</span>
+                  <span>{isEn ? 'Clean & Uncluttered Layout' : 'Antarmuka Bersih & Rapi'}</span>
                 </div>
                 <div className="flex items-center space-x-1.5">
                   <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                  <span>Subtasks Checklist</span>
+                  <span>{isEn ? 'Fast & Lightweight Flow' : 'Cepat & Ringan Digunakan'}</span>
                 </div>
               </div>
             </div>
@@ -856,7 +857,7 @@ export default function LandingPage({ onStartAuth, user, onGoToDashboard }) {
       </section>
 
       {/* 5. FAQ SECTION */}
-      <section id="faq" className="max-w-3xl mx-auto px-4 sm:px-6 py-16 sm:py-20 border-t border-neutral-200/70 dark:border-neutral-800">
+      <section id="faq" className="scroll-mt-20 max-w-3xl mx-auto px-4 sm:px-6 py-16 sm:py-20 border-t border-neutral-200/70 dark:border-neutral-800">
         <ScrollReveal delay={0} direction="up">
           <div className="text-center space-y-2 mb-10">
             <h2 className="text-2xl font-bold text-neutral-900 dark:text-white tracking-tight">{t('landing.faq.title')}</h2>
