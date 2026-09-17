@@ -55,6 +55,7 @@ export default function SettingsModal({
   const [resendingEmail, setResendingEmail] = useState(false);
   const [emailSentNotice, setEmailSentNotice] = useState(false);
   const [isUpgrading, setIsUpgrading] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [exportedType, setExportedType] = useState(null);
 
   useEffect(() => {
@@ -249,6 +250,47 @@ export default function SettingsModal({
     }
   };
 
+  // Handler Hapus Akun Pengguna Permanen
+  const handleDeleteAccount = async () => {
+    if (!user?.email) return;
+
+    const confirmFirst = window.confirm(
+      isEn
+        ? 'Are you ABSOLUTELY sure you want to delete your account?\n\nThis will permanently delete all your notes, tasks, workspaces, and media attachments. This action CANNOT be undone!'
+        : 'Apakah Anda YAKIN ingin menghapus akun Anda secara permanen?\n\nSeluruh catatan, tugas, ruang kerja, dan lampiran Anda akan terhapus selamanya dan TIDAK BISA dipulihkan!'
+    );
+    if (!confirmFirst) return;
+
+    const confirmInput = window.prompt(
+      isEn
+        ? `To confirm deletion, please type your email address (${user.email}):`
+        : `Untuk konfirmasi penghapusan, silakan ketik alamat email Anda (${user.email}):`
+    );
+
+    if (!confirmInput || confirmInput.trim().toLowerCase() !== user.email.toLowerCase()) {
+      alert(isEn ? 'Email did not match. Account deletion cancelled.' : 'Email tidak cocok. Penghapusan akun dibatalkan.');
+      return;
+    }
+
+    setIsDeletingAccount(true);
+    try {
+      const { error } = await supabase.rpc('delete_user_account');
+      if (error) throw error;
+
+      await supabase.auth.signOut();
+      try {
+        localStorage.clear();
+      } catch {}
+
+      alert(isEn ? 'Your account has been deleted successfully.' : 'Akun Anda telah berhasil dihapus.');
+      window.location.href = '/';
+    } catch (err) {
+      alert(isEn ? 'Failed to delete account: ' + (err?.message || 'Unknown error') : 'Gagal menghapus akun: ' + (err?.message || 'Terjadi kesalahan'));
+    } finally {
+      setIsDeletingAccount(false);
+    }
+  };
+
   const tabs = [
     { id: 'general', label: isEn ? 'General' : 'Umum', icon: Sliders },
     { 
@@ -385,7 +427,7 @@ export default function SettingsModal({
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {/* Language Selector */}
+                    {/* Language Selector: Clean ID & EN Badges without OS emoji flags */}
                     <div>
                       <label className="block text-[11px] font-medium text-neutral-500 dark:text-neutral-400 mb-1.5">
                         {t('settings.langLabel')}
@@ -400,7 +442,7 @@ export default function SettingsModal({
                               : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
                           }`}
                         >
-                          <span>🇮🇩</span>
+                          <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${language === 'id' ? 'bg-neutral-200 text-neutral-800 dark:bg-neutral-700 dark:text-neutral-200' : 'bg-neutral-300/60 dark:bg-neutral-700/60 text-neutral-600 dark:text-neutral-400'}`}>ID</span>
                           <span>Indonesia</span>
                         </button>
                         <button
@@ -412,7 +454,7 @@ export default function SettingsModal({
                               : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
                           }`}
                         >
-                          <span>🇬🇧</span>
+                          <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${language === 'en' ? 'bg-neutral-200 text-neutral-800 dark:bg-neutral-700 dark:text-neutral-200' : 'bg-neutral-300/60 dark:bg-neutral-700/60 text-neutral-600 dark:text-neutral-400'}`}>EN</span>
                           <span>English</span>
                         </button>
                       </div>
@@ -583,10 +625,10 @@ export default function SettingsModal({
               <div className="space-y-6 animate-fade-in max-w-2xl">
                 <div>
                   <h3 className="text-sm font-semibold text-neutral-900 dark:text-white">
-                    {isEn ? 'Account Profile' : 'Profil & Keamanan Akun'}
+                    {isEn ? 'Account Profile' : 'Profil Akun'}
                   </h3>
                   <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
-                    {isEn ? 'Manage authentication and email verification status.' : 'Kelola autentikasi dan status verifikasi email Anda.'}
+                    {isEn ? 'Manage authentication and account credentials.' : 'Kelola informasi autentikasi dan akun Anda.'}
                   </p>
                 </div>
 
@@ -619,19 +661,16 @@ export default function SettingsModal({
                     </div>
                   </div>
 
-                  {/* If unverified: Explanation + Send Confirmation Link Button */}
+                  {/* Verification Status & Actions */}
                   {!quotaConfig?.isEmailConfirmed ? (
                     <div className="pt-3 border-t border-neutral-200/80 dark:border-neutral-800 space-y-3">
-                      <div className="p-3 bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200/70 dark:border-amber-800/60 rounded-xl text-xs text-amber-900 dark:text-amber-200 space-y-1">
-                        <div className="font-semibold flex items-center space-x-1.5">
-                          <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                          <span>{isEn ? 'Email not verified' : 'Email belum terverifikasi'}</span>
-                        </div>
-                        <p className="text-[11px] text-amber-800 dark:text-amber-300/90 leading-relaxed">
+                      <div className="flex items-center space-x-2 text-xs text-amber-800 dark:text-amber-300 font-medium">
+                        <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                        <span>
                           {isEn 
-                            ? 'Unverified accounts are limited to 100 notes and cannot upload photo or video attachments. Click below to receive a confirmation link in your inbox and unlock full features.'
-                            : 'Akun yang belum terverifikasi dibatasi maksimal 100 catatan dan belum dapat mengunggah lampiran foto/video. Klik tombol di bawah untuk menerima tautan konfirmasi di email Anda dan membuka fitur lengkap.'}
-                        </p>
+                            ? 'Email not verified. Verify your email to unlock all features.' 
+                            : 'Email belum diverifikasi. Verifikasi email Anda untuk membuka fitur lengkap.'}
+                        </span>
                       </div>
 
                       {/* Success banner after clicking send link */}
@@ -644,19 +683,19 @@ export default function SettingsModal({
                             </div>
                             <p className="text-[11px] text-emerald-700/90 dark:text-emerald-300/90 leading-relaxed">
                               {isEn 
-                                ? `A confirmation link has been sent to ${user?.email}. Please check your inbox or spam folder and click the link to activate your account.` 
-                                : `Kami telah mengirim tautan konfirmasi ke ${user?.email}. Buka kotak masuk atau folder spam email Anda, lalu klik tautan tersebut untuk menyelesaikan verifikasi.`}
+                                ? `A confirmation link has been sent to ${user?.email}. Please check your inbox or spam folder.` 
+                                : `Tautan verifikasi telah dikirim ke ${user?.email}. Silakan periksa kotak masuk atau spam email Anda.`}
                             </p>
                           </div>
                         </div>
                       )}
 
-                      <div className="flex flex-wrap items-center gap-2 pt-1">
+                      <div className="flex flex-wrap items-center gap-2">
                         <button
                           type="button"
                           onClick={handleSendVerificationLink}
                           disabled={resendingEmail}
-                          className="px-4 py-2 text-xs bg-neutral-900 hover:bg-neutral-800 dark:bg-white dark:hover:bg-neutral-200 text-white dark:text-neutral-900 rounded-xl font-medium shadow-xs transition flex items-center space-x-2 cursor-pointer disabled:opacity-50"
+                          className="px-3.5 py-1.5 text-xs bg-neutral-900 hover:bg-neutral-800 dark:bg-white dark:hover:bg-neutral-200 text-white dark:text-neutral-900 rounded-lg font-medium shadow-xs transition flex items-center space-x-2 cursor-pointer disabled:opacity-50"
                         >
                           {resendingEmail ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Mail className="w-3.5 h-3.5" />}
                           <span>{resendingEmail ? (isEn ? 'Sending link...' : 'Mengirim tautan...') : (isEn ? 'Send Verification Link' : 'Kirim Tautan Verifikasi')}</span>
@@ -666,7 +705,7 @@ export default function SettingsModal({
                           <button
                             type="button"
                             onClick={() => onToggleEmailVerified(true)}
-                            className="px-3 py-2 text-xs bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 rounded-xl transition font-medium cursor-pointer"
+                            className="px-3 py-1.5 text-xs bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 rounded-lg transition font-medium cursor-pointer"
                             title="Verifikasi instan untuk kemudahan pengujian akun"
                           >
                             {isEn ? 'Verify Now (Test Mode)' : 'Verif Instan (Mode Tes)'}
@@ -675,37 +714,58 @@ export default function SettingsModal({
                       </div>
                     </div>
                   ) : (
-                    /* If verified */
-                    <div className="pt-3 border-t border-neutral-200/80 dark:border-neutral-800 space-y-3">
-                      <div className="p-3 bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/70 dark:border-emerald-800/60 rounded-xl text-xs text-emerald-900 dark:text-emerald-200 flex items-start space-x-2.5">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
-                        <div className="space-y-0.5">
-                          <div className="font-semibold">
-                            {isEn ? 'Account fully verified' : 'Akun terverifikasi penuh'}
-                          </div>
-                          <p className="text-[11px] text-emerald-800 dark:text-emerald-300/90 leading-relaxed">
-                            {isEn 
-                              ? 'Your email is verified. You have access to unlimited notes, 150 photos, and 2 video attachments.' 
-                              : 'Email Anda sudah terkonfirmasi. Anda dapat membuat catatan tanpa batas serta mengunggah hingga 150 foto dan 2 video.'}
-                          </p>
-                        </div>
+                    /* If verified: Clean, minimal status */
+                    <div className="pt-3 border-t border-neutral-200/80 dark:border-neutral-800 flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center space-x-2 text-xs font-medium text-emerald-700 dark:text-emerald-300">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                        <span>{isEn ? 'Your email address is verified' : 'Alamat email Anda telah terverifikasi'}</span>
                       </div>
 
                       {onToggleEmailVerified && !quotaConfig?.isUpgraded && (
-                        <div className="pt-1">
-                          <button
-                            type="button"
-                            onClick={() => onToggleEmailVerified(false)}
-                            className="text-[11px] text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 underline cursor-pointer"
-                            title="Kembalikan ke status Belum Verif untuk pengujian"
-                          >
-                            {isEn ? 'Reset to Unverified (Test Mode)' : 'Kembalikan ke Belum Verif (Mode Tes)'}
-                          </button>
-                        </div>
+                        <button
+                          type="button"
+                          onClick={() => onToggleEmailVerified(false)}
+                          className="text-[11px] text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 underline cursor-pointer"
+                          title="Kembalikan ke status Belum Verif untuk pengujian"
+                        >
+                          {isEn ? 'Reset to Unverified (Test Mode)' : 'Set ke Belum Verif (Tes)'}
+                        </button>
                       )}
                     </div>
                   )}
                 </div>
+
+                {/* Danger Zone: Delete Account */}
+                <div className="p-4 sm:p-5 rounded-xl border border-red-200/80 dark:border-red-900/60 bg-red-50/40 dark:bg-red-950/20 space-y-3">
+                  <div className="flex items-center space-x-2 text-xs font-semibold text-red-700 dark:text-red-400">
+                    <AlertTriangle className="w-4 h-4" />
+                    <span>{isEn ? 'Danger Zone' : 'Zona Berbahaya'}</span>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+                    <div>
+                      <h4 className="text-xs font-semibold text-neutral-900 dark:text-white">
+                        {isEn ? 'Delete Account Permanently' : 'Hapus Akun Permanen'}
+                      </h4>
+                      <p className="text-[11px] text-neutral-500 dark:text-neutral-400 leading-relaxed mt-0.5">
+                        {isEn 
+                          ? 'Permanently delete your account, notes, tasks, and uploaded media. This action cannot be undone.'
+                          : 'Hapus akun Anda beserta seluruh catatan, tugas, dan lampiran media secara permanen. Tindakan ini tidak dapat dibatalkan.'}
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleDeleteAccount}
+                      disabled={isDeletingAccount}
+                      className="px-3.5 py-1.5 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 rounded-lg transition flex items-center space-x-1.5 cursor-pointer disabled:opacity-50 shrink-0 self-start sm:self-center shadow-xs"
+                    >
+                      {isDeletingAccount ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                      <span>{isDeletingAccount ? (isEn ? 'Deleting...' : 'Menghapus...') : (isEn ? 'Delete Account' : 'Hapus Akun')}</span>
+                    </button>
+                  </div>
+                </div>
+
               </div>
             )}
 
@@ -854,6 +914,7 @@ export default function SettingsModal({
                     </span>
                   </div>
 
+                  {/* 3 Tier Plans with explicit "Unlimited Notes" */}
                   <div className="grid grid-cols-3 gap-2 text-center text-xs">
                     <div className={`p-2.5 rounded-lg border ${!quotaConfig?.isEmailConfirmed && !quotaConfig?.isUpgraded ? 'border-neutral-800 dark:border-white bg-white dark:bg-[#303030] ring-1 ring-neutral-800 dark:ring-white' : 'border-neutral-200 dark:border-neutral-700 bg-white/60 dark:bg-neutral-800/60'}`}>
                       <div className="text-[10px] text-neutral-400 dark:text-neutral-400 font-medium">{isEn ? 'Unverified' : 'Belum Verif'}</div>
@@ -862,7 +923,7 @@ export default function SettingsModal({
                     </div>
                     <div className={`p-2.5 rounded-lg border ${quotaConfig?.isEmailConfirmed && !quotaConfig?.isUpgraded ? 'border-neutral-800 dark:border-white bg-white dark:bg-[#303030] ring-1 ring-neutral-800 dark:ring-white' : 'border-neutral-200 dark:border-neutral-700 bg-white/60 dark:bg-neutral-800/60'}`}>
                       <div className="text-[10px] text-neutral-400 dark:text-neutral-400 font-medium">{isEn ? 'Verified' : 'Terverifikasi'}</div>
-                      <div className="font-bold text-neutral-800 dark:text-neutral-200 mt-0.5">{isEn ? 'Unlimited' : 'Bebas Catatan'}</div>
+                      <div className="font-bold text-neutral-800 dark:text-neutral-200 mt-0.5">{isEn ? 'Unlimited Notes' : 'Catatan Tanpa Batas'}</div>
                       <div className="text-[10px] text-neutral-500 dark:text-neutral-400">{isEn ? '150 Photos & 2 Videos' : '150 Foto & 2 Video'}</div>
                     </div>
                     <div className={`p-2.5 rounded-lg border ${quotaConfig?.isUpgraded ? 'border-amber-600 bg-amber-50/50 dark:bg-amber-950/40 ring-1 ring-amber-600' : 'border-neutral-200 dark:border-neutral-700 bg-white/60 dark:bg-neutral-800/60'}`}>
@@ -870,7 +931,7 @@ export default function SettingsModal({
                         <Sparkles className="w-2.5 h-2.5" />
                         <span>Pro</span>
                       </div>
-                      <div className="font-bold text-amber-900 dark:text-amber-300 mt-0.5">{isEn ? 'Unlimited' : 'Bebas Catatan'}</div>
+                      <div className="font-bold text-amber-900 dark:text-amber-300 mt-0.5">{isEn ? 'Unlimited Notes' : 'Catatan Tanpa Batas'}</div>
                       <div className="text-[10px] text-amber-700 dark:text-amber-400">{isEn ? '1,000 Photos & 5 Videos' : '1.000 Foto & 5 Video'}</div>
                     </div>
                   </div>
