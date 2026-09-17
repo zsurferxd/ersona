@@ -8,7 +8,7 @@ import {
   Sparkles, X, Image, Video, Paperclip, Link, ExternalLink, Bell,
   ArrowUpDown, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, ZoomIn, Eye, MessageSquare,
   Edit3, Flag, Check, RotateCcw, AlertTriangle, Film, Settings,
-  HardDrive, Flame, Columns3, List, Layers, Settings2, ArrowRight, Menu, Globe,
+  HardDrive, Flame, Columns3, List, Layers, Settings2, ArrowRight, ArrowLeft, Menu, Globe,
   Sun, Moon, Users, UserPlus, UserMinus, Copy, Share2, ShieldCheck, EyeOff,
   Send, UserCheck, MessageCircle
 } from 'lucide-react';
@@ -539,6 +539,9 @@ export default function Dashboard({ onGoToLanding }) {
   const [todoComments, setTodoComments] = useState([]);
   const [newCommentInput, setNewCommentInput] = useState('');
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+  const [isTaskModalEditMode, setIsTaskModalEditMode] = useState(false);
+  const [todoCommentCounts, setTodoCommentCounts] = useState({});
+  const commentInputRef = useRef(null);
 
   // SISTEM NOTIFIKASI TENANG (CALM IN-APP NOTIFICATIONS)
   const [notifications, setNotifications] = useState([]);
@@ -1246,6 +1249,10 @@ export default function Dashboard({ onGoToLanding }) {
 
       if (!error && data) {
         setTodoComments(prev => prev.map(c => c.id === tempId ? data[0] : c));
+        setTodoCommentCounts(prev => ({
+          ...prev,
+          [editingTodo.id]: (prev[editingTodo.id] || 0) + 1,
+        }));
 
         // Buat notifikasi jika ada anggota yang ditugaskan atau pembuat tugas (selain diri sendiri)
         const notifyTarget = editingTodo.assigned_to || (editingTodo.user_id !== user.id ? editingTodo.user_id : null);
@@ -1266,6 +1273,63 @@ export default function Dashboard({ onGoToLanding }) {
       console.warn('Gagal mengirim komentar tugas:', err);
     } finally {
       setIsSubmittingComment(false);
+    }
+  };
+
+  const fetchCommentCounts = async (todoList) => {
+    const list = todoList || todos || [];
+    const ids = list.map(t => t.id).filter(Boolean);
+    if (ids.length === 0) return;
+    try {
+      const { data, error } = await supabase
+        .from('todo_comments')
+        .select('todo_id');
+      if (!error && data) {
+        const counts = {};
+        data.forEach(c => {
+          counts[c.todo_id] = (counts[c.todo_id] || 0) + 1;
+        });
+        setTodoCommentCounts(counts);
+      }
+    } catch (err) {
+      console.warn('Gagal memuat jumlah komentar:', err);
+    }
+  };
+
+  // Toggle Subtugas langsung dari Mode Baca (Detail Modal)
+  const handleToggleSubtaskInDetail = async (subtaskId) => {
+    if (!editingTodo) return;
+    const currentSubtasks = Array.isArray(editingTodo.subtasks) ? editingTodo.subtasks : [];
+    const updatedSubtasks = currentSubtasks.map(st => st.id === subtaskId ? { ...st, completed: !st.completed } : st);
+    
+    const updatedTodo = { ...editingTodo, subtasks: updatedSubtasks };
+    setEditingTodo(updatedTodo);
+    setEditSubtasks(updatedSubtasks);
+    setTodos(prev => prev.map(t => t.id === editingTodo.id ? updatedTodo : t));
+
+    try {
+      await supabase.from('todos').update({ subtasks: updatedSubtasks, updated_at: new Date().toISOString() }).eq('id', editingTodo.id);
+    } catch (err) {
+      console.warn('Gagal sinkronisasi subtask:', err);
+    }
+  };
+
+  // Toggle Status Selesai / Belum Selesai langsung dari Mode Baca
+  const handleToggleTodoInDetail = async () => {
+    if (!editingTodo) return;
+    const newCompleted = !editingTodo.is_completed;
+    const defaultActiveStatus = taskStatuses.find(s => s.id !== 'completed')?.id || taskStatuses[0]?.id || 'todo';
+    const newStatus = newCompleted ? 'completed' : (editingTodo.status === 'completed' ? defaultActiveStatus : editingTodo.status || defaultActiveStatus);
+    
+    const updatedTodo = { ...editingTodo, is_completed: newCompleted, status: newStatus };
+    setEditingTodo(updatedTodo);
+    setEditStatus(newStatus);
+    setTodos(prev => prev.map(t => t.id === editingTodo.id ? updatedTodo : t));
+
+    try {
+      await supabase.from('todos').update({ is_completed: newCompleted, status: newStatus, updated_at: new Date().toISOString() }).eq('id', editingTodo.id);
+    } catch (err) {
+      console.warn('Gagal toggle tugas:', err);
     }
   };
 
@@ -1332,12 +1396,22 @@ export default function Dashboard({ onGoToLanding }) {
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'todo_comments' }, (payload) => {
         if (payload.eventType === 'INSERT') {
+          setTodoCommentCounts(prev => ({
+            ...prev,
+            [payload.new.todo_id]: (prev[payload.new.todo_id] || 0) + 1,
+          }));
           setTodoComments(prev => {
             if (editingTodo && payload.new.todo_id === editingTodo.id && !prev.some(c => c.id === payload.new.id)) {
               return [...prev, payload.new];
             }
             return prev;
           });
+        } else if (payload.eventType === 'DELETE') {
+          setTodoCommentCounts(prev => ({
+            ...prev,
+            [payload.old.todo_id]: Math.max(0, (prev[payload.old.todo_id] || 1) - 1),
+          }));
+          setTodoComments(prev => prev.filter(c => c.id !== payload.old.id));
         }
       })
       .subscribe();
@@ -1346,6 +1420,12 @@ export default function Dashboard({ onGoToLanding }) {
       supabase.removeChannel(channel);
     };
   }, [user?.id, activeWorkspaceId, editingTodo?.id]);
+
+  useEffect(() => {
+    if (todos.length > 0) {
+      fetchCommentCounts(todos);
+    }
+  }, [todos.length]);
 
   useEffect(() => {
     if (activeWorkspaceId) {
@@ -1528,9 +1608,10 @@ export default function Dashboard({ onGoToLanding }) {
     }
   };
 
-  // 3. Handlers Edit & Tambah To-Do
-  const openEditTodoModal = (todo) => {
+  // 3. Handlers Detail, Edit & Tambah To-Do
+  const openTodoDetailModal = (todo, focusComment = false) => {
     setEditingTodo(todo);
+    setIsTaskModalEditMode(false);
     setEditTitle(todo.title || '');
     setEditDesc(todo.description || '');
     setEditDueDate(todo.due_date ? todo.due_date.substring(0, 10) : '');
@@ -1546,7 +1627,14 @@ export default function Dashboard({ onGoToLanding }) {
     setEditSubtasks(Array.isArray(todo.subtasks) ? todo.subtasks : []);
     setNewSubtaskInput('');
     fetchTodoComments(todo.id);
+    if (focusComment) {
+      setTimeout(() => {
+        commentInputRef.current?.focus();
+      }, 250);
+    }
   };
+
+  const openEditTodoModal = (todo) => openTodoDetailModal(todo, false);
 
   const handleAddEditSubtask = (e) => {
     e?.preventDefault();
@@ -1661,7 +1749,8 @@ export default function Dashboard({ onGoToLanding }) {
         }]).then(() => {});
       }
 
-      setEditingTodo(null);
+      setEditingTodo(data[0]);
+      setIsTaskModalEditMode(false);
     } else {
       alert('Gagal memperbarui tugas: ' + (error?.message || 'Unknown error'));
     }
@@ -2433,6 +2522,28 @@ export default function Dashboard({ onGoToLanding }) {
               )}
 
               {renderDateBadge(todo.due_date)}
+
+              {/* Tombol Komentar Cepat di Bubble Tugas */}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openTodoDetailModal(todo, true);
+                }}
+                className={`inline-flex items-center space-x-1 text-[10px] sm:text-[11px] px-1.5 py-0.5 rounded-md transition cursor-pointer shrink-0 border ${
+                  (todoCommentCounts[todo.id] || 0) > 0
+                    ? 'bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-300 border-neutral-300/80 dark:border-neutral-700'
+                    : 'text-neutral-400 hover:text-neutral-700 dark:text-neutral-500 dark:hover:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 border-transparent hover:border-neutral-200 dark:hover:border-neutral-700'
+                }`}
+                title={t('dashboard.addCommentQuickBtn') || 'Tulis Komentar'}
+              >
+                <MessageCircle className="w-3 h-3" />
+                {(todoCommentCounts[todo.id] || 0) > 0 && (
+                  <span className="font-mono text-[10px] font-semibold">
+                    {todoCommentCounts[todo.id]}
+                  </span>
+                )}
+              </button>
 
               {todo.media_url && (
                 <button
@@ -3707,18 +3818,23 @@ export default function Dashboard({ onGoToLanding }) {
                                 const val = e.target.value;
                                 setNewTaskAssignedTo(val);
                                 const member = workspaceMembers.find(m => m.user_id === val);
-                                setNewTaskAssignedEmail(val ? (member?.email || (val === user?.id ? user?.email : '')) : '');
+                                const memberEmail = member ? (member.user_email || member.email) : (val === user?.id ? user?.email : '');
+                                setNewTaskAssignedEmail(val ? memberEmail : '');
                               }}
                               className="bg-transparent focus:outline-none text-xs font-medium text-neutral-700 dark:text-neutral-200 cursor-pointer max-w-[85px] sm:max-w-[110px]"
                               title={t('dashboard.assignToLabel') || 'Tugaskan ke'}
                             >
                               <option value="" className="dark:bg-[#282828]">{t('dashboard.unassigned') || 'Belum Ditugaskan'}</option>
                               <option value={user?.id} className="dark:bg-[#282828]">{t('dashboard.assignToMe') || 'Tugaskan ke Saya'}</option>
-                              {workspaceMembers.filter(m => m.user_id !== user?.id).map(m => (
-                                <option key={m.user_id} value={m.user_id} className="dark:bg-[#282828]">
-                                  {m.email?.split('@')[0]}
-                                </option>
-                              ))}
+                              {workspaceMembers.filter(m => m.status !== 'pending' && m.user_id !== user?.id).map(m => {
+                                const memberEmail = m.user_email || m.email || '';
+                                const memberName = memberEmail ? memberEmail.split('@')[0] : (m.user_name || 'Anggota');
+                                return (
+                                  <option key={m.user_id || m.id} value={m.user_id} className="dark:bg-[#282828]">
+                                    {memberName} {memberEmail ? `(${memberEmail})` : ''}
+                                  </option>
+                                );
+                              })}
                             </select>
                           </div>
                         )}
@@ -3966,6 +4082,28 @@ export default function Dashboard({ onGoToLanding }) {
                                             <span>{format(parseISO(todo.reminder_date), 'dd MMM', { locale: currentLocale })}</span>
                                           </span>
                                         )}
+
+                                        {/* Tombol Komentar Cepat di Kartu Board */}
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            openTodoDetailModal(todo, true);
+                                          }}
+                                          className={`inline-flex items-center space-x-1 text-[10px] px-1.5 py-0.5 rounded transition cursor-pointer border ${
+                                            (todoCommentCounts[todo.id] || 0) > 0
+                                              ? 'bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-300 border-neutral-300/80 dark:border-neutral-700'
+                                              : 'text-neutral-400 hover:text-neutral-700 dark:text-neutral-500 dark:hover:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 border-transparent hover:border-neutral-200 dark:hover:border-neutral-700'
+                                          }`}
+                                          title={t('dashboard.addCommentQuickBtn') || 'Tulis Komentar'}
+                                        >
+                                          <MessageCircle className="w-3 h-3" />
+                                          {(todoCommentCounts[todo.id] || 0) > 0 && (
+                                            <span className="font-mono text-[9px] font-semibold">
+                                              {todoCommentCounts[todo.id]}
+                                            </span>
+                                          )}
+                                        </button>
                                       </div>
                                       <div className="flex items-center space-x-1 opacity-70 sm:opacity-0 sm:group-hover/card:opacity-100 transition">
                                         <button
@@ -4341,387 +4479,600 @@ export default function Dashboard({ onGoToLanding }) {
         </div>
       )}
 
-      {/* 2. MODAL EDIT TUGAS */}
+      {/* 2. MODAL TUGAS (MODE BACA & MODE EDIT) */}
       {editingTodo && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in">
           <div className="bg-white dark:bg-[#202020] border border-neutral-200 dark:border-neutral-800 rounded-2xl max-w-lg w-full p-4 sm:p-6 shadow-xl space-y-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-neutral-100 dark:border-neutral-800">
-              <span className="text-xs font-semibold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider">{t('dashboard.editTaskModalTitle')}</span>
-              <button 
-                onClick={() => setEditingTodo(null)}
-                className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 p-1 rounded-md cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+            
+            {!isTaskModalEditMode ? (
+              /* ================= MODE BACA (READ-ONLY DETAIL) ================= */
+              <div className="space-y-4">
+                {/* Header Mode Baca */}
+                <div className="flex items-center justify-between pb-3 border-b border-neutral-100 dark:border-neutral-800">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-xs font-semibold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider">
+                      {t('dashboard.taskDetailsTitle') || 'Detail Tugas'}
+                    </span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <button 
+                      type="button"
+                      onClick={() => setIsTaskModalEditMode(true)}
+                      className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-medium bg-neutral-900 hover:bg-neutral-800 dark:bg-neutral-100 dark:hover:bg-white text-white dark:text-neutral-900 rounded-lg transition cursor-pointer"
+                      title={t('dashboard.editTaskBtn') || 'Edit Tugas'}
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                      <span>{t('dashboard.editTaskBtn') || 'Edit Tugas'}</span>
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={() => setEditingTodo(null)}
+                      className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 p-1.5 rounded-md cursor-pointer transition"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
 
-            <form onSubmit={handleUpdateTodo} className="space-y-4">
-              <div>
-                <label className="block text-xs font-medium text-neutral-600 dark:text-neutral-300 mb-1">{t('dashboard.taskTitleLabel')}</label>
-                <input
-                  type="text"
-                  required
-                  maxLength={200}
-                  value={editTitle}
-                  onChange={(e) => setEditTitle(e.target.value)}
-                  className="w-full px-3 py-2 text-sm bg-neutral-50 dark:bg-[#282828] border border-neutral-200 dark:border-neutral-700 text-neutral-800 dark:text-neutral-100 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-800 dark:focus:ring-neutral-400 font-medium"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 p-3 bg-neutral-50/80 dark:bg-[#262626] rounded-xl border border-neutral-200/80 dark:border-neutral-700">
-                <div>
-                  <label className="block text-[11px] font-medium text-neutral-600 dark:text-neutral-300 mb-1 flex items-center space-x-1">
-                    <Layers className="w-3 h-3 text-neutral-500" />
-                    <span>{t('dashboard.statusLabel')}</span>
-                  </label>
-                  <select
-                    value={editStatus}
-                    onChange={(e) => setEditStatus(e.target.value)}
-                    className="w-full text-xs bg-white dark:bg-[#202020] border border-neutral-200 dark:border-neutral-700 text-neutral-800 dark:text-neutral-200 rounded-lg p-1.5 focus:outline-none font-medium cursor-pointer"
+                {/* Judul & Toggle Selesai */}
+                <div className="flex items-start space-x-3 pt-1">
+                  <button
+                    type="button"
+                    onClick={handleToggleTodoInDetail}
+                    className="text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200 transition cursor-pointer shrink-0 mt-1"
+                    title={editingTodo.is_completed ? 'Tandai belum selesai' : 'Tandai selesai'}
                   >
-                    {taskStatuses.map(s => (
-                      <option key={s.id} value={s.id}>{s.label}</option>
-                    ))}
-                  </select>
+                    {editingTodo.is_completed ? (
+                      <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                    ) : (
+                      <Circle className="w-5 h-5" />
+                    )}
+                  </button>
+                  <div className="flex-1 min-w-0">
+                    <h2 className={`text-base sm:text-lg font-semibold leading-snug break-words ${
+                      editingTodo.is_completed 
+                        ? 'line-through text-neutral-400 dark:text-neutral-500' 
+                        : 'text-neutral-900 dark:text-neutral-100'
+                    }`}>
+                      {editingTodo.title}
+                    </h2>
+                  </div>
                 </div>
 
-                <div>
-                  <label className="block text-[11px] font-medium text-neutral-600 dark:text-neutral-300 mb-1 flex items-center space-x-1">
-                    <Flag className="w-3 h-3 text-neutral-500" />
-                    <span>{t('dashboard.priorityChip')}</span>
-                  </label>
-                  <select
-                    value={editPriority}
-                    onChange={(e) => setEditPriority(e.target.value)}
-                    className="w-full text-xs bg-white dark:bg-[#202020] border border-neutral-200 dark:border-neutral-700 text-neutral-800 dark:text-neutral-200 rounded-lg p-1.5 focus:outline-none font-medium cursor-pointer"
-                  >
-                    <option value="urgent">{t('dashboard.priorityUrgent')}</option>
-                    <option value="high">{t('dashboard.priorityHigh')}</option>
-                    <option value="medium">{t('dashboard.priorityMedium')}</option>
-                    <option value="low">{t('dashboard.priorityLow')}</option>
-                  </select>
-                </div>
+                {/* Badges Bar (Status, Prioritas, Jatuh Tempo, Pengingat, Penugasan) */}
+                <div className="flex items-center flex-wrap gap-2 p-3 bg-neutral-50/80 dark:bg-[#262626] rounded-xl border border-neutral-200/80 dark:border-neutral-700">
+                  {renderStatusBadge(editingTodo)}
+                  {renderPriorityBadge(editingTodo.priority)}
+                  
+                  {editingTodo.due_date && renderDateBadge(editingTodo.due_date)}
 
-                <div>
-                  <label className="block text-[11px] font-medium text-neutral-600 dark:text-neutral-300 mb-1 flex items-center space-x-1">
-                    <Calendar className="w-3 h-3 text-neutral-500" />
-                    <span>{t('dashboard.dueDateChip')}</span>
-                  </label>
-                  <input
-                    type="date"
-                    value={editDueDate}
-                    onChange={(e) => setEditDueDate(e.target.value)}
-                    className="w-full text-xs bg-white dark:bg-[#202020] border border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-200 rounded-lg p-1.5 focus:outline-none"
-                  />
-                </div>
+                  {editingTodo.reminder_date && (
+                    <span className="inline-flex items-center space-x-1 text-[11px] px-2 py-0.5 rounded-md font-mono bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border border-neutral-200/60 dark:border-neutral-700/60">
+                      <Bell className="w-3 h-3 text-amber-600 dark:text-amber-400" />
+                      <span>{format(parseISO(editingTodo.reminder_date), 'dd MMM yyyy', { locale: isEn ? localeEn : localeId })}</span>
+                    </span>
+                  )}
 
-                <div>
-                  <label className="block text-[11px] font-medium text-neutral-600 dark:text-neutral-300 mb-1 flex items-center space-x-1">
-                    <Bell className="w-3 h-3 text-amber-600" />
-                    <span>{t('dashboard.remindMe')}</span>
-                  </label>
-                  <input
-                    type="date"
-                    value={editReminderDate}
-                    onChange={(e) => setEditReminderDate(e.target.value)}
-                    className="w-full text-xs bg-white dark:bg-[#202020] border border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-200 rounded-lg p-1.5 focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              {/* PENUGASAN TUGAS JIKA WORKSPACE TIM */}
-              {(currentWorkspace || editingTodo.workspace_id) && (
-                <div className="p-3 bg-neutral-50/80 dark:bg-[#262626] rounded-xl border border-neutral-200/80 dark:border-neutral-700">
-                  <label className="block text-[11px] font-medium text-neutral-600 dark:text-neutral-300 mb-1 flex items-center space-x-1">
-                    <UserCheck className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                    <span>{t('dashboard.assignToLabel') || 'Tugaskan ke'}</span>
-                  </label>
-                  <select
-                    value={editAssignedTo || ''}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setEditAssignedTo(val || null);
-                      const member = workspaceMembers.find(m => m.user_id === val);
-                      setEditAssignedEmail(val ? (member?.email || (val === user?.id ? user?.email : null)) : null);
-                    }}
-                    className="w-full text-xs bg-white dark:bg-[#202020] border border-neutral-200 dark:border-neutral-700 text-neutral-800 dark:text-neutral-200 rounded-lg p-2 focus:outline-none font-medium cursor-pointer"
-                  >
-                    <option value="">{t('dashboard.unassigned') || 'Belum Ditugaskan'}</option>
-                    <option value={user?.id}>{t('dashboard.assignToMe') || 'Tugaskan ke Saya'}</option>
-                    {workspaceMembers.filter(m => m.user_id !== user?.id).map(m => (
-                      <option key={m.user_id} value={m.user_id}>
-                        {m.email?.split('@')[0]} ({m.email})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              <div>
-                <label className="block text-xs font-medium text-neutral-600 dark:text-neutral-300 mb-1 flex items-center space-x-1">
-                  <MessageSquare className="w-3 h-3" />
-                  <span>{t('dashboard.notesLabel')}</span>
-                </label>
-                <textarea
-                  rows={4}
-                  maxLength={2000}
-                  placeholder={t('dashboard.notesPlaceholder')}
-                  value={editDesc}
-                  onChange={(e) => setEditDesc(e.target.value)}
-                  className="w-full px-3 py-2 text-xs bg-neutral-50 dark:bg-[#282828] border border-neutral-200 dark:border-neutral-700 text-neutral-800 dark:text-neutral-100 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-800 dark:focus:ring-neutral-400 leading-relaxed"
-                />
-                <div className="text-[10px] text-neutral-400 dark:text-neutral-500 text-right">
-                  {editDesc.length} / 2.000 karakter
-                </div>
-              </div>
-
-              {/* SUBTASKS & CHECKLIST */}
-              <div className="space-y-2.5 p-3.5 bg-neutral-50/80 dark:bg-[#262626] rounded-xl border border-neutral-200/80 dark:border-neutral-700">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-medium text-neutral-700 dark:text-neutral-200 flex items-center space-x-1.5">
-                    <CheckSquare className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                    <span>{t('dashboard.subtasksLabel')}</span>
-                  </label>
-                  {editSubtasks.length > 0 && (
-                    <span className="text-[11px] font-medium text-neutral-500 dark:text-neutral-400 font-mono">
-                      {editSubtasks.filter(s => s.completed).length} / {editSubtasks.length} {isEn ? 'done' : 'selesai'}
+                  {editingTodo.assigned_email && (
+                    <span className="inline-flex items-center space-x-1.5 text-[11px] font-medium text-neutral-700 dark:text-neutral-200 bg-white dark:bg-[#202020] px-2.5 py-0.5 rounded-full border border-neutral-200 dark:border-neutral-700">
+                      <div className="w-3.5 h-3.5 rounded-full bg-blue-600 text-white flex items-center justify-center text-[9px] font-bold">
+                        {editingTodo.assigned_email.charAt(0).toUpperCase()}
+                      </div>
+                      <span>{editingTodo.assigned_email}</span>
                     </span>
                   )}
                 </div>
 
-                {/* Progress bar */}
-                {editSubtasks.length > 0 && (
-                  <div className="w-full bg-neutral-200 dark:bg-neutral-700 h-1.5 rounded-full overflow-hidden">
-                    <div 
-                      className="bg-emerald-500 h-full transition-all duration-300 rounded-full"
-                      style={{ 
-                        width: `${(editSubtasks.filter(s => s.completed).length / editSubtasks.length) * 100}%` 
-                      }}
-                    />
+                {/* Catatan / Deskripsi Tugas */}
+                <div className="space-y-1.5">
+                  <div className="text-[11px] font-semibold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider flex items-center space-x-1.5">
+                    <MessageSquare className="w-3 h-3" />
+                    <span>{t('dashboard.notesLabel') || 'Catatan'}</span>
                   </div>
-                )}
+                  {editingTodo.description ? (
+                    <div className="p-3.5 rounded-xl bg-neutral-50/90 dark:bg-[#262626] border border-neutral-200/70 dark:border-neutral-700 text-xs sm:text-sm text-neutral-800 dark:text-neutral-200 leading-relaxed whitespace-pre-wrap break-words">
+                      {editingTodo.description}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-neutral-400 dark:text-neutral-500 italic p-3 rounded-xl bg-neutral-50/50 dark:bg-[#252525]/50 border border-dashed border-neutral-200 dark:border-neutral-800">
+                      {t('dashboard.noTaskDescription') || 'Belum ada catatan atau deskripsi untuk tugas ini.'}
+                    </p>
+                  )}
+                </div>
 
-                {/* Subtask list */}
-                {editSubtasks.length > 0 && (
-                  <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-                    {editSubtasks.map((st) => (
+                {/* Subtugas / Checklist (Bisa dicentang langsung di Mode Baca!) */}
+                {Array.isArray(editingTodo.subtasks) && editingTodo.subtasks.length > 0 && (
+                  <div className="space-y-2 p-3 bg-neutral-50/80 dark:bg-[#262626] rounded-xl border border-neutral-200/80 dark:border-neutral-700">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-neutral-700 dark:text-neutral-200 flex items-center space-x-1.5">
+                        <CheckSquare className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                        <span>{t('dashboard.subtasksLabel')}</span>
+                      </span>
+                      <span className="text-[11px] font-medium text-neutral-500 dark:text-neutral-400 font-mono">
+                        {editingTodo.subtasks.filter(s => s.completed).length} / {editingTodo.subtasks.length} {isEn ? 'done' : 'selesai'}
+                      </span>
+                    </div>
+
+                    <div className="w-full bg-neutral-200 dark:bg-neutral-700 h-1.5 rounded-full overflow-hidden">
                       <div 
-                        key={st.id} 
-                        className="flex items-center space-x-2 bg-white dark:bg-[#202020] px-2.5 py-1.5 rounded-lg border border-neutral-200/70 dark:border-neutral-700 group/st"
-                      >
-                        <button
-                          type="button"
-                          onClick={() => handleToggleEditSubtask(st.id)}
-                          className="text-neutral-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition cursor-pointer shrink-0"
+                        className="bg-emerald-500 h-full transition-all duration-300 rounded-full"
+                        style={{ 
+                          width: `${(editingTodo.subtasks.filter(s => s.completed).length / editingTodo.subtasks.length) * 100}%` 
+                        }}
+                      />
+                    </div>
+
+                    <div className="space-y-1.5 pt-1">
+                      {editingTodo.subtasks.map((st) => (
+                        <div 
+                          key={st.id} 
+                          onClick={() => handleToggleSubtaskInDetail(st.id)}
+                          className="flex items-center space-x-2 bg-white dark:bg-[#202020] px-2.5 py-1.5 rounded-lg border border-neutral-200/70 dark:border-neutral-700 cursor-pointer hover:border-neutral-300 dark:hover:border-neutral-600 transition select-none"
                         >
-                          {st.completed ? (
-                            <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                          ) : (
-                            <Circle className="w-4 h-4" />
-                          )}
-                        </button>
-                        <span 
-                          onClick={() => handleToggleEditSubtask(st.id)}
-                          className={`text-xs flex-1 cursor-pointer select-none ${
+                          <button
+                            type="button"
+                            className="text-neutral-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition cursor-pointer shrink-0"
+                          >
+                            {st.completed ? (
+                              <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                            ) : (
+                              <Circle className="w-4 h-4" />
+                            )}
+                          </button>
+                          <span className={`text-xs flex-1 ${
                             st.completed 
                               ? 'line-through text-neutral-400 dark:text-neutral-500' 
                               : 'text-neutral-700 dark:text-neutral-200'
-                          }`}
-                        >
-                          {st.title}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteEditSubtask(st.id)}
-                          className="opacity-0 group-hover/st:opacity-100 text-neutral-400 hover:text-red-500 p-0.5 rounded transition cursor-pointer"
-                          title={isEn ? 'Delete subtask' : 'Hapus subtugas'}
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    ))}
+                          }`}>
+                            {st.title}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
 
-                {/* Add new subtask input */}
-                <div className="flex items-center space-x-1.5 pt-1">
-                  <input
-                    type="text"
-                    value={newSubtaskInput}
-                    onChange={(e) => setNewSubtaskInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        handleAddEditSubtask(e);
-                      }
-                    }}
-                    placeholder={t('dashboard.subtasksPlaceholder')}
-                    className="flex-1 px-3 py-1.5 text-xs bg-white dark:bg-[#202020] border border-neutral-200 dark:border-neutral-700 text-neutral-800 dark:text-neutral-100 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-800 dark:focus:ring-neutral-400"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleAddEditSubtask}
-                    disabled={!newSubtaskInput.trim()}
-                    className="px-3 py-1.5 text-xs font-medium bg-neutral-900 dark:bg-neutral-100 hover:bg-neutral-800 dark:hover:bg-neutral-200 text-white dark:text-neutral-900 rounded-lg transition disabled:opacity-40 cursor-pointer shrink-0 flex items-center space-x-1"
-                  >
-                    <Plus className="w-3 h-3" />
-                    <span>{t('dashboard.addSubtaskBtn')}</span>
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-neutral-600 dark:text-neutral-300 mb-1 flex items-center space-x-1">
-                  <Paperclip className="w-3 h-3" />
-                  <span>{t('dashboard.photoAttachmentLabel')}</span>
-                </label>
-
-                {(editFilePreview || editMediaUrl) && (
-                  <div className="relative mb-2 rounded-xl overflow-hidden border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-[#262626] p-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditFile(null);
-                        setEditFilePreview(null);
-                        setEditMediaUrl(null);
-                      }}
-                      className="absolute top-3 right-3 bg-black/70 hover:bg-black text-white p-1 rounded-full transition z-10 cursor-pointer"
-                      title="Hapus foto"
+                {/* Lampiran Foto (jika ada) */}
+                {editingTodo.media_url && (
+                  <div className="space-y-1.5">
+                    <div className="text-[11px] font-semibold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider flex items-center space-x-1.5">
+                      <Image className="w-3 h-3 text-blue-600" />
+                      <span>{t('dashboard.photoAttachmentLabel') || 'Lampiran Foto'}</span>
+                    </div>
+                    <div 
+                      onClick={() => setLightboxMedia({ url: editingTodo.media_url, type: editingTodo.media_type, title: editingTodo.title })}
+                      className="relative rounded-xl overflow-hidden border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-[#262626] p-1.5 cursor-zoom-in group/readmedia"
                     >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                    <img 
-                      src={editFilePreview || editMediaUrl} 
-                      alt="Lampiran" 
-                      onClick={() => setLightboxMedia({ url: editFilePreview || editMediaUrl, type: 'image', title: editTitle })}
-                      className="w-full max-h-40 object-cover rounded-lg cursor-zoom-in" 
-                    />
-                    <span className="text-[10px] text-neutral-400 dark:text-neutral-500 block mt-1">Klik gambar untuk perbesar</span>
+                      <img 
+                        src={editingTodo.media_url} 
+                        alt="Lampiran" 
+                        className="w-full max-h-56 object-cover rounded-lg group-hover/readmedia:scale-[1.01] transition" 
+                      />
+                      <div className="absolute inset-0 bg-black/25 opacity-0 group-hover/readmedia:opacity-100 flex items-center justify-center text-white text-xs font-medium transition">
+                        <ZoomIn className="w-4 h-4 mr-1.5" />
+                        <span>Klik untuk perbesar</span>
+                      </div>
+                    </div>
                   </div>
                 )}
 
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="file"
-                    ref={editTodoFileInputRef}
-                    onChange={handleEditTodoFileChange}
-                    accept="image/*,video/mp4"
-                    className="hidden"
-                    id="edit-todo-file"
-                  />
-                  <label
-                    htmlFor="edit-todo-file"
-                    className="text-xs text-neutral-700 dark:text-neutral-200 bg-neutral-100 dark:bg-[#282828] hover:bg-neutral-200 dark:hover:bg-[#323232] border border-neutral-200/60 dark:border-neutral-700 px-3 py-1.5 rounded-lg cursor-pointer transition flex items-center space-x-1"
-                  >
-                    <Image className="w-3.5 h-3.5 text-blue-600" />
-                    <span>{editFile || editMediaUrl ? t('dashboard.changePhoto') : t('dashboard.attachPhoto')}</span>
-                  </label>
-                  {isCompressingEditFile && (
-                    <span className="text-xs text-neutral-400 flex items-center space-x-1">
-                      <Loader2 className="w-3 h-3 animate-spin" />
-                      <span>Mengompres...</span>
-                    </span>
-                  )}
+                {/* DISKUSI & KOMENTAR TUGAS (Tampil di Mode Baca) */}
+                <div className="pt-4 border-t border-neutral-100 dark:border-neutral-800 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-1.5">
+                      <MessageCircle className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                      <h3 className="text-xs font-semibold text-neutral-700 dark:text-neutral-200">
+                        {t('dashboard.taskDiscussion') || 'Diskusi & Komentar Tugas'}
+                      </h3>
+                      <span className="text-[10px] bg-neutral-100 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400 px-1.5 py-0.5 rounded font-mono font-medium">
+                        {todoComments.length}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Daftar Komentar */}
+                  <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
+                    {todoComments.length === 0 ? (
+                      <p className="text-xs text-neutral-400 dark:text-neutral-500 italic py-2 text-center">
+                        {t('dashboard.noCommentsYet') || 'Belum ada komentar untuk tugas ini.'}
+                      </p>
+                    ) : (
+                      todoComments.map(c => (
+                        <div key={c.id} className="p-2.5 rounded-xl bg-neutral-50 dark:bg-[#262626] border border-neutral-200/60 dark:border-neutral-700/60 space-y-1">
+                          <div className="flex items-center justify-between text-[10px] text-neutral-400 dark:text-neutral-500">
+                            <span className="font-semibold text-neutral-700 dark:text-neutral-300">
+                              {c.user_name || c.user_id?.substring(0, 8)}
+                            </span>
+                            <span className="font-mono">
+                              {format(new Date(c.created_at), 'dd MMM, HH:mm', { locale: isEn ? localeEn : localeId })}
+                            </span>
+                          </div>
+                          <p className="text-xs text-neutral-800 dark:text-neutral-200 leading-relaxed whitespace-pre-wrap">
+                            {c.content}
+                          </p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  {/* Input Komentar Baru */}
+                  <form onSubmit={handleAddTodoComment} className="flex items-center space-x-1.5 pt-1">
+                    <input
+                      ref={commentInputRef}
+                      type="text"
+                      value={newCommentInput}
+                      onChange={(e) => setNewCommentInput(e.target.value)}
+                      placeholder={t('dashboard.addCommentPlaceholder') || 'Tulis komentar atau pembaruan tugas...'}
+                      className="flex-1 px-3 py-2 text-xs bg-neutral-50 dark:bg-[#282828] border border-neutral-200 dark:border-neutral-700 text-neutral-800 dark:text-neutral-100 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-800 dark:focus:ring-neutral-400"
+                    />
+                    <button
+                      type="submit"
+                      disabled={isSubmittingComment || !newCommentInput.trim()}
+                      className="p-2 bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 rounded-lg hover:opacity-90 disabled:opacity-40 transition cursor-pointer shrink-0"
+                      title={t('dashboard.postCommentBtn') || 'Kirim Komentar'}
+                    >
+                      {isSubmittingComment ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                    </button>
+                  </form>
                 </div>
-              </div>
 
-              <div className="flex items-center justify-between pt-3 border-t border-neutral-100 dark:border-neutral-800">
-                <button
-                  type="button"
-                  onClick={() => handleSoftDeleteTodo(editingTodo.id)}
-                  className="px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg transition flex items-center space-x-1 cursor-pointer"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span>{t('dashboard.moveToTrash')}</span>
-                </button>
-
-                <div className="flex items-center space-x-2">
+                {/* Footer Mode Baca */}
+                <div className="flex items-center justify-between pt-3 border-t border-neutral-100 dark:border-neutral-800 text-[11px] text-neutral-400 dark:text-neutral-500">
+                  <div className="truncate">
+                    {editingTodo.created_at && (
+                      <span>{t('dashboard.taskCreatedOn') || 'Dibuat pada'} {format(parseISO(editingTodo.created_at), 'dd MMM yyyy', { locale: isEn ? localeEn : localeId })}</span>
+                    )}
+                  </div>
                   <button
                     type="button"
                     onClick={() => setEditingTodo(null)}
-                    className="px-3.5 py-1.5 text-xs font-medium text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg transition cursor-pointer"
+                    className="px-3 py-1.5 text-xs font-medium text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg transition cursor-pointer shrink-0"
                   >
-                    {t('common.cancel')}
+                    {t('common.close') || 'Tutup'}
                   </button>
+                </div>
+              </div>
+            ) : (
+              /* ================= MODE EDIT (EDIT FORM) ================= */
+              <div className="space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-neutral-100 dark:border-neutral-800">
                   <button
-                    type="submit"
-                    disabled={isUpdatingTodo || isCompressingEditFile}
-                    className="px-4 py-1.5 text-xs font-medium bg-neutral-900 hover:bg-neutral-800 dark:bg-white dark:hover:bg-neutral-100 text-white dark:text-neutral-900 rounded-lg transition disabled:opacity-50 cursor-pointer flex items-center space-x-1.5"
+                    type="button"
+                    onClick={() => setIsTaskModalEditMode(false)}
+                    className="inline-flex items-center space-x-1.5 text-xs font-medium text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white transition cursor-pointer"
+                    title={t('dashboard.backToReadMode') || 'Kembali ke Detail'}
                   >
-                    {isUpdatingTodo ? (
-                      <>
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        <span>{t('common.saving')}</span>
-                      </>
-                    ) : (
-                      <>
-                        <Check className="w-3.5 h-3.5" />
-                        <span>{t('dashboard.saveChanges')}</span>
-                      </>
-                    )}
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                    <span>{t('dashboard.backToReadMode') || 'Kembali'}</span>
+                  </button>
+                  <span className="text-xs font-semibold text-neutral-700 dark:text-neutral-200">
+                    {t('dashboard.editTaskModalTitle') || 'Edit Tugas'}
+                  </span>
+                  <button 
+                    type="button"
+                    onClick={() => setEditingTodo(null)}
+                    className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 p-1 rounded-md cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
                   </button>
                 </div>
-              </div>
-            </form>
 
-            {/* DISKUSI & KOMENTAR TUGAS */}
-            <div className="pt-4 border-t border-neutral-100 dark:border-neutral-800 space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-1.5">
-                  <MessageCircle className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                  <h3 className="text-xs font-semibold text-neutral-700 dark:text-neutral-200">
-                    {t('dashboard.taskDiscussion') || 'Diskusi & Komentar Tugas'}
-                  </h3>
-                  <span className="text-[10px] bg-neutral-100 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400 px-1.5 py-0.5 rounded font-mono font-medium">
-                    {todoComments.length}
-                  </span>
-                </div>
-              </div>
+                <form onSubmit={handleUpdateTodo} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-medium text-neutral-600 dark:text-neutral-300 mb-1">{t('dashboard.taskTitleLabel')}</label>
+                    <input
+                      type="text"
+                      required
+                      maxLength={200}
+                      value={editTitle}
+                      onChange={(e) => setEditTitle(e.target.value)}
+                      className="w-full px-3 py-2 text-sm bg-neutral-50 dark:bg-[#282828] border border-neutral-200 dark:border-neutral-700 text-neutral-800 dark:text-neutral-100 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-800 dark:focus:ring-neutral-400 font-medium"
+                    />
+                  </div>
 
-              {/* Daftar Komentar */}
-              <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                {todoComments.length === 0 ? (
-                  <p className="text-xs text-neutral-400 dark:text-neutral-500 italic py-2 text-center">
-                    {t('dashboard.noCommentsYet') || 'Belum ada komentar untuk tugas ini.'}
-                  </p>
-                ) : (
-                  todoComments.map(c => (
-                    <div key={c.id} className="p-2.5 rounded-xl bg-neutral-50 dark:bg-[#262626] border border-neutral-200/60 dark:border-neutral-700/60 space-y-1">
-                      <div className="flex items-center justify-between text-[10px] text-neutral-400 dark:text-neutral-500">
-                        <span className="font-semibold text-neutral-700 dark:text-neutral-300">
-                          {c.user_name || c.user_id?.substring(0, 8)}
-                        </span>
-                        <span className="font-mono">
-                          {format(new Date(c.created_at), 'dd MMM, HH:mm', { locale: isEn ? localeEn : localeId })}
-                        </span>
-                      </div>
-                      <p className="text-xs text-neutral-800 dark:text-neutral-200 leading-relaxed whitespace-pre-wrap">
-                        {c.content}
-                      </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 p-3 bg-neutral-50/80 dark:bg-[#262626] rounded-xl border border-neutral-200/80 dark:border-neutral-700">
+                    <div>
+                      <label className="block text-[11px] font-medium text-neutral-600 dark:text-neutral-300 mb-1 flex items-center space-x-1">
+                        <Layers className="w-3 h-3 text-neutral-500" />
+                        <span>{t('dashboard.statusLabel')}</span>
+                      </label>
+                      <select
+                        value={editStatus}
+                        onChange={(e) => setEditStatus(e.target.value)}
+                        className="w-full text-xs bg-white dark:bg-[#202020] border border-neutral-200 dark:border-neutral-700 text-neutral-800 dark:text-neutral-200 rounded-lg p-1.5 focus:outline-none font-medium cursor-pointer"
+                      >
+                        {taskStatuses.map(s => (
+                          <option key={s.id} value={s.id}>{s.label}</option>
+                        ))}
+                      </select>
                     </div>
-                  ))
-                )}
-              </div>
 
-              {/* Input Komentar Baru */}
-              <form onSubmit={handleAddTodoComment} className="flex items-center space-x-1.5">
-                <input
-                  type="text"
-                  value={newCommentInput}
-                  onChange={(e) => setNewCommentInput(e.target.value)}
-                  placeholder={t('dashboard.addCommentPlaceholder') || 'Tulis komentar atau pembaruan tugas...'}
-                  className="flex-1 px-3 py-1.5 text-xs bg-neutral-50 dark:bg-[#282828] border border-neutral-200 dark:border-neutral-700 text-neutral-800 dark:text-neutral-100 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-800 dark:focus:ring-neutral-400"
-                />
-                <button
-                  type="submit"
-                  disabled={isSubmittingComment || !newCommentInput.trim()}
-                  className="p-2 bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 rounded-lg hover:opacity-90 disabled:opacity-40 transition cursor-pointer shrink-0"
-                  title={t('dashboard.postCommentBtn') || 'Kirim Komentar'}
-                >
-                  {isSubmittingComment ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-                </button>
-              </form>
-            </div>
+                    <div>
+                      <label className="block text-[11px] font-medium text-neutral-600 dark:text-neutral-300 mb-1 flex items-center space-x-1">
+                        <Flag className="w-3 h-3 text-neutral-500" />
+                        <span>{t('dashboard.priorityChip')}</span>
+                      </label>
+                      <select
+                        value={editPriority}
+                        onChange={(e) => setEditPriority(e.target.value)}
+                        className="w-full text-xs bg-white dark:bg-[#202020] border border-neutral-200 dark:border-neutral-700 text-neutral-800 dark:text-neutral-200 rounded-lg p-1.5 focus:outline-none font-medium cursor-pointer"
+                      >
+                        <option value="urgent">{t('dashboard.priorityUrgent')}</option>
+                        <option value="high">{t('dashboard.priorityHigh')}</option>
+                        <option value="medium">{t('dashboard.priorityMedium')}</option>
+                        <option value="low">{t('dashboard.priorityLow')}</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-medium text-neutral-600 dark:text-neutral-300 mb-1 flex items-center space-x-1">
+                        <Calendar className="w-3 h-3 text-neutral-500" />
+                        <span>{t('dashboard.dueDateChip')}</span>
+                      </label>
+                      <input
+                        type="date"
+                        value={editDueDate}
+                        onChange={(e) => setEditDueDate(e.target.value)}
+                        className="w-full text-xs bg-white dark:bg-[#202020] border border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-200 rounded-lg p-1.5 focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-medium text-neutral-600 dark:text-neutral-300 mb-1 flex items-center space-x-1">
+                        <Bell className="w-3 h-3 text-amber-600" />
+                        <span>{t('dashboard.remindMe')}</span>
+                      </label>
+                      <input
+                        type="date"
+                        value={editReminderDate}
+                        onChange={(e) => setEditReminderDate(e.target.value)}
+                        className="w-full text-xs bg-white dark:bg-[#202020] border border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-200 rounded-lg p-1.5 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  {/* PENUGASAN TUGAS JIKA WORKSPACE TIM (FIXED BUG) */}
+                  {(currentWorkspace || editingTodo.workspace_id) && (
+                    <div className="p-3 bg-neutral-50/80 dark:bg-[#262626] rounded-xl border border-neutral-200/80 dark:border-neutral-700">
+                      <label className="block text-[11px] font-medium text-neutral-600 dark:text-neutral-300 mb-1 flex items-center space-x-1">
+                        <UserCheck className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                        <span>{t('dashboard.assignToLabel') || 'Tugaskan ke'}</span>
+                      </label>
+                      <select
+                        value={editAssignedTo || ''}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setEditAssignedTo(val || null);
+                          const member = workspaceMembers.find(m => m.user_id === val);
+                          const memberEmail = member ? (member.user_email || member.email) : (val === user?.id ? user?.email : null);
+                          setEditAssignedEmail(val ? memberEmail : null);
+                        }}
+                        className="w-full text-xs bg-white dark:bg-[#202020] border border-neutral-200 dark:border-neutral-700 text-neutral-800 dark:text-neutral-200 rounded-lg p-2 focus:outline-none font-medium cursor-pointer"
+                      >
+                        <option value="">{t('dashboard.unassigned') || 'Belum Ditugaskan'}</option>
+                        <option value={user?.id}>{t('dashboard.assignToMe') || 'Tugaskan ke Saya'}</option>
+                        {workspaceMembers.filter(m => m.status !== 'pending' && m.user_id !== user?.id).map(m => {
+                          const memberEmail = m.user_email || m.email || '';
+                          const memberName = memberEmail ? memberEmail.split('@')[0] : (m.user_name || 'Anggota');
+                          return (
+                            <option key={m.user_id || m.id} value={m.user_id}>
+                              {memberName} {memberEmail ? `(${memberEmail})` : ''}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="block text-xs font-medium text-neutral-600 dark:text-neutral-300 mb-1 flex items-center space-x-1">
+                      <MessageSquare className="w-3 h-3" />
+                      <span>{t('dashboard.notesLabel')}</span>
+                    </label>
+                    <textarea
+                      rows={4}
+                      maxLength={2000}
+                      placeholder={t('dashboard.notesPlaceholder')}
+                      value={editDesc}
+                      onChange={(e) => setEditDesc(e.target.value)}
+                      className="w-full px-3 py-2 text-xs bg-neutral-50 dark:bg-[#282828] border border-neutral-200 dark:border-neutral-700 text-neutral-800 dark:text-neutral-100 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-800 dark:focus:ring-neutral-400 leading-relaxed"
+                    />
+                    <div className="text-[10px] text-neutral-400 dark:text-neutral-500 text-right">
+                      {editDesc.length} / 2.000 karakter
+                    </div>
+                  </div>
+
+                  {/* SUBTASKS & CHECKLIST */}
+                  <div className="space-y-2.5 p-3.5 bg-neutral-50/80 dark:bg-[#262626] rounded-xl border border-neutral-200/80 dark:border-neutral-700">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-medium text-neutral-700 dark:text-neutral-200 flex items-center space-x-1.5">
+                        <CheckSquare className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                        <span>{t('dashboard.subtasksLabel')}</span>
+                      </label>
+                      {editSubtasks.length > 0 && (
+                        <span className="text-[11px] font-medium text-neutral-500 dark:text-neutral-400 font-mono">
+                          {editSubtasks.filter(s => s.completed).length} / {editSubtasks.length} {isEn ? 'done' : 'selesai'}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Progress bar */}
+                    {editSubtasks.length > 0 && (
+                      <div className="w-full bg-neutral-200 dark:bg-neutral-700 h-1.5 rounded-full overflow-hidden">
+                        <div 
+                          className="bg-emerald-500 h-full transition-all duration-300 rounded-full"
+                          style={{ 
+                            width: `${(editSubtasks.filter(s => s.completed).length / editSubtasks.length) * 100}%` 
+                          }}
+                        />
+                      </div>
+                    )}
+
+                    {/* Subtask list */}
+                    {editSubtasks.length > 0 && (
+                      <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                        {editSubtasks.map((st) => (
+                          <div 
+                            key={st.id} 
+                            className="flex items-center space-x-2 bg-white dark:bg-[#202020] px-2.5 py-1.5 rounded-lg border border-neutral-200/70 dark:border-neutral-700 group/st"
+                          >
+                            <button
+                              type="button"
+                              onClick={() => handleToggleEditSubtask(st.id)}
+                              className="text-neutral-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition cursor-pointer shrink-0"
+                            >
+                              {st.completed ? (
+                                <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                              ) : (
+                                <Circle className="w-4 h-4" />
+                              )}
+                            </button>
+                            <span 
+                              onClick={() => handleToggleEditSubtask(st.id)}
+                              className={`text-xs flex-1 cursor-pointer select-none ${
+                                st.completed 
+                                  ? 'line-through text-neutral-400 dark:text-neutral-500' 
+                                  : 'text-neutral-700 dark:text-neutral-200'
+                              }`}
+                            >
+                              {st.title}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteEditSubtask(st.id)}
+                              className="opacity-0 group-hover/st:opacity-100 text-neutral-400 hover:text-red-500 p-0.5 rounded transition cursor-pointer"
+                              title={isEn ? 'Delete subtask' : 'Hapus subtugas'}
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Add new subtask input */}
+                    <div className="flex items-center space-x-1.5 pt-1">
+                      <input
+                        type="text"
+                        value={newSubtaskInput}
+                        onChange={(e) => setNewSubtaskInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddEditSubtask(e);
+                          }
+                        }}
+                        placeholder={t('dashboard.subtasksPlaceholder')}
+                        className="flex-1 px-3 py-1.5 text-xs bg-white dark:bg-[#202020] border border-neutral-200 dark:border-neutral-700 text-neutral-800 dark:text-neutral-100 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-800 dark:focus:ring-neutral-400"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddEditSubtask}
+                        disabled={!newSubtaskInput.trim()}
+                        className="px-3 py-1.5 text-xs font-medium bg-neutral-900 dark:bg-neutral-100 hover:bg-neutral-800 dark:hover:bg-neutral-200 text-white dark:text-neutral-900 rounded-lg transition disabled:opacity-40 cursor-pointer shrink-0 flex items-center space-x-1"
+                      >
+                        <Plus className="w-3 h-3" />
+                        <span>{t('dashboard.addSubtaskBtn')}</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-neutral-600 dark:text-neutral-300 mb-1 flex items-center space-x-1">
+                      <Paperclip className="w-3 h-3" />
+                      <span>{t('dashboard.photoAttachmentLabel')}</span>
+                    </label>
+
+                    {(editFilePreview || editMediaUrl) && (
+                      <div className="relative mb-2 rounded-xl overflow-hidden border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-[#262626] p-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditFile(null);
+                            setEditFilePreview(null);
+                            setEditMediaUrl(null);
+                          }}
+                          className="absolute top-3 right-3 bg-black/70 hover:bg-black text-white p-1 rounded-full transition z-10 cursor-pointer"
+                          title="Hapus foto"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                        <img 
+                          src={editFilePreview || editMediaUrl} 
+                          alt="Lampiran" 
+                          onClick={() => setLightboxMedia({ url: editFilePreview || editMediaUrl, type: 'image', title: editTitle })}
+                          className="w-full max-h-40 object-cover rounded-lg cursor-zoom-in" 
+                        />
+                        <span className="text-[10px] text-neutral-400 dark:text-neutral-500 block mt-1">Klik gambar untuk perbesar</span>
+                      </div>
+                    )}
+
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="file"
+                        ref={editTodoFileInputRef}
+                        onChange={handleEditTodoFileChange}
+                        accept="image/*,video/mp4"
+                        className="hidden"
+                        id="edit-todo-file"
+                      />
+                      <label
+                        htmlFor="edit-todo-file"
+                        className="text-xs text-neutral-700 dark:text-neutral-200 bg-neutral-100 dark:bg-[#282828] hover:bg-neutral-200 dark:hover:bg-[#323232] border border-neutral-200/60 dark:border-neutral-700 px-3 py-1.5 rounded-lg cursor-pointer transition flex items-center space-x-1"
+                      >
+                        <Image className="w-3.5 h-3.5 text-blue-600" />
+                        <span>{editFile || editMediaUrl ? t('dashboard.changePhoto') : t('dashboard.attachPhoto')}</span>
+                      </label>
+                      {isCompressingEditFile && (
+                        <span className="text-xs text-neutral-400 flex items-center space-x-1">
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          <span>Mengompres...</span>
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-3 border-t border-neutral-100 dark:border-neutral-800">
+                    <button
+                      type="button"
+                      onClick={() => handleSoftDeleteTodo(editingTodo.id)}
+                      className="px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg transition flex items-center space-x-1 cursor-pointer"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>{t('dashboard.moveToTrash')}</span>
+                    </button>
+
+                    <div className="flex items-center space-x-2">
+                      <button
+                        type="button"
+                        onClick={() => setIsTaskModalEditMode(false)}
+                        className="px-3.5 py-1.5 text-xs font-medium text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg transition cursor-pointer"
+                      >
+                        {t('common.cancel')}
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={isUpdatingTodo || isCompressingEditFile}
+                        className="px-4 py-1.5 text-xs font-medium bg-neutral-900 hover:bg-neutral-800 dark:bg-white dark:hover:bg-neutral-100 text-white dark:text-neutral-900 rounded-lg transition disabled:opacity-50 cursor-pointer flex items-center space-x-1.5"
+                      >
+                        {isUpdatingTodo ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            <span>{t('common.saving')}</span>
+                          </>
+                        ) : (
+                          <>
+                            <Check className="w-3.5 h-3.5" />
+                            <span>{t('dashboard.saveChanges')}</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </form>
+              </div>
+            )}
+
           </div>
         </div>
       )}

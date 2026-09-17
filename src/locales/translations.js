@@ -293,6 +293,16 @@ export const translations = {
       noNotifications: 'Tidak ada notifikasi baru.',
       notifTaskAssigned: 'menugaskan tugas baru kepada Anda:',
       notifTaskComment: 'menambahkan komentar pada tugas:',
+
+      // Task Read & Edit Mode
+      taskDetailsTitle: 'Detail Tugas',
+      editTaskModalTitle: 'Edit Tugas',
+      editTaskBtn: 'Edit Tugas',
+      noTaskDescription: 'Belum ada catatan atau deskripsi untuk tugas ini.',
+      taskCreatedOn: 'Dibuat pada',
+      taskLastUpdated: 'Terakhir diperbarui',
+      backToReadMode: 'Kembali ke Detail',
+      addCommentQuickBtn: 'Tulis Komentar',
     },
 
     // Settings Modal
@@ -623,6 +633,16 @@ export const translations = {
       noNotifications: 'No new notifications.',
       notifTaskAssigned: 'assigned a new task to you:',
       notifTaskComment: 'added a comment to task:',
+
+      // Task Read & Edit Mode
+      taskDetailsTitle: 'Task Details',
+      editTaskModalTitle: 'Edit Task',
+      editTaskBtn: 'Edit Task',
+      noTaskDescription: 'No notes or description added for this task.',
+      taskCreatedOn: 'Created on',
+      taskLastUpdated: 'Last updated',
+      backToReadMode: 'Back to Details',
+      addCommentQuickBtn: 'Add Comment',
     },
 
     // Settings Modal
