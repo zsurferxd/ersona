@@ -12,7 +12,7 @@ import React from 'react';
  *    const CUSTOM_LOGO_URL = '/logo.svg'; (atau path file gambar logo Anda)
  * ==============================================================================
  */
-const CUSTOM_LOGO_URL = null; // Contoh: '/logo.svg' atau '/logo.png'
+const CUSTOM_LOGO_URL = '/logo.svg'; // Menggunakan logo resmi Ersona yang baru dibuat
 
 export default function BrandLogo({
   size = 'md', // 'xs' | 'sm' | 'md' | 'lg' | 'xl'
@@ -42,7 +42,7 @@ export default function BrandLogo({
         <img
           src={CUSTOM_LOGO_URL}
           alt="Ersona Logo"
-          className={`${currentSize.box} object-contain rounded-lg ${iconClassName}`}
+          className={`${currentSize.box} object-contain shrink-0 transition-transform duration-200 group-hover:scale-105 ${iconClassName}`}
         />
       ) : (
         /* Modern Geometric Monogram Mark */
