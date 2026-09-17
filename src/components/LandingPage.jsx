@@ -1004,7 +1004,25 @@ export default function LandingPage({ onStartAuth, user, onGoToDashboard }) {
             <span>{new Date().getFullYear()} Ersona</span>
           </div>
 
-          <div className="flex items-center space-x-6">
+          <div className="flex items-center flex-wrap gap-y-2 gap-x-5">
+            <a
+              href="/privacy"
+              className="hover:text-neutral-900 dark:hover:text-white transition"
+            >
+              Privacy Policy
+            </a>
+            <a
+              href="/terms"
+              className="hover:text-neutral-900 dark:hover:text-white transition"
+            >
+              Terms of Service
+            </a>
+            <a
+              href="mailto:support@ersona.site"
+              className="hover:text-neutral-900 dark:hover:text-white transition"
+            >
+              support@ersona.site
+            </a>
             <a
               href="https://github.com/Efrson/Ersona"
               target="_blank"
@@ -1014,7 +1032,6 @@ export default function LandingPage({ onStartAuth, user, onGoToDashboard }) {
               <span>GitHub</span>
               <ExternalLink className="w-3 h-3" />
             </a>
-            <span className="text-neutral-400 dark:text-neutral-500">{t('landing.footer.tagline')}</span>
           </div>
         </div>
       </footer>

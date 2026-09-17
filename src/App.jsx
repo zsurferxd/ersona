@@ -5,6 +5,8 @@ import Auth from './components/Auth';
 import Dashboard from './components/Dashboard';
 import LandingPage from './components/LandingPage';
 import EmailVerifiedScreen from './components/EmailVerifiedScreen';
+import PrivacyPolicy from './components/PrivacyPolicy';
+import TermsOfService from './components/TermsOfService';
 import { Loader2 } from 'lucide-react';
 
 function getPathView() {
@@ -18,6 +20,8 @@ function getPathView() {
   if (hash.includes('type=recovery') || search.includes('mode=reset') || search.includes('type=recovery')) {
     return 'auth';
   }
+  if (path === '/privacy') return 'privacy';
+  if (path === '/terms') return 'terms';
   if (path === '/workspace') return 'dashboard';
   if (path === '/auth') return 'auth';
   return 'landing';
@@ -151,6 +155,16 @@ function AppContent() {
         }}
       />
     );
+  }
+
+  // Jika membuka halaman Kebijakan Privasi (Privacy Policy)
+  if (currentView === 'privacy') {
+    return <PrivacyPolicy onBack={handleGoToLanding} />;
+  }
+
+  // Jika membuka halaman Ketentuan Layanan (Terms of Service)
+  if (currentView === 'terms') {
+    return <TermsOfService onBack={handleGoToLanding} />;
   }
 
   // Jika pengguna memilih form Masuk / Daftar atau sedang reset password
