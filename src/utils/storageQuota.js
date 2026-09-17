@@ -51,7 +51,11 @@ export function getUserQuotaConfig(user, workspaces = []) {
     };
   }
 
-  const isUpgraded = Boolean(user.user_metadata?.is_upgraded || user.user_metadata?.tier === 'pro');
+  const isUpgraded = Boolean(
+    user.user_metadata?.is_upgraded || 
+    user.user_metadata?.tier === 'pro' ||
+    (workspaces || []).some(w => w.owner_id === user.id && (w.is_upgraded || w.tier === 'pro'))
+  );
   
   // Google OAuth otomatis dianggap terverifikasi oleh Google
   const isGoogleOAuth = user.app_metadata?.provider === 'google' || 
@@ -106,12 +110,25 @@ export function getWorkspaceQuotaConfig(workspace, currentUser, workspaces = [])
   }
 
   const isOwner = currentUser && workspace.owner_id === currentUser.id;
-  let baseConfig;
+  const isWsPro = Boolean(
+    workspace.is_upgraded || 
+    workspace.tier === 'pro' ||
+    (workspaces || []).some(w => w.owner_id === workspace.owner_id && (w.is_upgraded || w.tier === 'pro'))
+  );
 
+  let baseConfig;
   if (isOwner) {
-    baseConfig = getUserQuotaConfig(currentUser);
+    const isPro = isWsPro || Boolean(currentUser?.user_metadata?.is_upgraded || currentUser?.user_metadata?.tier === 'pro');
+    if (isPro) {
+      baseConfig = {
+        ...QUOTA_TIERS.pro,
+        isEmailConfirmed: true,
+        isUpgraded: true,
+      };
+    } else {
+      baseConfig = getUserQuotaConfig(currentUser, workspaces);
+    }
   } else {
-    const isWsPro = Boolean(workspace.is_upgraded || workspace.tier === 'pro');
     const baseTier = isWsPro ? QUOTA_TIERS.pro : QUOTA_TIERS.confirmed;
     baseConfig = {
       ...baseTier,

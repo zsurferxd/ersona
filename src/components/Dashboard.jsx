@@ -645,8 +645,29 @@ export default function Dashboard({ onGoToLanding }) {
       }
 
       if (wsList.length > 0) {
-        const isUserPro = Boolean(user.user_metadata?.is_upgraded || user.user_metadata?.tier === 'pro');
-        const updatedList = wsList.map(w => {
+        // Saring ruang kerja di mana user bergabung sebagai member namun statusnya masih 'pending'
+        let pendingWsIds = new Set();
+        try {
+          const { data: memberRows } = await supabase
+            .from('workspace_members')
+            .select('workspace_id, status')
+            .eq('user_id', user.id);
+          if (memberRows) {
+            memberRows.forEach(m => {
+              if (m.status === 'pending') pendingWsIds.add(m.workspace_id);
+            });
+          }
+        } catch {}
+
+        const accessibleWsList = wsList.filter(w => w.owner_id === user.id || !pendingWsIds.has(w.id));
+
+        const isUserPro = Boolean(
+          user.user_metadata?.is_upgraded || 
+          user.user_metadata?.tier === 'pro' ||
+          accessibleWsList.some(w => w.owner_id === user.id && (w.is_upgraded || w.tier === 'pro'))
+        );
+
+        const updatedList = accessibleWsList.map(w => {
           let hideInvite = w.hide_invite_code;
           if (typeof hideInvite !== 'boolean') {
             try {
@@ -665,14 +686,14 @@ export default function Dashboard({ onGoToLanding }) {
 
         // Background sync: update database record if owner is Pro
         if (isUserPro) {
-          const ownedWs = wsList.filter(w => w.owner_id === user.id && !w.is_upgraded);
+          const ownedWs = accessibleWsList.filter(w => w.owner_id === user.id && !w.is_upgraded);
           for (const ow of ownedWs) {
             supabase.from('workspaces').update({ is_upgraded: true, tier: 'pro' }).eq('id', ow.id).then(() => {});
           }
         }
 
         setWorkspaces(updatedList);
-        if (activeWorkspaceId && !updatedList.some(w => w.id === activeWorkspaceId)) {
+        if (activeWorkspaceId && (!updatedList.some(w => w.id === activeWorkspaceId) || pendingWsIds.has(activeWorkspaceId))) {
           setActiveWorkspaceId(null);
           try { localStorage.removeItem('ersona_active_workspace_id'); } catch {}
         }
@@ -881,8 +902,8 @@ export default function Dashboard({ onGoToLanding }) {
       const finalLimit = isNaN(parsed) || parsed <= 0 ? null : parsed;
 
       // Hitung batas pool pemilik yang tersedia (Strict Quota Pooling)
-      const ownerQuota = getUserQuotaConfig(user, workspaces);
-      const totalOwnerPool = ownerQuota.totalOwnerPool || ownerQuota.maxPhotos;
+      const wsQuota = getWorkspaceQuotaConfig(currentWorkspace, user, workspaces);
+      const totalOwnerPool = wsQuota.totalOwnerPool || (wsQuota.isUpgraded ? 1000 : wsQuota.maxPhotos);
       const allocatedInOtherWs = (workspaces || [])
         .filter(w => w.owner_id === user.id && w.id !== currentWorkspace.id)
         .reduce((acc, w) => acc + (typeof w.custom_photo_limit === 'number' && w.custom_photo_limit > 0 ? w.custom_photo_limit : 0), 0);
@@ -917,13 +938,37 @@ export default function Dashboard({ onGoToLanding }) {
     setWsActionLoading(true);
     setWsError('');
     try {
-      const { data: rpcData, error: rpcErr } = await supabase
-        .rpc('join_workspace_by_code', { code_input: joinInviteCode.trim() });
+      let rpcData = null;
 
-      if (!rpcErr && rpcData) {
+      // Panggil RPC join_workspace_by_invite_code yang mengecek requires_approval
+      const res1 = await supabase.rpc('join_workspace_by_invite_code', { code_input: joinInviteCode.trim() });
+      if (!res1.error && res1.data) {
+        rpcData = res1.data;
+      } else {
+        const res2 = await supabase.rpc('join_workspace_by_code', { code_input: joinInviteCode.trim() });
+        if (!res2.error && res2.data) {
+          rpcData = res2.data;
+        } else if (res1.error) {
+          throw res1.error;
+        }
+      }
+
+      if (rpcData) {
         if (!rpcData.success) {
           throw new Error(rpcData.message);
         }
+
+        // Jika ruang kerja memerlukan persetujuan pemilik dan statusnya pending
+        if (rpcData.pending) {
+          alert(rpcData.message || (isEn 
+            ? 'Your join request has been sent! Waiting for workspace owner approval.' 
+            : 'Permintaan bergabung telah dikirim! Menunggu persetujuan pemilik ruang kerja.'));
+          setJoinInviteCode('');
+          setIsJoinWsModalOpen(false);
+          await fetchWorkspaces();
+          return;
+        }
+
         await fetchWorkspaces();
         handleSwitchWorkspace(rpcData.workspace_id);
         setJoinInviteCode('');
@@ -931,12 +976,16 @@ export default function Dashboard({ onGoToLanding }) {
         return;
       }
 
+      // Fallback manual jika RPC gagal
       const { data: wsData, error: wsErr } = await supabase
         .from('workspaces')
-        .select('id, name, owner_id')
+        .select('id, name, owner_id, requires_approval')
         .ilike('invite_code', joinInviteCode.trim())
         .single();
       if (wsErr || !wsData) throw new Error('Kode undangan tidak ditemukan');
+
+      const isPending = Boolean(wsData.requires_approval && wsData.owner_id !== user.id);
+      const initialStatus = isPending ? 'pending' : 'active';
 
       const { error: joinErr } = await supabase
         .from('workspace_members')
@@ -944,9 +993,19 @@ export default function Dashboard({ onGoToLanding }) {
           workspace_id: wsData.id,
           user_id: user.id,
           user_email: user.email,
-          role: 'member'
+          role: 'member',
+          status: initialStatus
         });
       if (joinErr && !joinErr.message?.includes('duplicate')) throw joinErr;
+
+      if (isPending) {
+        alert(isEn 
+          ? 'Your join request has been sent! Waiting for workspace owner approval.' 
+          : 'Permintaan bergabung telah dikirim! Menunggu persetujuan pemilik ruang kerja.');
+        setJoinInviteCode('');
+        setIsJoinWsModalOpen(false);
+        return;
+      }
 
       await fetchWorkspaces();
       handleSwitchWorkspace(wsData.id);
@@ -4617,326 +4676,340 @@ export default function Dashboard({ onGoToLanding }) {
       {/* MODAL: MANAJEMEN ANGGOTA & PENGATURAN WORKSPACE TIM */}
       {isWsMembersModalOpen && currentWorkspace && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
-          <div className="bg-white dark:bg-[#202020] border border-neutral-200 dark:border-neutral-800 rounded-2xl w-full max-w-lg p-5 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 max-h-[90vh] flex flex-col">
-            <div className="flex items-center justify-between shrink-0">
-              <div className="flex items-center space-x-2">
-                <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center">
+          <div className="bg-white dark:bg-[#202020] border border-neutral-200 dark:border-neutral-800 rounded-2xl w-full max-w-lg shadow-2xl animate-in fade-in zoom-in-95 max-h-[88vh] flex flex-col overflow-hidden">
+            {/* 1. Header (Fixed at top) */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-100 dark:border-neutral-800 shrink-0 bg-white dark:bg-[#202020]">
+              <div className="flex items-center space-x-3">
+                <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center shrink-0">
                   <Users className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">{currentWorkspace.name}</h3>
-                  <p className="text-[11px] text-neutral-400 dark:text-neutral-500">{workspaceMembers.length} {isEn ? 'collaborators in this workspace' : 'kolaborator dalam ruang kerja ini'}</p>
+                  <div className="flex items-center space-x-2">
+                    <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">{currentWorkspace.name}</h3>
+                    <span className="inline-flex items-center space-x-1 text-[10px] font-medium text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-900/60">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                      <span>{t('dashboard.liveSyncActive')}</span>
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-neutral-400 dark:text-neutral-500">
+                    {workspaceMembers.length} {isEn ? 'collaborators in this workspace' : 'kolaborator dalam ruang kerja ini'}
+                  </p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setIsWsMembersModalOpen(false)}
-                className="text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 p-1 cursor-pointer"
+                className="text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 p-1.5 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            {/* Invite Code & Link Box */}
-            {currentWorkspace.owner_id === user.id ? (
-              <div className="p-3 bg-neutral-50 dark:bg-[#282828] rounded-xl border border-neutral-200 dark:border-neutral-700 space-y-2 shrink-0">
-                <div className="flex items-center justify-between text-xs">
-                  <div className="flex items-center space-x-2">
-                    <span className="font-medium text-neutral-700 dark:text-neutral-300">{t('dashboard.inviteCode')}</span>
-                    {currentWorkspace.hide_invite_code ? (
-                      <span className="inline-flex items-center space-x-1 text-[10px] font-medium text-amber-700 dark:text-amber-400 bg-amber-100/70 dark:bg-amber-950/60 px-1.5 py-0.5 rounded border border-amber-200/80 dark:border-amber-800/80">
-                        <EyeOff className="w-2.5 h-2.5" />
-                        <span>{t('dashboard.hiddenFromMembersBadge')}</span>
-                      </span>
+            {/* 2. Scrollable Body (Scrolls smoothly without cutting off anything) */}
+            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3.5 min-h-0">
+              {/* Invite Code & Link Box */}
+              {currentWorkspace.owner_id === user.id ? (
+                <div className="p-3 bg-neutral-50 dark:bg-[#282828] rounded-xl border border-neutral-200 dark:border-neutral-700 space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <div className="flex items-center space-x-2">
+                      <span className="font-medium text-neutral-700 dark:text-neutral-300">{t('dashboard.inviteCode')}</span>
+                      {currentWorkspace.hide_invite_code ? (
+                        <span className="inline-flex items-center space-x-1 text-[10px] font-medium text-amber-700 dark:text-amber-400 bg-amber-100/70 dark:bg-amber-950/60 px-1.5 py-0.5 rounded border border-amber-200/80 dark:border-amber-800/80">
+                          <EyeOff className="w-2.5 h-2.5" />
+                          <span>{t('dashboard.hiddenFromMembersBadge')}</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center space-x-1 text-[10px] font-medium text-neutral-600 dark:text-neutral-400 bg-neutral-200/70 dark:bg-neutral-700 px-1.5 py-0.5 rounded">
+                          <Eye className="w-2.5 h-2.5" />
+                          <span>{t('dashboard.visibleToMembersBadge')}</span>
+                        </span>
+                      )}
+                    </div>
+                    <span className="font-mono font-bold bg-white dark:bg-[#202020] px-2 py-0.5 rounded border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100">
+                      {currentWorkspace.invite_code}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const inviteLink = `${window.location.origin}/workspace?join=${currentWorkspace.invite_code}`;
+                      navigator.clipboard?.writeText(inviteLink);
+                      setCopiedInvite(true);
+                      setTimeout(() => setCopiedInvite(false), 2500);
+                    }}
+                    className="w-full flex items-center justify-center space-x-1.5 p-2 bg-white dark:bg-[#202020] hover:bg-neutral-100 dark:hover:bg-[#303030] text-neutral-800 dark:text-neutral-200 border border-neutral-200 dark:border-neutral-700 rounded-lg text-xs font-medium transition cursor-pointer"
+                  >
+                    {copiedInvite ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                        <span className="text-emerald-600 font-semibold">{t('dashboard.inviteLinkCopied')}</span>
+                      </>
                     ) : (
-                      <span className="inline-flex items-center space-x-1 text-[10px] font-medium text-neutral-600 dark:text-neutral-400 bg-neutral-200/70 dark:bg-neutral-700 px-1.5 py-0.5 rounded">
-                        <Eye className="w-2.5 h-2.5" />
-                        <span>{t('dashboard.visibleToMembersBadge')}</span>
-                      </span>
+                      <>
+                        <Copy className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
+                        <span>{t('dashboard.copyInviteLink')}</span>
+                      </>
                     )}
-                  </div>
-                  <span className="font-mono font-bold bg-white dark:bg-[#202020] px-2 py-0.5 rounded border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100">
-                    {currentWorkspace.invite_code}
-                  </span>
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const inviteLink = `${window.location.origin}/workspace?join=${currentWorkspace.invite_code}`;
-                    navigator.clipboard?.writeText(inviteLink);
-                    setCopiedInvite(true);
-                    setTimeout(() => setCopiedInvite(false), 2500);
-                  }}
-                  className="w-full flex items-center justify-center space-x-1.5 p-2 bg-white dark:bg-[#202020] hover:bg-neutral-100 dark:hover:bg-[#303030] text-neutral-800 dark:text-neutral-200 border border-neutral-200 dark:border-neutral-700 rounded-lg text-xs font-medium transition cursor-pointer"
-                >
-                  {copiedInvite ? (
-                    <>
-                      <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                      <span className="text-emerald-600 font-semibold">{t('dashboard.inviteLinkCopied')}</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
-                      <span>{t('dashboard.copyInviteLink')}</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            ) : currentWorkspace.hide_invite_code ? (
-              <div className="p-3 bg-neutral-50 dark:bg-[#282828] rounded-xl border border-neutral-200 dark:border-neutral-700 flex items-center space-x-2.5 text-xs text-neutral-500 dark:text-neutral-400 shrink-0">
-                <EyeOff className="w-4 h-4 text-neutral-400 shrink-0" />
-                <span>{t('dashboard.inviteCodeHiddenForMembers')}</span>
-              </div>
-            ) : (
-              <div className="p-3 bg-neutral-50 dark:bg-[#282828] rounded-xl border border-neutral-200 dark:border-neutral-700 space-y-2 shrink-0">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-medium text-neutral-700 dark:text-neutral-300">{t('dashboard.inviteCode')}</span>
-                  <span className="font-mono font-bold bg-white dark:bg-[#202020] px-2 py-0.5 rounded border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100">
-                    {currentWorkspace.invite_code}
-                  </span>
+              ) : currentWorkspace.hide_invite_code ? (
+                <div className="p-3 bg-neutral-50 dark:bg-[#282828] rounded-xl border border-neutral-200 dark:border-neutral-700 flex items-center space-x-2.5 text-xs text-neutral-500 dark:text-neutral-400">
+                  <EyeOff className="w-4 h-4 text-neutral-400 shrink-0" />
+                  <span>{t('dashboard.inviteCodeHiddenForMembers')}</span>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const inviteLink = `${window.location.origin}/workspace?join=${currentWorkspace.invite_code}`;
-                    navigator.clipboard?.writeText(inviteLink);
-                    setCopiedInvite(true);
-                    setTimeout(() => setCopiedInvite(false), 2500);
-                  }}
-                  className="w-full flex items-center justify-center space-x-1.5 p-2 bg-white dark:bg-[#202020] hover:bg-neutral-100 dark:hover:bg-[#303030] text-neutral-800 dark:text-neutral-200 border border-neutral-200 dark:border-neutral-700 rounded-lg text-xs font-medium transition cursor-pointer"
-                >
-                  {copiedInvite ? (
-                    <>
-                      <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                      <span className="text-emerald-600 font-semibold">{t('dashboard.inviteLinkCopied')}</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
-                      <span>{t('dashboard.copyInviteLink')}</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            )}
-
-            {/* Live Sync Active Banner */}
-            <div className="flex items-center space-x-2 text-[11px] text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 p-2 rounded-lg border border-emerald-200 dark:border-emerald-900/60 shrink-0">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span>{t('dashboard.liveSyncActive')}</span>
-            </div>
-
-            {/* Khusus Pemilik: Toggle Perlu Persetujuan Bergabung (Requires Approval) */}
-            {currentWorkspace.owner_id === user.id && (
-              <div className="p-3 bg-neutral-50 dark:bg-[#282828] rounded-xl border border-neutral-200 dark:border-neutral-700 space-y-1.5 shrink-0">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-1.5 text-xs font-semibold text-neutral-800 dark:text-neutral-200">
-                    <ShieldCheck className="w-3.5 h-3.5 text-blue-500" />
-                    <span>{t('dashboard.requiresApproval')}</span>
+              ) : (
+                <div className="p-3 bg-neutral-50 dark:bg-[#282828] rounded-xl border border-neutral-200 dark:border-neutral-700 space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-medium text-neutral-700 dark:text-neutral-300">{t('dashboard.inviteCode')}</span>
+                    <span className="font-mono font-bold bg-white dark:bg-[#202020] px-2 py-0.5 rounded border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100">
+                      {currentWorkspace.invite_code}
+                    </span>
                   </div>
                   <button
                     type="button"
-                    onClick={() => handleToggleRequiresApproval(!currentWorkspace.requires_approval)}
-                    className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
-                      currentWorkspace.requires_approval ? 'bg-neutral-900 dark:bg-white' : 'bg-neutral-300 dark:bg-neutral-700'
-                    }`}
+                    onClick={() => {
+                      const inviteLink = `${window.location.origin}/workspace?join=${currentWorkspace.invite_code}`;
+                      navigator.clipboard?.writeText(inviteLink);
+                      setCopiedInvite(true);
+                      setTimeout(() => setCopiedInvite(false), 2500);
+                    }}
+                    className="w-full flex items-center justify-center space-x-1.5 p-2 bg-white dark:bg-[#202020] hover:bg-neutral-100 dark:hover:bg-[#303030] text-neutral-800 dark:text-neutral-200 border border-neutral-200 dark:border-neutral-700 rounded-lg text-xs font-medium transition cursor-pointer"
                   >
-                    <span
-                      className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white dark:bg-neutral-900 shadow-sm ring-0 transition duration-200 ease-in-out ${
-                        currentWorkspace.requires_approval ? 'translate-x-4' : 'translate-x-0'
-                      }`}
-                    />
+                    {copiedInvite ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                        <span className="text-emerald-600 font-semibold">{t('dashboard.inviteLinkCopied')}</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
+                        <span>{t('dashboard.copyInviteLink')}</span>
+                      </>
+                    )}
                   </button>
                 </div>
-                <p className="text-[11px] text-neutral-500 dark:text-neutral-400 leading-tight">
-                  {t('dashboard.requiresApprovalDesc')}
-                </p>
-              </div>
-            )}
+              )}
 
-            {/* Khusus Pemilik: Toggle Sembunyikan Kode Undangan dari Anggota */}
-            {currentWorkspace.owner_id === user.id && (
-              <div className="p-3 bg-neutral-50 dark:bg-[#282828] rounded-xl border border-neutral-200 dark:border-neutral-700 space-y-1.5 shrink-0">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-1.5 text-xs font-semibold text-neutral-800 dark:text-neutral-200">
-                    <EyeOff className="w-3.5 h-3.5 text-amber-500" />
-                    <span>{t('dashboard.hideInviteCode')}</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleToggleHideInviteCode(!currentWorkspace.hide_invite_code)}
-                    className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
-                      currentWorkspace.hide_invite_code ? 'bg-neutral-900 dark:bg-white' : 'bg-neutral-300 dark:bg-neutral-700'
-                    }`}
-                  >
-                    <span
-                      className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white dark:bg-neutral-900 shadow-sm ring-0 transition duration-200 ease-in-out ${
-                        currentWorkspace.hide_invite_code ? 'translate-x-4' : 'translate-x-0'
+              {/* Khusus Pemilik: Pengaturan Akses & Keamanan Workspace */}
+              {currentWorkspace.owner_id === user.id && (
+                <div className="p-3 bg-neutral-50 dark:bg-[#282828] rounded-xl border border-neutral-200 dark:border-neutral-700 space-y-2.5">
+                  {/* Toggle Require Approval */}
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5 pr-2">
+                      <div className="flex items-center space-x-1.5 text-xs font-semibold text-neutral-800 dark:text-neutral-200">
+                        <ShieldCheck className="w-3.5 h-3.5 text-blue-500" />
+                        <span>{t('dashboard.requiresApproval')}</span>
+                      </div>
+                      <p className="text-[11px] text-neutral-500 dark:text-neutral-400 leading-tight">
+                        {t('dashboard.requiresApprovalDesc')}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleRequiresApproval(!currentWorkspace.requires_approval)}
+                      className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
+                        currentWorkspace.requires_approval ? 'bg-neutral-900 dark:bg-white' : 'bg-neutral-300 dark:bg-neutral-700'
                       }`}
-                    />
-                  </button>
-                </div>
-                <p className="text-[11px] text-neutral-500 dark:text-neutral-400 leading-tight">
-                  {t('dashboard.hideInviteCodeDesc')}
-                </p>
-              </div>
-            )}
-
-            {/* Khusus Pemilik: Daftar Permintaan Bergabung yang Menunggu Persetujuan */}
-            {currentWorkspace.owner_id === user.id && workspaceMembers.some(m => m.status === 'pending') && (
-              <div className="p-3 bg-amber-50/70 dark:bg-amber-950/40 rounded-xl border border-amber-200/80 dark:border-amber-800/60 space-y-2 shrink-0">
-                <div className="flex items-center space-x-1.5 text-xs font-semibold text-amber-900 dark:text-amber-200">
-                  <Clock className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-                  <span>{t('dashboard.pendingApprovals')} ({workspaceMembers.filter(m => m.status === 'pending').length})</span>
-                </div>
-                <div className="space-y-1.5">
-                  {workspaceMembers.filter(m => m.status === 'pending').map(pendingMember => (
-                    <div
-                      key={pendingMember.id}
-                      className="flex items-center justify-between p-2 rounded-lg bg-white dark:bg-[#252525] border border-amber-200/70 dark:border-amber-800/70 text-xs shadow-2xs"
                     >
-                      <div className="flex items-center space-x-2 truncate">
-                        <div className="w-6 h-6 rounded-full bg-amber-200 dark:bg-amber-800 text-amber-900 dark:text-amber-100 flex items-center justify-center text-[10px] font-bold uppercase shrink-0">
-                          {(pendingMember.user_email || 'U')[0]}
+                      <span
+                        className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white dark:bg-neutral-900 shadow-sm ring-0 transition duration-200 ease-in-out ${
+                          currentWorkspace.requires_approval ? 'translate-x-4' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  <div className="border-t border-neutral-200/70 dark:border-neutral-700/70" />
+
+                  {/* Toggle Hide Invite Code */}
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5 pr-2">
+                      <div className="flex items-center space-x-1.5 text-xs font-semibold text-neutral-800 dark:text-neutral-200">
+                        <EyeOff className="w-3.5 h-3.5 text-amber-500" />
+                        <span>{t('dashboard.hideInviteCode')}</span>
+                      </div>
+                      <p className="text-[11px] text-neutral-500 dark:text-neutral-400 leading-tight">
+                        {t('dashboard.hideInviteCodeDesc')}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleHideInviteCode(!currentWorkspace.hide_invite_code)}
+                      className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
+                        currentWorkspace.hide_invite_code ? 'bg-neutral-900 dark:bg-white' : 'bg-neutral-300 dark:bg-neutral-700'
+                      }`}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white dark:bg-neutral-900 shadow-sm ring-0 transition duration-200 ease-in-out ${
+                          currentWorkspace.hide_invite_code ? 'translate-x-4' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Khusus Pemilik: Daftar Permintaan Bergabung yang Menunggu Persetujuan */}
+              {currentWorkspace.owner_id === user.id && workspaceMembers.some(m => m.status === 'pending') && (
+                <div className="p-3 bg-amber-50/70 dark:bg-amber-950/40 rounded-xl border border-amber-200/80 dark:border-amber-800/60 space-y-2">
+                  <div className="flex items-center space-x-1.5 text-xs font-semibold text-amber-900 dark:text-amber-200">
+                    <Clock className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                    <span>{t('dashboard.pendingApprovals')} ({workspaceMembers.filter(m => m.status === 'pending').length})</span>
+                  </div>
+                  <div className="space-y-1.5">
+                    {workspaceMembers.filter(m => m.status === 'pending').map(pendingMember => (
+                      <div
+                        key={pendingMember.id}
+                        className="flex items-center justify-between p-2 rounded-lg bg-white dark:bg-[#252525] border border-amber-200/70 dark:border-amber-800/70 text-xs shadow-2xs"
+                      >
+                        <div className="flex items-center space-x-2 truncate">
+                          <div className="w-6 h-6 rounded-full bg-amber-200 dark:bg-amber-800 text-amber-900 dark:text-amber-100 flex items-center justify-center text-[10px] font-bold uppercase shrink-0">
+                            {(pendingMember.user_email || 'U')[0]}
+                          </div>
+                          <span className="text-neutral-800 dark:text-neutral-200 truncate">{pendingMember.user_email || 'User'}</span>
                         </div>
-                        <span className="text-neutral-800 dark:text-neutral-200 truncate">{pendingMember.user_email || 'User'}</span>
+                        <div className="flex items-center space-x-1.5 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => handleApproveMember(pendingMember.id)}
+                            className="px-2.5 py-1 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-semibold transition cursor-pointer"
+                          >
+                            {t('dashboard.approveMember')}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleKickMember(pendingMember.user_id)}
+                            className="px-2.5 py-1 rounded-md bg-neutral-200 hover:bg-red-100 dark:bg-neutral-700 dark:hover:bg-red-950/80 text-neutral-700 dark:text-neutral-300 hover:text-red-700 dark:hover:text-red-400 text-[11px] font-semibold transition cursor-pointer"
+                          >
+                            {t('dashboard.rejectMember')}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Daftar Anggota Aktif */}
+              <div className="space-y-1.5">
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400 dark:text-neutral-500 mb-1">
+                  {t('dashboard.workspaceMembers')} ({workspaceMembers.filter(m => m.status !== 'pending').length})
+                </div>
+                <div className="space-y-1.5 max-h-[140px] overflow-y-auto pr-1">
+                  {workspaceMembers.filter(m => m.status !== 'pending').map(m => (
+                    <div key={m.id} className="flex items-center justify-between p-2 rounded-lg bg-neutral-50 dark:bg-[#252525] border border-neutral-100 dark:border-neutral-800 text-xs">
+                      <div className="flex items-center space-x-2 truncate">
+                        <div className="w-6 h-6 rounded-full bg-neutral-200 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 flex items-center justify-center text-[10px] font-bold uppercase shrink-0">
+                          {(m.user_email || 'U')[0]}
+                        </div>
+                        <span className="text-neutral-800 dark:text-neutral-200 truncate">{m.user_email || 'Member'}</span>
+                        {m.user_id === user.id && (
+                          <span className="text-[10px] bg-neutral-200 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300 px-1 rounded font-medium shrink-0">You</span>
+                        )}
                       </div>
                       <div className="flex items-center space-x-1.5 shrink-0">
-                        <button
-                          type="button"
-                          onClick={() => handleApproveMember(pendingMember.id)}
-                          className="px-2 py-0.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-medium transition cursor-pointer"
-                        >
-                          {t('dashboard.approveMember')}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleKickMember(pendingMember.user_id)}
-                          className="px-2 py-0.5 rounded bg-neutral-200 hover:bg-red-100 dark:bg-neutral-700 dark:hover:bg-red-950/80 text-neutral-700 dark:text-neutral-300 hover:text-red-700 dark:hover:text-red-400 text-[10px] font-medium transition cursor-pointer"
-                        >
-                          {t('dashboard.rejectMember')}
-                        </button>
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                          m.role === 'owner' 
+                            ? 'bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300' 
+                            : 'bg-neutral-200 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300'
+                        }`}>
+                          {m.role === 'owner' ? t('dashboard.roleOwner') : t('dashboard.roleMember')}
+                        </span>
+                        {/* Tombol Keluarkan / Kick Anggota (Hanya untuk Owner terhadap member lain) */}
+                        {currentWorkspace.owner_id === user.id && m.role !== 'owner' && (
+                          <button
+                            type="button"
+                            onClick={() => handleKickMember(m.user_id)}
+                            className="p-1 rounded-md text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/50 transition cursor-pointer"
+                            title={t('dashboard.kickMember')}
+                          >
+                            <UserMinus className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))}
                 </div>
               </div>
-            )}
 
-            {/* Daftar Anggota Aktif */}
-            <div className="flex-1 overflow-y-auto space-y-1.5 min-h-[120px]">
-              <div className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400 dark:text-neutral-500 mb-1">
-                {t('dashboard.workspaceMembers')} ({workspaceMembers.filter(m => m.status !== 'pending').length})
-              </div>
-              {workspaceMembers.filter(m => m.status !== 'pending').map(m => (
-                <div key={m.id} className="flex items-center justify-between p-2 rounded-lg bg-neutral-50 dark:bg-[#252525] border border-neutral-100 dark:border-neutral-800 text-xs">
-                  <div className="flex items-center space-x-2 truncate">
-                    <div className="w-6 h-6 rounded-full bg-neutral-200 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 flex items-center justify-center text-[10px] font-bold uppercase shrink-0">
-                      {(m.user_email || 'U')[0]}
+              {/* Pengaturan Batas Foto Khusus Workspace (Strict Quota Pooling) */}
+              {(() => {
+                const wsQuota = getWorkspaceQuotaConfig(currentWorkspace, user, workspaces);
+                const ownerTotal = wsQuota.totalOwnerPool || (wsQuota.isUpgraded ? 1000 : wsQuota.maxPhotos);
+                const allocatedOther = (workspaces || [])
+                  .filter(w => w.owner_id === user?.id && w.id !== currentWorkspace.id)
+                  .reduce((acc, w) => acc + (typeof w.custom_photo_limit === 'number' && w.custom_photo_limit > 0 ? w.custom_photo_limit : 0), 0);
+                const maxAllocatable = Math.max(0, ownerTotal - allocatedOther);
+                const effectiveBadgeLimit = currentWorkspace.custom_photo_limit 
+                  ? Math.min(currentWorkspace.custom_photo_limit, maxAllocatable)
+                  : null;
+
+                return (
+                  <div className="p-3 bg-neutral-50 dark:bg-[#282828] rounded-xl border border-neutral-200 dark:border-neutral-700 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-1.5 text-xs font-semibold text-neutral-800 dark:text-neutral-200">
+                        <Image className="w-3.5 h-3.5 text-neutral-500" />
+                        <span>{t('dashboard.workspacePhotoLimitTitle')}</span>
+                      </div>
+                      {effectiveBadgeLimit ? (
+                        <span className="text-[10px] font-medium bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded">
+                          {effectiveBadgeLimit} {isEn ? 'photos' : 'foto'}
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-medium bg-neutral-200 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300 px-1.5 py-0.5 rounded">
+                          {isEn ? `Inherited (${maxAllocatable})` : `Otomatis (${maxAllocatable})`}
+                        </span>
+                      )}
                     </div>
-                    <span className="text-neutral-800 dark:text-neutral-200 truncate">{m.user_email || 'Member'}</span>
-                    {m.user_id === user.id && (
-                      <span className="text-[10px] bg-neutral-200 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300 px-1 rounded font-medium shrink-0">You</span>
+                    <p className="text-[11px] text-neutral-500 dark:text-neutral-400 leading-tight">
+                      {isEn 
+                        ? 'Set a custom photo limit for this workspace deducted from your shared owner pool, or leave blank to use the remaining available quota.'
+                        : 'Atur batas foto khusus untuk workspace ini yang dipotong dari kuota pool pemilik, atau kosongkan untuk memakai sisa kuota yang tersedia.'}
+                    </p>
+                    {currentWorkspace.owner_id === user.id ? (
+                      <div className="space-y-1.5 pt-1">
+                        <div className="flex items-center justify-between text-[11px] text-neutral-500 dark:text-neutral-400 bg-neutral-100/70 dark:bg-[#202020] px-2.5 py-1 rounded-md border border-neutral-200/60 dark:border-neutral-700/60">
+                          <span>{t('dashboard.remainingPoolHint')}:</span>
+                          <span className="font-semibold text-neutral-800 dark:text-neutral-200">{maxAllocatable} {isEn ? 'photos' : 'foto'}</span>
+                        </div>
+                        <form onSubmit={handleSaveWorkspacePhotoLimit} className="flex items-center space-x-2">
+                          <input
+                            type="number"
+                            min="1"
+                            max={maxAllocatable}
+                            placeholder={isEn ? `Max ${maxAllocatable} (blank for default)` : `Maks ${maxAllocatable} (kosongkan = default)`}
+                            value={wsCustomPhotoLimit}
+                            onChange={(e) => setWsCustomPhotoLimit(e.target.value)}
+                            className="flex-1 px-3 py-1.5 text-xs rounded-lg bg-white dark:bg-[#1f1f1f] border border-neutral-200 dark:border-neutral-700 text-neutral-800 dark:text-neutral-200 focus:outline-hidden focus:ring-1 focus:ring-neutral-400 dark:focus:ring-neutral-500"
+                          />
+                          <button
+                            type="submit"
+                            disabled={isSavingWsLimit}
+                            className="px-3 py-1.5 text-xs font-medium bg-neutral-900 hover:bg-neutral-800 dark:bg-white dark:hover:bg-neutral-100 text-white dark:text-neutral-900 rounded-lg transition disabled:opacity-50 cursor-pointer shrink-0 flex items-center space-x-1"
+                          >
+                            {isSavingWsLimit && <Loader2 className="w-3 h-3 animate-spin" />}
+                            <span>{isEn ? 'Save' : 'Simpan'}</span>
+                          </button>
+                        </form>
+                      </div>
+                    ) : (
+                      <div className="text-[11px] text-neutral-500 dark:text-neutral-400 italic">
+                        {isEn ? 'Only workspace owner can change photo limit.' : 'Hanya pemilik workspace yang dapat mengubah batas foto.'}
+                      </div>
+                    )}
+                    {wsLimitSaveMsg && (
+                      <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center space-x-1">
+                        <Check className="w-3 h-3" />
+                        <span>{wsLimitSaveMsg}</span>
+                      </div>
                     )}
                   </div>
-                  <div className="flex items-center space-x-1.5 shrink-0">
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
-                      m.role === 'owner' 
-                        ? 'bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300' 
-                        : 'bg-neutral-200 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300'
-                    }`}>
-                      {m.role === 'owner' ? t('dashboard.roleOwner') : t('dashboard.roleMember')}
-                    </span>
-                    {/* Tombol Keluarkan / Kick Anggota (Hanya untuk Owner terhadap member lain) */}
-                    {currentWorkspace.owner_id === user.id && m.role !== 'owner' && (
-                      <button
-                        type="button"
-                        onClick={() => handleKickMember(m.user_id)}
-                        className="p-1 rounded-md text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/50 transition cursor-pointer"
-                        title={t('dashboard.kickMember')}
-                      >
-                        <UserMinus className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
+                );
+              })()}
             </div>
 
-            {/* Pengaturan Batas Foto Khusus Workspace (Strict Quota Pooling) */}
-            {(() => {
-              const ownerQuotaInfo = getUserQuotaConfig(user, workspaces);
-              const ownerTotal = ownerQuotaInfo.totalOwnerPool || ownerQuotaInfo.maxPhotos;
-              const allocatedOther = (workspaces || [])
-                .filter(w => w.owner_id === user?.id && w.id !== currentWorkspace.id)
-                .reduce((acc, w) => acc + (typeof w.custom_photo_limit === 'number' && w.custom_photo_limit > 0 ? w.custom_photo_limit : 0), 0);
-              const maxAllocatable = Math.max(0, ownerTotal - allocatedOther);
-
-              return (
-                <div className="p-3 bg-neutral-50 dark:bg-[#282828] rounded-xl border border-neutral-200 dark:border-neutral-700 space-y-2 shrink-0">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-1.5 text-xs font-semibold text-neutral-800 dark:text-neutral-200">
-                      <Image className="w-3.5 h-3.5 text-neutral-500" />
-                      <span>{t('dashboard.workspacePhotoLimitTitle')}</span>
-                    </div>
-                    {currentWorkspace.custom_photo_limit ? (
-                      <span className="text-[10px] font-medium bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded">
-                        {currentWorkspace.custom_photo_limit} {isEn ? 'photos' : 'foto'}
-                      </span>
-                    ) : (
-                      <span className="text-[10px] font-medium bg-neutral-200 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300 px-1.5 py-0.5 rounded">
-                        {isEn ? `Inherited (${maxAllocatable})` : `Otomatis (${maxAllocatable})`}
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-[11px] text-neutral-500 dark:text-neutral-400 leading-tight">
-                    {isEn 
-                      ? 'Set a custom photo limit for this workspace deducted from your shared owner pool, or leave blank to use the remaining available quota.'
-                      : 'Atur batas foto khusus untuk workspace ini yang dipotong dari kuota pool pemilik, atau kosongkan untuk memakai sisa kuota yang tersedia.'}
-                  </p>
-                  {currentWorkspace.owner_id === user.id ? (
-                    <div className="space-y-1.5 pt-1">
-                      <div className="flex items-center justify-between text-[11px] text-neutral-500 dark:text-neutral-400 bg-neutral-100/70 dark:bg-[#202020] px-2.5 py-1 rounded-md border border-neutral-200/60 dark:border-neutral-700/60">
-                        <span>{t('dashboard.remainingPoolHint')}:</span>
-                        <span className="font-semibold text-neutral-800 dark:text-neutral-200">{maxAllocatable} {isEn ? 'photos' : 'foto'}</span>
-                      </div>
-                      <form onSubmit={handleSaveWorkspacePhotoLimit} className="flex items-center space-x-2">
-                        <input
-                          type="number"
-                          min="1"
-                          max={maxAllocatable}
-                          placeholder={isEn ? `Max ${maxAllocatable} (blank for default)` : `Maks ${maxAllocatable} (kosongkan = default)`}
-                          value={wsCustomPhotoLimit}
-                          onChange={(e) => setWsCustomPhotoLimit(e.target.value)}
-                          className="flex-1 px-3 py-1.5 text-xs rounded-lg bg-white dark:bg-[#1f1f1f] border border-neutral-200 dark:border-neutral-700 text-neutral-800 dark:text-neutral-200 focus:outline-hidden focus:ring-1 focus:ring-neutral-400 dark:focus:ring-neutral-500"
-                        />
-                        <button
-                          type="submit"
-                          disabled={isSavingWsLimit}
-                          className="px-3 py-1.5 text-xs font-medium bg-neutral-900 hover:bg-neutral-800 dark:bg-white dark:hover:bg-neutral-100 text-white dark:text-neutral-900 rounded-lg transition disabled:opacity-50 cursor-pointer shrink-0 flex items-center space-x-1"
-                        >
-                          {isSavingWsLimit && <Loader2 className="w-3 h-3 animate-spin" />}
-                          <span>{isEn ? 'Save' : 'Simpan'}</span>
-                        </button>
-                      </form>
-                    </div>
-                  ) : (
-                    <div className="text-[11px] text-neutral-500 dark:text-neutral-400 italic">
-                      {isEn ? 'Only workspace owner can change photo limit.' : 'Hanya pemilik workspace yang dapat mengubah batas foto.'}
-                    </div>
-                  )}
-                  {wsLimitSaveMsg && (
-                    <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center space-x-1">
-                      <Check className="w-3 h-3" />
-                      <span>{wsLimitSaveMsg}</span>
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
-
-            {/* Danger Zone Actions */}
-            <div className="pt-3 border-t border-neutral-100 dark:border-neutral-800 flex items-center justify-between shrink-0">
+            {/* 3. Footer (Fixed at bottom - always visible and never cut off) */}
+            <div className="px-5 py-3.5 border-t border-neutral-100 dark:border-neutral-800 flex items-center justify-between shrink-0 bg-neutral-50/80 dark:bg-[#1a1a1a]/80">
               {currentWorkspace.owner_id === user.id ? (
                 <button
                   type="button"
@@ -4959,7 +5032,7 @@ export default function Dashboard({ onGoToLanding }) {
               <button
                 type="button"
                 onClick={() => setIsWsMembersModalOpen(false)}
-                className="px-3.5 py-1.5 text-xs font-medium bg-neutral-900 hover:bg-neutral-800 dark:bg-white dark:hover:bg-neutral-100 text-white dark:text-neutral-900 rounded-lg transition cursor-pointer"
+                className="px-4 py-1.5 text-xs font-semibold bg-neutral-900 hover:bg-neutral-800 dark:bg-white dark:hover:bg-neutral-100 text-white dark:text-neutral-900 rounded-lg transition cursor-pointer"
               >
                 {t('common.close')}
               </button>
