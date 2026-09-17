@@ -54,6 +54,13 @@ function AppContent() {
   useEffect(() => {
     if (loading) return;
 
+    // Halaman publik resmi (Privacy Policy & Terms of Service) tidak boleh dialihkan ke workspace!
+    const currentPath = window.location.pathname.toLowerCase();
+    if (currentPath === '/privacy' || currentPath === '/terms') {
+      setCurrentView(currentPath.substring(1));
+      return;
+    }
+
     // Jika sedang dalam proses reset kata sandi, JANGAN arahkan ke workspace!
     if (isRecovery) {
       setCurrentView('auth');
@@ -91,6 +98,10 @@ function AppContent() {
   useEffect(() => {
     const handlePopState = () => {
       const view = getPathView();
+      if (view === 'privacy' || view === 'terms') {
+        setCurrentView(view);
+        return;
+      }
       if (view === 'dashboard' && !user) {
         setCurrentView('landing');
         window.history.replaceState(null, '', '/');
