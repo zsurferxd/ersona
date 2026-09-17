@@ -266,6 +266,33 @@ export const translations = {
       workspacePhotoLimitTitle: 'Batas Foto Workspace',
       remainingPoolHint: 'Sisa kuota pool yang dapat dialokasikan untuk workspace ini',
       poolExceededError: 'Batas foto melebihi sisa kuota pool Anda!',
+
+      // Task Assignment & Filter
+      assignToLabel: 'Tugaskan ke',
+      unassigned: 'Belum Ditugaskan',
+      assignToMe: 'Tugaskan ke Saya',
+      filterAllTasks: 'Semua Tugas',
+      filterMyTasks: 'Tugas Saya',
+      assignedToUser: 'Ditugaskan ke',
+
+      // Team Chatroom
+      teamChatTitle: 'Obrolan Tim',
+      teamChatPlaceholder: 'Tulis pesan untuk tim... (Enter untuk kirim)',
+      noChatMessages: 'Belum ada obrolan. Mulai percakapan pertama tim Anda!',
+      sendChatBtn: 'Kirim',
+
+      // Task Comments / Discussion
+      taskDiscussion: 'Diskusi & Komentar Tugas',
+      addCommentPlaceholder: 'Tulis komentar atau pembaruan tugas...',
+      postCommentBtn: 'Kirim Komentar',
+      noCommentsYet: 'Belum ada komentar untuk tugas ini.',
+
+      // Calm Notifications
+      notificationsTitle: 'Notifikasi',
+      markAllAsRead: 'Tandai Semua Dibaca',
+      noNotifications: 'Tidak ada notifikasi baru.',
+      notifTaskAssigned: 'menugaskan tugas baru kepada Anda:',
+      notifTaskComment: 'menambahkan komentar pada tugas:',
     },
 
     // Settings Modal
@@ -569,6 +596,33 @@ export const translations = {
       workspacePhotoLimitTitle: 'Workspace Photo Limit',
       remainingPoolHint: 'Remaining pool quota that can be allocated to this workspace',
       poolExceededError: 'Photo limit exceeds your remaining pool quota!',
+
+      // Task Assignment & Filter
+      assignToLabel: 'Assign to',
+      unassigned: 'Unassigned',
+      assignToMe: 'Assign to Me',
+      filterAllTasks: 'All Tasks',
+      filterMyTasks: 'My Tasks',
+      assignedToUser: 'Assigned to',
+
+      // Team Chatroom
+      teamChatTitle: 'Team Chat',
+      teamChatPlaceholder: 'Type a message for the team... (Enter to send)',
+      noChatMessages: 'No messages yet. Start your team conversation!',
+      sendChatBtn: 'Send',
+
+      // Task Comments / Discussion
+      taskDiscussion: 'Task Discussion & Comments',
+      addCommentPlaceholder: 'Write a comment or update on this task...',
+      postCommentBtn: 'Post Comment',
+      noCommentsYet: 'No comments yet for this task.',
+
+      // Calm Notifications
+      notificationsTitle: 'Notifications',
+      markAllAsRead: 'Mark All Read',
+      noNotifications: 'No new notifications.',
+      notifTaskAssigned: 'assigned a new task to you:',
+      notifTaskComment: 'added a comment to task:',
     },
 
     // Settings Modal

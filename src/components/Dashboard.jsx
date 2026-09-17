@@ -9,7 +9,8 @@ import {
   ArrowUpDown, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, ZoomIn, Eye, MessageSquare,
   Edit3, Flag, Check, RotateCcw, AlertTriangle, Film, Settings,
   HardDrive, Flame, Columns3, List, Layers, Settings2, ArrowRight, Menu, Globe,
-  Sun, Moon, Users, UserPlus, UserMinus, Copy, Share2, ShieldCheck, EyeOff
+  Sun, Moon, Users, UserPlus, UserMinus, Copy, Share2, ShieldCheck, EyeOff,
+  Send, UserCheck, MessageCircle
 } from 'lucide-react';
 import { format, isPast, isToday, parseISO, differenceInDays } from 'date-fns';
 import { id as localeId, enUS as localeEn } from 'date-fns/locale';
@@ -501,6 +502,8 @@ export default function Dashboard({ onGoToLanding }) {
   const [newTaskDesc, setNewTaskDesc] = useState('');
   const [newTaskPriority, setNewTaskPriority] = useState(preferences.defaultPriority !== 'none' ? preferences.defaultPriority : 'medium');
   const [newTaskStatus, setNewTaskStatus] = useState('todo');
+  const [newTaskAssignedTo, setNewTaskAssignedTo] = useState('');
+  const [newTaskAssignedEmail, setNewTaskAssignedEmail] = useState('');
   const [showTodoAdvanced, setShowTodoAdvanced] = useState(false);
   const [isSubmittingTask, setIsSubmittingTask] = useState(false);
 
@@ -510,6 +513,9 @@ export default function Dashboard({ onGoToLanding }) {
   const [todoFileType, setTodoFileType] = useState(null);
   const [isCompressingTodoFile, setIsCompressingTodoFile] = useState(false);
 
+  // Filter Penugasan Tugas (Semua vs Tugas Saya)
+  const [taskAssigneeFilter, setTaskAssigneeFilter] = useState('all'); // 'all' | 'me'
+
   // MODAL EDIT TUGAS
   const [editingTodo, setEditingTodo] = useState(null);
   const [editTitle, setEditTitle] = useState('');
@@ -518,6 +524,8 @@ export default function Dashboard({ onGoToLanding }) {
   const [editReminderDate, setEditReminderDate] = useState('');
   const [editPriority, setEditPriority] = useState('medium');
   const [editStatus, setEditStatus] = useState('todo');
+  const [editAssignedTo, setEditAssignedTo] = useState(null);
+  const [editAssignedEmail, setEditAssignedEmail] = useState(null);
   const [editMediaUrl, setEditMediaUrl] = useState(null);
   const [editMediaType, setEditMediaType] = useState(null);
   const [editFile, setEditFile] = useState(null);
@@ -526,6 +534,22 @@ export default function Dashboard({ onGoToLanding }) {
   const [isUpdatingTodo, setIsUpdatingTodo] = useState(false);
   const [editSubtasks, setEditSubtasks] = useState([]);
   const [newSubtaskInput, setNewSubtaskInput] = useState('');
+
+  // DISKUSI & KOMENTAR PADA TUGAS
+  const [todoComments, setTodoComments] = useState([]);
+  const [newCommentInput, setNewCommentInput] = useState('');
+  const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+
+  // SISTEM NOTIFIKASI TENANG (CALM IN-APP NOTIFICATIONS)
+  const [notifications, setNotifications] = useState([]);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+
+  // RUANG OBROLAN TIM (WORKSPACE CHAT DRAWER)
+  const [isTeamChatOpen, setIsTeamChatOpen] = useState(false);
+  const [teamChatMessages, setTeamChatMessages] = useState([]);
+  const [teamChatInput, setTeamChatInput] = useState('');
+  const [isSendingChat, setIsSendingChat] = useState(false);
+  const chatBottomRef = useRef(null);
 
   // FORM STATE BUAT CATATAN BARU (MULTI-MEDIA: MAKS 5 FOTO & 1 VIDEO)
   const [showNoteModal, setShowNoteModal] = useState(false);
@@ -1046,10 +1070,212 @@ export default function Dashboard({ onGoToLanding }) {
     }
   };
 
+  // ─── Fitur Kolaborasi: Notifikasi Tenang In-App ───
+  const fetchNotifications = async () => {
+    if (!user?.id) return;
+    try {
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(30);
+      if (!error && data) {
+        setNotifications(data);
+      }
+    } catch (err) {
+      console.warn('Gagal memuat notifikasi:', err);
+    }
+  };
+
+  const unreadNotifCount = notifications.filter(n => !n.is_read).length;
+
+  const handleMarkNotifRead = async (notifId) => {
+    setNotifications(prev => prev.map(n => n.id === notifId ? { ...n, is_read: true } : n));
+    try {
+      await supabase.from('notifications').update({ is_read: true }).eq('id', notifId);
+    } catch (err) {
+      console.warn('Gagal update notifikasi:', err);
+    }
+  };
+
+  const handleMarkAllNotifsRead = async () => {
+    setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+    try {
+      await supabase.from('notifications').update({ is_read: true }).eq('user_id', user.id).eq('is_read', false);
+    } catch (err) {
+      console.warn('Gagal update semua notifikasi:', err);
+    }
+  };
+
+  const handleClickNotification = async (notif) => {
+    if (!notif.is_read) {
+      handleMarkNotifRead(notif.id);
+    }
+    setIsNotificationsOpen(false);
+
+    if (notif.workspace_id && notif.workspace_id !== activeWorkspaceId) {
+      handleSwitchWorkspace(notif.workspace_id);
+    }
+
+    if (notif.todo_id) {
+      const targetTodo = todos.find(t => t.id === notif.todo_id);
+      if (targetTodo) {
+        openEditTodoModal(targetTodo);
+      } else {
+        try {
+          const { data } = await supabase.from('todos').select('*').eq('id', notif.todo_id).single();
+          if (data) openEditTodoModal(data);
+        } catch {}
+      }
+    }
+  };
+
+  // ─── Fitur Kolaborasi: Ruang Obrolan Tim (Workspace Chat) ───
+  const fetchTeamChatMessages = async (wsId) => {
+    if (!wsId) {
+      setTeamChatMessages([]);
+      return;
+    }
+    try {
+      const { data, error } = await supabase
+        .from('workspace_messages')
+        .select('*')
+        .eq('workspace_id', wsId)
+        .order('created_at', { ascending: true })
+        .limit(100);
+      if (!error && data) {
+        setTeamChatMessages(data);
+      }
+    } catch (err) {
+      console.warn('Gagal memuat pesan tim:', err);
+    }
+  };
+
+  const handleSendChatMessage = async (e) => {
+    e?.preventDefault();
+    const cleanContent = teamChatInput.trim();
+    if (!cleanContent || !activeWorkspaceId || isSendingChat) return;
+
+    setIsSendingChat(true);
+    const senderName = user?.email?.split('@')[0] || 'Anggota Tim';
+    const tempId = 'temp_' + Date.now();
+    const optimisticMsg = {
+      id: tempId,
+      workspace_id: activeWorkspaceId,
+      user_id: user.id,
+      sender_name: senderName,
+      content: cleanContent,
+      created_at: new Date().toISOString(),
+    };
+    setTeamChatMessages(prev => [...prev, optimisticMsg]);
+    setTeamChatInput('');
+
+    try {
+      const { data, error } = await supabase
+        .from('workspace_messages')
+        .insert([{
+          workspace_id: activeWorkspaceId,
+          user_id: user.id,
+          sender_name: senderName,
+          content: cleanContent,
+        }])
+        .select();
+
+      if (!error && data) {
+        setTeamChatMessages(prev => prev.map(m => m.id === tempId ? data[0] : m));
+      }
+    } catch (err) {
+      console.warn('Gagal mengirim pesan tim:', err);
+    } finally {
+      setIsSendingChat(false);
+    }
+  };
+
+  // ─── Fitur Kolaborasi: Diskusi & Komentar Tugas (Task Comments) ───
+  const fetchTodoComments = async (todoId) => {
+    if (!todoId) {
+      setTodoComments([]);
+      return;
+    }
+    try {
+      const { data, error } = await supabase
+        .from('todo_comments')
+        .select('*')
+        .eq('todo_id', todoId)
+        .order('created_at', { ascending: true });
+      if (!error && data) {
+        setTodoComments(data);
+      }
+    } catch (err) {
+      console.warn('Gagal memuat komentar tugas:', err);
+    }
+  };
+
+  const handleAddTodoComment = async (e) => {
+    e?.preventDefault();
+    const cleanContent = newCommentInput.trim();
+    if (!cleanContent || !editingTodo || isSubmittingComment) return;
+
+    setIsSubmittingComment(true);
+    const senderName = user?.email?.split('@')[0] || 'Anggota Tim';
+    const tempId = 'temp_c_' + Date.now();
+    const optimisticComment = {
+      id: tempId,
+      todo_id: editingTodo.id,
+      workspace_id: editingTodo.workspace_id || activeWorkspaceId,
+      user_id: user.id,
+      user_name: senderName,
+      content: cleanContent,
+      created_at: new Date().toISOString(),
+    };
+    setTodoComments(prev => [...prev, optimisticComment]);
+    setNewCommentInput('');
+
+    try {
+      const { data, error } = await supabase
+        .from('todo_comments')
+        .insert([{
+          todo_id: editingTodo.id,
+          workspace_id: editingTodo.workspace_id || activeWorkspaceId,
+          user_id: user.id,
+          user_name: senderName,
+          content: cleanContent,
+        }])
+        .select();
+
+      if (!error && data) {
+        setTodoComments(prev => prev.map(c => c.id === tempId ? data[0] : c));
+
+        // Buat notifikasi jika ada anggota yang ditugaskan atau pembuat tugas (selain diri sendiri)
+        const notifyTarget = editingTodo.assigned_to || (editingTodo.user_id !== user.id ? editingTodo.user_id : null);
+        if (notifyTarget && notifyTarget !== user.id) {
+          supabase.from('notifications').insert([{
+            user_id: notifyTarget,
+            actor_id: user.id,
+            actor_name: senderName,
+            workspace_id: editingTodo.workspace_id || activeWorkspaceId,
+            todo_id: editingTodo.id,
+            type: 'task_comment',
+            title: `${senderName} ${t('dashboard.notifTaskComment') || 'menambahkan komentar pada tugas:'} "${editingTodo.title}"`,
+            content: cleanContent,
+          }]).then(() => {});
+        }
+      }
+    } catch (err) {
+      console.warn('Gagal mengirim komentar tugas:', err);
+    } finally {
+      setIsSubmittingComment(false);
+    }
+  };
+
   useEffect(() => {
     fetchData();
     fetchWorkspaces();
     refreshStorageUsage();
+    if (user?.id) {
+      fetchNotifications();
+    }
 
     // Cek query param ?join=... di URL untuk auto-open modal gabung
     const params = new URLSearchParams(window.location.search);
@@ -1081,18 +1307,60 @@ export default function Dashboard({ onGoToLanding }) {
           setNotes(prev => prev.filter(n => n.id === payload.old.id));
         }
       })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, (payload) => {
+        if (payload.eventType === 'INSERT') {
+          if (payload.new.user_id === user?.id) {
+            setNotifications(prev => [payload.new, ...prev]);
+          }
+        } else if (payload.eventType === 'UPDATE') {
+          if (payload.new.user_id === user?.id) {
+            setNotifications(prev => prev.map(n => n.id === payload.new.id ? payload.new : n));
+          }
+        } else if (payload.eventType === 'DELETE') {
+          setNotifications(prev => prev.filter(n => n.id === payload.old.id));
+        }
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'workspace_messages' }, (payload) => {
+        if (payload.eventType === 'INSERT') {
+          setTeamChatMessages(prev => {
+            if (payload.new.workspace_id === activeWorkspaceId && !prev.some(m => m.id === payload.new.id)) {
+              return [...prev, payload.new];
+            }
+            return prev;
+          });
+        }
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'todo_comments' }, (payload) => {
+        if (payload.eventType === 'INSERT') {
+          setTodoComments(prev => {
+            if (editingTodo && payload.new.todo_id === editingTodo.id && !prev.some(c => c.id === payload.new.id)) {
+              return [...prev, payload.new];
+            }
+            return prev;
+          });
+        }
+      })
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [user?.id, activeWorkspaceId, editingTodo?.id]);
 
   useEffect(() => {
     if (activeWorkspaceId) {
       fetchWorkspaceMembers(activeWorkspaceId);
+      fetchTeamChatMessages(activeWorkspaceId);
+    } else {
+      setTeamChatMessages([]);
     }
   }, [activeWorkspaceId, isWsMembersModalOpen]);
+
+  useEffect(() => {
+    if (isTeamChatOpen && chatBottomRef.current) {
+      chatBottomRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [teamChatMessages, isTeamChatOpen]);
 
   useEffect(() => {
     if (currentWorkspace) {
@@ -1269,12 +1537,15 @@ export default function Dashboard({ onGoToLanding }) {
     setEditReminderDate(todo.reminder_date ? todo.reminder_date.substring(0, 10) : '');
     setEditPriority(todo.priority || 'medium');
     setEditStatus(getTaskStatusId(todo));
+    setEditAssignedTo(todo.assigned_to || null);
+    setEditAssignedEmail(todo.assigned_email || null);
     setEditMediaUrl(todo.media_url || null);
     setEditMediaType(todo.media_type || null);
     setEditFile(null);
     setEditFilePreview(null);
     setEditSubtasks(Array.isArray(todo.subtasks) ? todo.subtasks : []);
     setNewSubtaskInput('');
+    fetchTodoComments(todo.id);
   };
 
   const handleAddEditSubtask = (e) => {
@@ -1353,6 +1624,8 @@ export default function Dashboard({ onGoToLanding }) {
       priority: editPriority,
       status: editStatus,
       is_completed: isCompleted,
+      assigned_to: editAssignedTo || null,
+      assigned_email: editAssignedEmail || null,
       media_url: finalMediaUrl,
       media_type: finalMediaType,
       subtasks: editSubtasks,
@@ -1373,6 +1646,21 @@ export default function Dashboard({ onGoToLanding }) {
       }
       refreshStorageUsage();
       setTodos(todos.map(t => t.id === editingTodo.id ? data[0] : t));
+
+      if (editAssignedTo && editAssignedTo !== editingTodo.assigned_to && editAssignedTo !== user.id) {
+        const actorName = user?.email?.split('@')[0] || 'Anggota Tim';
+        supabase.from('notifications').insert([{
+          user_id: editAssignedTo,
+          actor_id: user.id,
+          actor_name: actorName,
+          workspace_id: editingTodo.workspace_id || activeWorkspaceId,
+          todo_id: editingTodo.id,
+          type: 'task_assigned',
+          title: `${actorName} ${t('dashboard.notifTaskAssigned') || 'menugaskan tugas baru kepada Anda:'} "${cleanTitle}"`,
+          content: cleanTitle,
+        }]).then(() => {});
+      }
+
       setEditingTodo(null);
     } else {
       alert('Gagal memperbarui tugas: ' + (error?.message || 'Unknown error'));
@@ -1417,6 +1705,8 @@ export default function Dashboard({ onGoToLanding }) {
       priority: newTaskPriority,
       status: initialStatus,
       is_completed: false,
+      assigned_to: newTaskAssignedTo || null,
+      assigned_email: newTaskAssignedEmail || null,
       media_url: uploadedMediaUrl,
       media_type: uploadedMediaType,
       subtasks: [],
@@ -1429,12 +1719,29 @@ export default function Dashboard({ onGoToLanding }) {
     if (!error && data) {
       if (uploadedMediaUrl) refreshStorageUsage();
       setTodos([data[0], ...todos]);
+
+      if (newTaskAssignedTo && newTaskAssignedTo !== user.id) {
+        const actorName = user?.email?.split('@')[0] || 'Anggota Tim';
+        supabase.from('notifications').insert([{
+          user_id: newTaskAssignedTo,
+          actor_id: user.id,
+          actor_name: actorName,
+          workspace_id: activeWorkspaceId,
+          todo_id: data[0].id,
+          type: 'task_assigned',
+          title: `${actorName} ${t('dashboard.notifTaskAssigned') || 'menugaskan tugas baru kepada Anda:'} "${cleanTitle}"`,
+          content: cleanTitle,
+        }]).then(() => {});
+      }
+
       setNewTaskTitle('');
       setNewTaskDate('');
       setNewTaskReminderDate('');
       setNewTaskDesc('');
       setNewTaskPriority(preferences.defaultPriority !== 'none' ? preferences.defaultPriority : 'medium');
       setNewTaskStatus(initialStatus);
+      setNewTaskAssignedTo('');
+      setNewTaskAssignedEmail('');
       clearTodoFile();
       setShowTodoAdvanced(false);
     } else {
@@ -2100,6 +2407,18 @@ export default function Dashboard({ onGoToLanding }) {
           {/* Sisi Kanan / Bawah (Mobile): Prioritas, Jatuh Tempo, Foto, Hapus */}
           <div className="flex items-center justify-between sm:justify-end space-x-2 shrink-0 pl-7 sm:pl-0 sm:ml-3 pt-0.5 sm:pt-0">
             <div className="flex items-center space-x-1.5 flex-wrap gap-y-1">
+              {todo.assigned_email && (
+                <span
+                  title={isEn ? `Assigned to: ${todo.assigned_email}` : `Ditugaskan ke: ${todo.assigned_email}`}
+                  className="inline-flex items-center space-x-1 text-[10px] font-medium text-neutral-600 dark:text-neutral-300 bg-neutral-100 dark:bg-neutral-800 px-1.5 py-0.5 rounded-full border border-neutral-200/80 dark:border-neutral-700/80 shrink-0"
+                >
+                  <div className="w-3.5 h-3.5 rounded-full bg-blue-600 text-white flex items-center justify-center text-[9px] font-bold">
+                    {todo.assigned_email.charAt(0).toUpperCase()}
+                  </div>
+                  <span className="max-w-[70px] truncate">{todo.assigned_email.split('@')[0]}</span>
+                </span>
+              )}
+
               {renderPriorityBadge(todo.priority)}
 
               {todo.reminder_date && (
@@ -2266,8 +2585,12 @@ export default function Dashboard({ onGoToLanding }) {
   const filteredActiveTodos = getSortedTodos(activeTodos.filter(t => {
     const matchSearch = t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (t.description && t.description.toLowerCase().includes(searchQuery.toLowerCase()));
-    if (activeTab === 'reminders') return matchSearch && isReminderActive(t);
-    return matchSearch;
+    if (!matchSearch) return false;
+    if (activeTab === 'reminders' && !isReminderActive(t)) return false;
+    if (currentWorkspace && taskAssigneeFilter === 'me') {
+      return t.assigned_to === user?.id;
+    }
+    return true;
   }));
 
   const filteredActiveNotes = activeNotes.filter(n => 
@@ -2277,6 +2600,75 @@ export default function Dashboard({ onGoToLanding }) {
 
   const filteredTrashTodos = trashTodos.filter(t => t.title.toLowerCase().includes(searchQuery.toLowerCase()));
   const filteredTrashNotes = trashNotes.filter(n => n.title.toLowerCase().includes(searchQuery.toLowerCase()));
+
+  const renderNotificationPopover = () => {
+    if (!isNotificationsOpen) return null;
+    return (
+      <>
+        <div 
+          className="fixed inset-0 z-40" 
+          onClick={() => setIsNotificationsOpen(false)} 
+        />
+        <div className="absolute right-0 mt-2 w-72 sm:w-88 bg-white dark:bg-[#202020] rounded-2xl shadow-xl border border-neutral-200/90 dark:border-neutral-800 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
+          <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-neutral-100 dark:border-neutral-800">
+            <div className="flex items-center space-x-1.5">
+              <Bell className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+              <span className="font-semibold text-xs text-neutral-900 dark:text-neutral-100">
+                {t('dashboard.notificationsTitle') || 'Notifikasi'}
+              </span>
+              {unreadNotifCount > 0 && (
+                <span className="text-[10px] px-1.5 py-0.2 bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 rounded font-mono">
+                  {unreadNotifCount}
+                </span>
+              )}
+            </div>
+            {unreadNotifCount > 0 && (
+              <button
+                type="button"
+                onClick={handleMarkAllNotifsRead}
+                className="text-[10px] text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200 transition cursor-pointer font-medium"
+              >
+                {t('dashboard.markAllAsRead') || 'Tandai Semua Dibaca'}
+              </button>
+            )}
+          </div>
+
+          <div className="max-h-72 overflow-y-auto divide-y divide-neutral-100 dark:divide-neutral-800/60">
+            {notifications.length === 0 ? (
+              <div className="py-7 text-center text-xs text-neutral-400 dark:text-neutral-500">
+                {t('dashboard.noNotifications') || 'Tidak ada notifikasi baru.'}
+              </div>
+            ) : (
+              notifications.map((n) => (
+                <div
+                  key={n.id}
+                  onClick={() => handleClickNotification(n)}
+                  className={`p-2.5 text-xs cursor-pointer hover:bg-neutral-50 dark:hover:bg-[#282828] transition flex items-start space-x-2.5 ${
+                    !n.is_read ? 'bg-blue-50/30 dark:bg-blue-950/20' : ''
+                  }`}
+                >
+                  <div className={`w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 ${!n.is_read ? 'bg-blue-600 dark:bg-blue-400' : 'bg-transparent'}`} />
+                  <div className="flex-1 min-w-0">
+                    <p className={`leading-snug text-xs ${!n.is_read ? 'font-medium text-neutral-900 dark:text-neutral-100' : 'text-neutral-600 dark:text-neutral-400'}`}>
+                      {n.title}
+                    </p>
+                    {n.content && (
+                      <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5 line-clamp-1">
+                        {n.content}
+                      </p>
+                    )}
+                    <span className="text-[10px] text-neutral-400 dark:text-neutral-500 mt-1 block font-mono">
+                      {format(new Date(n.created_at), 'dd MMM, HH:mm', { locale: isEn ? localeEn : localeId })}
+                    </span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </>
+    );
+  };
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-[#FBFBFA] dark:bg-[#191919] text-neutral-800 dark:text-neutral-200 transition-colors duration-200">
@@ -2308,14 +2700,42 @@ export default function Dashboard({ onGoToLanding }) {
           </span>
         </div>
 
-        {/* Right: theme toggle only */}
-        <button
-          onClick={toggleTheme}
-          className="p-2 rounded-xl text-neutral-500 dark:text-neutral-300 hover:bg-neutral-200/60 dark:hover:bg-neutral-800 transition cursor-pointer"
-          title={isDark ? t('common.lightMode') : t('common.darkMode')}
-        >
-          {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4" />}
-        </button>
+        {/* Right: Actions */}
+        <div className="flex items-center space-x-1">
+          {currentWorkspace && (
+            <button
+              type="button"
+              onClick={() => setIsTeamChatOpen(true)}
+              className="p-2 rounded-xl text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200/60 dark:hover:bg-neutral-800 transition cursor-pointer relative"
+              title={t('dashboard.teamChatTitle') || 'Obrolan Tim'}
+            >
+              <MessageSquare className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+            </button>
+          )}
+
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
+              className="p-2 rounded-xl text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200/60 dark:hover:bg-neutral-800 transition cursor-pointer relative"
+              title={t('dashboard.notificationsTitle') || 'Notifikasi'}
+            >
+              <Bell className="w-4 h-4" />
+              {unreadNotifCount > 0 && (
+                <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-blue-600 ring-2 ring-[#F7F6F3] dark:ring-[#202020]" />
+              )}
+            </button>
+            {renderNotificationPopover()}
+          </div>
+
+          <button
+            onClick={toggleTheme}
+            className="p-2 rounded-xl text-neutral-500 dark:text-neutral-300 hover:bg-neutral-200/60 dark:hover:bg-neutral-800 transition cursor-pointer"
+            title={isDark ? t('common.lightMode') : t('common.darkMode')}
+          >
+            {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4" />}
+          </button>
+        </div>
       </div>
 
       {/* ─── MOBILE: Slide-in Drawer Overlay ─── */}
@@ -2758,6 +3178,31 @@ export default function Dashboard({ onGoToLanding }) {
               <input type="text" placeholder={t('dashboard.searchPlaceholder')} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-9 pr-3 py-1.5 text-xs bg-white dark:bg-[#232323] border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-800 dark:focus:ring-neutral-400" />
             </div>
+            {currentWorkspace && (
+              <button
+                type="button"
+                onClick={() => setIsTeamChatOpen(true)}
+                className="flex items-center space-x-1.5 px-2.5 py-1.5 text-xs font-medium border border-neutral-200 dark:border-neutral-700 rounded-lg transition cursor-pointer shrink-0 bg-white dark:bg-[#232323] hover:bg-neutral-100 dark:hover:bg-[#2c2c2c] text-neutral-700 dark:text-neutral-200"
+                title={t('dashboard.teamChatTitle') || 'Obrolan Tim'}
+              >
+                <MessageSquare className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                <span className="hidden lg:inline">{t('dashboard.teamChatTitle') || 'Obrolan Tim'}</span>
+              </button>
+            )}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
+                className="p-1.5 border border-neutral-200 dark:border-neutral-700 rounded-lg transition cursor-pointer shrink-0 bg-white dark:bg-[#232323] hover:bg-neutral-100 dark:hover:bg-[#2c2c2c] text-neutral-700 dark:text-neutral-200 relative"
+                title={t('dashboard.notificationsTitle') || 'Notifikasi'}
+              >
+                <Bell className="w-4 h-4 text-neutral-500" />
+                {unreadNotifCount > 0 && (
+                  <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-blue-600 ring-2 ring-white dark:ring-[#232323]" />
+                )}
+              </button>
+              {renderNotificationPopover()}
+            </div>
             <button onClick={toggleLanguage} className="px-2.5 py-1.5 text-xs font-bold rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-[#232323] text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-[#2c2c2c] transition cursor-pointer shrink-0" title="Switch Language">{language.toUpperCase()}</button>
             <button onClick={toggleTheme} className="p-1.5 border border-neutral-200 dark:border-neutral-700 rounded-lg transition cursor-pointer shrink-0 bg-white dark:bg-[#232323]" title={isDark ? t('common.lightMode') : t('common.darkMode')}>
               {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-neutral-600" />}
@@ -2854,6 +3299,35 @@ export default function Dashboard({ onGoToLanding }) {
                 <Columns3 className="w-3.5 h-3.5" />
               </button>
             </div>
+
+            {/* Filter Penugasan di Workspace Tim (Mobile) */}
+            {currentWorkspace && (
+              <div className="flex items-center bg-neutral-100 dark:bg-neutral-800/80 p-0.5 rounded-lg border border-neutral-200/80 dark:border-neutral-700 text-xs shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setTaskAssigneeFilter('all')}
+                  className={`px-2 py-1 rounded-md font-medium transition cursor-pointer ${
+                    taskAssigneeFilter === 'all'
+                      ? 'bg-white dark:bg-[#282828] text-neutral-900 dark:text-neutral-100 shadow-xs'
+                      : 'text-neutral-500 dark:text-neutral-400'
+                  }`}
+                >
+                  {t('dashboard.filterAllTasks') || 'Semua'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTaskAssigneeFilter('me')}
+                  className={`px-2 py-1 rounded-md font-medium transition cursor-pointer flex items-center space-x-1 ${
+                    taskAssigneeFilter === 'me'
+                      ? 'bg-white dark:bg-[#282828] text-neutral-900 dark:text-neutral-100 shadow-xs'
+                      : 'text-neutral-500 dark:text-neutral-400'
+                  }`}
+                >
+                  <UserCheck className="w-3 h-3" />
+                  <span>{t('dashboard.filterMyTasks') || 'Saya'}</span>
+                </button>
+              </div>
+            )}
 
             {/* Group by status (list mode only) */}
             {taskViewMode === 'list' && (
@@ -3102,6 +3576,36 @@ export default function Dashboard({ onGoToLanding }) {
                         <Columns3 className="w-3.5 h-3.5" /><span>{t('dashboard.viewBoard')}</span>
                       </button>
                     </div>
+
+                    {/* Filter Penugasan di Workspace Tim (Desktop) */}
+                    {currentWorkspace && (
+                      <div className="flex items-center bg-neutral-100 dark:bg-neutral-800/80 p-0.5 rounded-lg border border-neutral-200/80 dark:border-neutral-700 text-xs shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => setTaskAssigneeFilter('all')}
+                          className={`px-2.5 py-1 rounded-md font-medium transition cursor-pointer ${
+                            taskAssigneeFilter === 'all'
+                              ? 'bg-white dark:bg-[#282828] text-neutral-900 dark:text-neutral-100 shadow-2xs'
+                              : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-700'
+                          }`}
+                        >
+                          {t('dashboard.filterAllTasks') || 'Semua'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setTaskAssigneeFilter('me')}
+                          className={`px-2.5 py-1 rounded-md font-medium transition cursor-pointer flex items-center space-x-1 ${
+                            taskAssigneeFilter === 'me'
+                              ? 'bg-white dark:bg-[#282828] text-neutral-900 dark:text-neutral-100 shadow-2xs'
+                              : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-700'
+                          }`}
+                        >
+                          <UserCheck className="w-3 h-3" />
+                          <span>{t('dashboard.filterMyTasks') || 'Tugas Saya'}</span>
+                        </button>
+                      </div>
+                    )}
+
                     {taskViewMode === 'board' && (
                       <div className="flex items-center bg-neutral-100 dark:bg-neutral-800/80 p-0.5 rounded-lg border border-neutral-200/80 dark:border-neutral-700 text-xs shrink-0 space-x-0.5">
                         <button type="button" onClick={() => boardRef.current?.scrollBy({ left: -320, behavior: 'smooth' })} className="p-1 rounded-md text-neutral-600 dark:text-neutral-300 hover:bg-white dark:hover:bg-[#282828] transition cursor-pointer"><ChevronLeft className="w-3.5 h-3.5" /></button>
@@ -3192,6 +3696,32 @@ export default function Dashboard({ onGoToLanding }) {
                           <input type="date" value={newTaskDate} title={t('dashboard.dueDateChip')} onChange={(e) => setNewTaskDate(e.target.value)}
                             className="bg-transparent focus:outline-none text-xs text-neutral-700 dark:text-neutral-200 cursor-pointer w-[90px] sm:w-auto" />
                         </div>
+
+                        {/* Penugasan Tugas (Assignee) di Workspace Tim */}
+                        {currentWorkspace && (
+                          <div className="flex items-center space-x-1 bg-neutral-50 dark:bg-[#282828] hover:bg-neutral-100 dark:hover:bg-[#323232] border border-neutral-200/80 dark:border-neutral-700 rounded-lg px-2 py-1 text-xs transition">
+                            <UserCheck className="w-3 h-3 text-neutral-400 shrink-0" />
+                            <select
+                              value={newTaskAssignedTo}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setNewTaskAssignedTo(val);
+                                const member = workspaceMembers.find(m => m.user_id === val);
+                                setNewTaskAssignedEmail(val ? (member?.email || (val === user?.id ? user?.email : '')) : '');
+                              }}
+                              className="bg-transparent focus:outline-none text-xs font-medium text-neutral-700 dark:text-neutral-200 cursor-pointer max-w-[85px] sm:max-w-[110px]"
+                              title={t('dashboard.assignToLabel') || 'Tugaskan ke'}
+                            >
+                              <option value="" className="dark:bg-[#282828]">{t('dashboard.unassigned') || 'Belum Ditugaskan'}</option>
+                              <option value={user?.id} className="dark:bg-[#282828]">{t('dashboard.assignToMe') || 'Tugaskan ke Saya'}</option>
+                              {workspaceMembers.filter(m => m.user_id !== user?.id).map(m => (
+                                <option key={m.user_id} value={m.user_id} className="dark:bg-[#282828]">
+                                  {m.email?.split('@')[0]}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
 
                         {/* Tombol Opsi Catatan */}
                         <button type="button" onClick={() => setShowTodoAdvanced(!showTodoAdvanced)}
@@ -3416,6 +3946,17 @@ export default function Dashboard({ onGoToLanding }) {
                                     {/* Card Footer */}
                                     <div className="flex items-center justify-between pt-1 border-t border-neutral-100 dark:border-neutral-800 text-[11px]">
                                       <div className="flex items-center space-x-1.5 flex-wrap gap-y-1">
+                                        {todo.assigned_email && (
+                                          <span
+                                            title={isEn ? `Assigned to: ${todo.assigned_email}` : `Ditugaskan ke: ${todo.assigned_email}`}
+                                            className="inline-flex items-center space-x-1 text-[9px] font-medium text-neutral-600 dark:text-neutral-300 bg-neutral-100 dark:bg-neutral-800 px-1.5 py-0.5 rounded-full border border-neutral-200/80 dark:border-neutral-700/80"
+                                          >
+                                            <div className="w-3 h-3 rounded-full bg-blue-600 text-white flex items-center justify-center text-[8px] font-bold">
+                                              {todo.assigned_email.charAt(0).toUpperCase()}
+                                            </div>
+                                            <span className="max-w-[55px] truncate">{todo.assigned_email.split('@')[0]}</span>
+                                          </span>
+                                        )}
                                         {todo.due_date && renderDateBadge(todo.due_date)}
                                         {todo.reminder_date && (
                                           <span className={`inline-flex items-center space-x-1 text-[10px] px-1.5 py-0.5 rounded font-mono ${
@@ -3888,6 +4429,34 @@ export default function Dashboard({ onGoToLanding }) {
                 </div>
               </div>
 
+              {/* PENUGASAN TUGAS JIKA WORKSPACE TIM */}
+              {(currentWorkspace || editingTodo.workspace_id) && (
+                <div className="p-3 bg-neutral-50/80 dark:bg-[#262626] rounded-xl border border-neutral-200/80 dark:border-neutral-700">
+                  <label className="block text-[11px] font-medium text-neutral-600 dark:text-neutral-300 mb-1 flex items-center space-x-1">
+                    <UserCheck className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                    <span>{t('dashboard.assignToLabel') || 'Tugaskan ke'}</span>
+                  </label>
+                  <select
+                    value={editAssignedTo || ''}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setEditAssignedTo(val || null);
+                      const member = workspaceMembers.find(m => m.user_id === val);
+                      setEditAssignedEmail(val ? (member?.email || (val === user?.id ? user?.email : null)) : null);
+                    }}
+                    className="w-full text-xs bg-white dark:bg-[#202020] border border-neutral-200 dark:border-neutral-700 text-neutral-800 dark:text-neutral-200 rounded-lg p-2 focus:outline-none font-medium cursor-pointer"
+                  >
+                    <option value="">{t('dashboard.unassigned') || 'Belum Ditugaskan'}</option>
+                    <option value={user?.id}>{t('dashboard.assignToMe') || 'Tugaskan ke Saya'}</option>
+                    {workspaceMembers.filter(m => m.user_id !== user?.id).map(m => (
+                      <option key={m.user_id} value={m.user_id}>
+                        {m.email?.split('@')[0]} ({m.email})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <div>
                 <label className="block text-xs font-medium text-neutral-600 dark:text-neutral-300 mb-1 flex items-center space-x-1">
                   <MessageSquare className="w-3 h-3" />
@@ -4094,6 +4663,65 @@ export default function Dashboard({ onGoToLanding }) {
                 </div>
               </div>
             </form>
+
+            {/* DISKUSI & KOMENTAR TUGAS */}
+            <div className="pt-4 border-t border-neutral-100 dark:border-neutral-800 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-1.5">
+                  <MessageCircle className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                  <h3 className="text-xs font-semibold text-neutral-700 dark:text-neutral-200">
+                    {t('dashboard.taskDiscussion') || 'Diskusi & Komentar Tugas'}
+                  </h3>
+                  <span className="text-[10px] bg-neutral-100 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400 px-1.5 py-0.5 rounded font-mono font-medium">
+                    {todoComments.length}
+                  </span>
+                </div>
+              </div>
+
+              {/* Daftar Komentar */}
+              <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                {todoComments.length === 0 ? (
+                  <p className="text-xs text-neutral-400 dark:text-neutral-500 italic py-2 text-center">
+                    {t('dashboard.noCommentsYet') || 'Belum ada komentar untuk tugas ini.'}
+                  </p>
+                ) : (
+                  todoComments.map(c => (
+                    <div key={c.id} className="p-2.5 rounded-xl bg-neutral-50 dark:bg-[#262626] border border-neutral-200/60 dark:border-neutral-700/60 space-y-1">
+                      <div className="flex items-center justify-between text-[10px] text-neutral-400 dark:text-neutral-500">
+                        <span className="font-semibold text-neutral-700 dark:text-neutral-300">
+                          {c.user_name || c.user_id?.substring(0, 8)}
+                        </span>
+                        <span className="font-mono">
+                          {format(new Date(c.created_at), 'dd MMM, HH:mm', { locale: isEn ? localeEn : localeId })}
+                        </span>
+                      </div>
+                      <p className="text-xs text-neutral-800 dark:text-neutral-200 leading-relaxed whitespace-pre-wrap">
+                        {c.content}
+                      </p>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* Input Komentar Baru */}
+              <form onSubmit={handleAddTodoComment} className="flex items-center space-x-1.5">
+                <input
+                  type="text"
+                  value={newCommentInput}
+                  onChange={(e) => setNewCommentInput(e.target.value)}
+                  placeholder={t('dashboard.addCommentPlaceholder') || 'Tulis komentar atau pembaruan tugas...'}
+                  className="flex-1 px-3 py-1.5 text-xs bg-neutral-50 dark:bg-[#282828] border border-neutral-200 dark:border-neutral-700 text-neutral-800 dark:text-neutral-100 rounded-lg focus:outline-none focus:ring-1 focus:ring-neutral-800 dark:focus:ring-neutral-400"
+                />
+                <button
+                  type="submit"
+                  disabled={isSubmittingComment || !newCommentInput.trim()}
+                  className="p-2 bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 rounded-lg hover:opacity-90 disabled:opacity-40 transition cursor-pointer shrink-0"
+                  title={t('dashboard.postCommentBtn') || 'Kirim Komentar'}
+                >
+                  {isSubmittingComment ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                </button>
+              </form>
+            </div>
           </div>
         </div>
       )}
@@ -5037,6 +5665,114 @@ export default function Dashboard({ onGoToLanding }) {
                 {t('common.close')}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── RUANG OBROLAN TIM (SLIDE-OUT TEAM CHAT DRAWER) ─── */}
+      {isTeamChatOpen && currentWorkspace && (
+        <div className="fixed inset-0 z-50 flex justify-end">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/40 backdrop-blur-xs animate-in fade-in duration-200"
+            onClick={() => setIsTeamChatOpen(false)}
+          />
+
+          {/* Chat Panel */}
+          <div className="relative z-50 w-full sm:w-[420px] max-w-[95vw] h-full bg-white dark:bg-[#1f1f1f] shadow-2xl border-l border-neutral-200/90 dark:border-neutral-800 flex flex-col animate-in slide-in-from-right duration-200">
+            {/* Header */}
+            <div className="px-4 py-3.5 border-b border-neutral-100 dark:border-neutral-800 flex items-center justify-between shrink-0 bg-[#F7F6F3]/80 dark:bg-[#232323]/80">
+              <div className="flex items-center space-x-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-xl bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                  <MessageSquare className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <h2 className="font-semibold text-xs text-neutral-900 dark:text-neutral-100 truncate">
+                    {currentWorkspace.name}
+                  </h2>
+                  <p className="text-[10px] text-neutral-400 dark:text-neutral-500 flex items-center space-x-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
+                    <span>{workspaceMembers.length + 1} {isEn ? 'members' : 'anggota'} • {t('dashboard.teamChatTitle') || 'Obrolan Tim'}</span>
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsTeamChatOpen(false)}
+                className="p-1.5 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 rounded-lg hover:bg-neutral-200/50 dark:hover:bg-neutral-800 transition cursor-pointer"
+                title={t('common.close')}
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Pesan-Pesan Tim */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              {teamChatMessages.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-center p-6 space-y-2">
+                  <div className="w-10 h-10 rounded-2xl bg-neutral-100 dark:bg-neutral-800 text-neutral-400 flex items-center justify-center">
+                    <MessageSquare className="w-5 h-5" />
+                  </div>
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400 max-w-[220px]">
+                    {t('dashboard.noChatMessages') || 'Belum ada obrolan. Mulai percakapan pertama tim Anda!'}
+                  </p>
+                </div>
+              ) : (
+                teamChatMessages.map((msg) => {
+                  const isMe = msg.user_id === user?.id;
+                  return (
+                    <div
+                      key={msg.id}
+                      className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}
+                    >
+                      {!isMe && (
+                        <span className="text-[10px] text-neutral-400 dark:text-neutral-500 mb-1 ml-1 font-medium">
+                          {msg.sender_name || 'Anggota'}
+                        </span>
+                      )}
+                      <div
+                        className={`max-w-[85%] rounded-2xl px-3.5 py-2 text-xs leading-relaxed shadow-2xs ${
+                          isMe
+                            ? 'bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 rounded-br-xs'
+                            : 'bg-neutral-100 dark:bg-[#2a2a2a] text-neutral-800 dark:text-neutral-200 border border-neutral-200/60 dark:border-neutral-700/60 rounded-bl-xs'
+                        }`}
+                      >
+                        <p className="whitespace-pre-wrap break-words">{msg.content}</p>
+                      </div>
+                      <span className="text-[9px] text-neutral-400 dark:text-neutral-500 mt-0.5 mx-1 font-mono">
+                        {format(new Date(msg.created_at), 'HH:mm')}
+                      </span>
+                    </div>
+                  );
+                })
+              )}
+              <div ref={chatBottomRef} />
+            </div>
+
+            {/* Input Chat */}
+            <form onSubmit={handleSendChatMessage} className="p-3 border-t border-neutral-100 dark:border-neutral-800 bg-[#F7F6F3]/50 dark:bg-[#232323]/50 shrink-0">
+              <div className="flex items-center space-x-2">
+                <input
+                  type="text"
+                  value={teamChatInput}
+                  onChange={(e) => setTeamChatInput(e.target.value)}
+                  placeholder={t('dashboard.teamChatPlaceholder') || 'Tulis pesan untuk tim...'}
+                  className="flex-1 px-3.5 py-2 text-xs bg-white dark:bg-[#282828] border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 rounded-xl focus:outline-none focus:ring-1 focus:ring-neutral-800 dark:focus:ring-neutral-400"
+                />
+                <button
+                  type="submit"
+                  disabled={isSendingChat || !teamChatInput.trim()}
+                  className="p-2.5 bg-neutral-900 hover:bg-neutral-800 dark:bg-white dark:hover:bg-neutral-100 text-white dark:text-neutral-900 rounded-xl transition disabled:opacity-40 cursor-pointer shadow-xs shrink-0 flex items-center justify-center"
+                  title={t('dashboard.sendChatBtn') || 'Kirim'}
+                >
+                  {isSendingChat ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Send className="w-3.5 h-3.5" />
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
