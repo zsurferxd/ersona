@@ -1,6 +1,54 @@
 {
   "version": 2,
   "skills": {
+    "antislop": {
+      "source": "miqdadbadjuber/anti-slop",
+      "commit": "f07c57244fdb1bda0727bee49614cfc159899a09",
+      "sourceType": "github",
+      "skillPath": "skills/antislop/SKILL.md",
+      "computedHash": "461fe0d1355a364085060a42df11983ff23ac0192bab466f23ae5938f51a9454",
+      "installMode": "copy"
+    },
+    "antislop-code": {
+      "source": "miqdadbadjuber/anti-slop",
+      "commit": "f07c57244fdb1bda0727bee49614cfc159899a09",
+      "sourceType": "github",
+      "skillPath": "skills/antislop-code/SKILL.md",
+      "computedHash": "b5a101fe3c2aa4ebce2ceb4e435ef80272b3b70cc6be647a6aa31fe02452102e",
+      "installMode": "copy"
+    },
+    "antislop-copywriting": {
+      "source": "miqdadbadjuber/anti-slop",
+      "commit": "f07c57244fdb1bda0727bee49614cfc159899a09",
+      "sourceType": "github",
+      "skillPath": "skills/antislop-copywriting/SKILL.md",
+      "computedHash": "a962d0633adffc3dd03737c03c5d6ff0e4b77a13106752fd223849303130b0bd",
+      "installMode": "copy"
+    },
+    "antislop-human": {
+      "source": "miqdadbadjuber/anti-slop",
+      "commit": "f07c57244fdb1bda0727bee49614cfc159899a09",
+      "sourceType": "github",
+      "skillPath": "skills/antislop-human/SKILL.md",
+      "computedHash": "1d77dac77347852a3d25db479b1bfcbff957590d7775fa76de49e34fe3b93e0b",
+      "installMode": "copy"
+    },
+    "antislop-layoutmobile": {
+      "source": "miqdadbadjuber/anti-slop",
+      "commit": "f07c57244fdb1bda0727bee49614cfc159899a09",
+      "sourceType": "github",
+      "skillPath": "skills/antislop-layoutmobile/SKILL.md",
+      "computedHash": "c3f54f8a065e9c371a9c5bb5076b41fc06bbeaeaca125f35459a4b8b17be34f2",
+      "installMode": "copy"
+    },
+    "antislop-ui": {
+      "source": "miqdadbadjuber/anti-slop",
+      "commit": "f07c57244fdb1bda0727bee49614cfc159899a09",
+      "sourceType": "github",
+      "skillPath": "skills/antislop-ui/SKILL.md",
+      "computedHash": "09c3efcee47866061a1609e298068941eb1d35e73eea95ae67ea2453be3951a9",
+      "installMode": "copy"
+    },
     "avoid-ai-writing": {
       "source": "conorbronsdon/avoid-ai-writing",
       "commit": "8678c864383ade43f9866ffebb235b2e1e409fb0",
