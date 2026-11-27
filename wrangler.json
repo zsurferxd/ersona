@@ -1,21 +1,9 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "ersona",
-  "main": "src/worker.js",
-  "compatibility_date": "2024-09-23",
+  "compatibility_date": "2026-09-23",
   "assets": {
     "directory": "./dist",
-    "binding": "ASSETS",
     "not_found_handling": "single-page-application"
-  },
-  "r2_buckets": [
-    {
-      "binding": "BUCKET",
-      "bucket_name": "ersona"
-    }
-  ],
-  "vars": {
-    "SUPABASE_URL": "https://ykbyuwhpwrbsjfwpazty.supabase.co",
-    "SUPABASE_ANON_KEY": "sb_publishable_eTFwmG_i7o0CZYamHiT4OQ_bU-vr5sp"
   }
 }

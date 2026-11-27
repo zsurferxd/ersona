@@ -1,25 +1,20 @@
 {
-  "id": "ersona-workspace-pwa",
-  "name": "Ersona - Your Personal Workspace",
+  "id": "ersona-company-site",
+  "name": "Ersona - Aplikasi Web Bisnis & Solusi Jaringan IT",
   "short_name": "Ersona",
-  "description": "Personalize your workspace. Manage all your notes, tasks, and daily schedules.",
-  "start_url": "/workspace",
+  "description": "Jasa pembuatan sistem web SaaS, aplikasi bisnis custom untuk UMKM, serta dukungan instalasi jaringan fisik kantor dan kafe.",
+  "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "display_override": [
-    "window-controls-overlay",
-    "standalone",
-    "minimal-ui"
-  ],
-  "background_color": "#191919",
-  "theme_color": "#191919",
+  "background_color": "#FBFBFA",
+  "theme_color": "#18181B",
   "orientation": "portrait-primary",
-  "lang": "en",
+  "lang": "id",
   "dir": "ltr",
   "categories": [
+    "business",
     "productivity",
-    "utilities",
-    "business"
+    "utilities"
   ],
   "icons": [
     {
@@ -44,15 +39,6 @@
       "src": "/favicon.svg",
       "sizes": "any",
       "type": "image/svg+xml"
-    }
-  ],
-  "shortcuts": [
-    {
-      "name": "Open Workspace",
-      "short_name": "Workspace",
-      "description": "Open your tasks and notes workspace",
-      "url": "/workspace",
-      "icons": [{ "src": "/pwa-192x192.png", "sizes": "192x192" }]
     }
   ]
 }

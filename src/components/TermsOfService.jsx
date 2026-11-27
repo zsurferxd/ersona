@@ -1,113 +1,95 @@
 import React from 'react';
 import BrandLogo from './BrandLogo';
-import { ArrowLeft, FileCheck, Mail } from 'lucide-react';
+import { ArrowLeft, Mail, Phone } from 'lucide-react';
+import { useThemeLanguage } from '../context/ThemeLanguageContext';
 
 export default function TermsOfService({ onBack }) {
+  const { isEn } = useThemeLanguage();
+
   return (
-    <div className="min-h-screen bg-[#FAFAFA] dark:bg-[#121212] text-neutral-900 dark:text-neutral-100 font-sans selection:bg-neutral-900 selection:text-white dark:selection:bg-white dark:selection:text-neutral-900">
-      {/* Header */}
-      <header className="sticky top-0 z-30 bg-white/80 dark:bg-[#181818]/80 backdrop-blur-md border-b border-neutral-200/80 dark:border-neutral-800">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
+    <div className="min-h-[100dvh] bg-white text-zinc-900 flex flex-col">
+      <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-sm border-b border-zinc-200">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 h-20 flex items-center justify-between">
+          <div className="flex items-center gap-3">
             <button
               type="button"
-              onClick={() => onBack ? onBack() : (window.location.href = '/')}
-              className="p-2 rounded-xl text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition cursor-pointer"
-              title="Kembali ke Beranda"
+              onClick={() => (onBack ? onBack() : (window.location.href = '/'))}
+              className="w-11 h-11 inline-flex items-center justify-center rounded-lg text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 transition-colors"
+              aria-label={isEn ? 'Back to Home' : 'Kembali ke Beranda'}
             >
-              <ArrowLeft className="w-4 h-4" />
+              <ArrowLeft className="w-4 h-4" aria-hidden="true" />
             </button>
             <BrandLogo size="sm" showText={true} />
           </div>
           <a
             href="/"
-            className="text-xs font-semibold text-neutral-600 dark:text-neutral-300 hover:underline"
+            onClick={(e) => {
+              if (onBack) {
+                e.preventDefault();
+                onBack();
+              }
+            }}
+            className="font-mono text-xs font-medium text-zinc-600 hover:text-zinc-900 hover:underline min-h-[44px] inline-flex items-center"
           >
             ersona.site
           </a>
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="max-w-3xl mx-auto px-4 sm:px-6 py-12 sm:py-16 space-y-10">
+      <main className="flex-1 max-w-3xl w-full mx-auto px-4 sm:px-6 py-12 sm:py-16 space-y-10">
         <div>
-          <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/50 border border-blue-200/80 dark:border-blue-800 text-blue-700 dark:text-blue-300 text-xs font-semibold mb-4">
-            <FileCheck className="w-3.5 h-3.5" />
-            <span>Terms of Service</span>
-          </div>
-          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-neutral-950 dark:text-white">
-            Terms of Service
+          <h1 className="font-display text-3xl sm:text-4xl font-semibold tracking-tight text-zinc-950">
+            {isEn ? 'Terms of Service' : 'Ketentuan Layanan'}
           </h1>
-          <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">
-            Last updated: September 17, 2026 • Effective immediately
+          <p className="mt-2 font-mono text-xs text-zinc-500">
+            {isEn ? 'Updated: November 27, 2026' : 'Diperbarui: 27 November 2026'}
           </p>
         </div>
 
-        <div className="prose prose-neutral dark:prose-invert max-w-none text-sm leading-relaxed space-y-8 text-neutral-700 dark:text-neutral-300">
-          <section className="space-y-3">
-            <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
-              1. Acceptance of Terms
+        <div className="space-y-8 text-sm sm:text-base leading-relaxed text-zinc-600">
+          <section className="space-y-3 border-t border-zinc-200 pt-6">
+            <h2 className="font-display text-lg font-semibold text-zinc-900">
+              {isEn ? '1. Scope of Consultation & Agreements' : '1. Konsultasi & Kesepakatan Proyek'}
             </h2>
             <p>
-              By accessing or using Ersona (located at <a href="https://ersona.site" className="text-blue-600 dark:text-blue-400 hover:underline">https://ersona.site</a>), you agree to be bound by these Terms of Service. If you do not agree to these terms, please do not use the application.
+              {isEn
+                ? 'Information presented on ersona.site serves as an overview of our custom web application and software development services. Exact feature scope, timeline, deliverables, and pricing are agreed upon in writing prior to starting work.'
+                : 'Informasi di ersona.site merupakan gambaran layanan pembuatan sistem dan aplikasi web custom kami. Lingkup fitur, estimasi waktu pengerjaan, serta rincian biaya disepakati secara tertulis sebelum proyek dimulai.'}
             </p>
           </section>
 
-          <section className="space-y-3">
-            <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
-              2. User Accounts & Security
+          <section className="space-y-3 border-t border-zinc-200 pt-6">
+            <h2 className="font-display text-lg font-semibold text-zinc-900">
+              {isEn ? '2. Ownership of Deliverables' : '2. Kepemilikan Hasil Pekerjaan'}
             </h2>
             <p>
-              You are responsible for maintaining the confidentiality of your account credentials (whether created via email/password or authenticated through Google OAuth). You are responsible for all activities that occur under your account.
+              {isEn
+                ? 'Upon final project settlement as specified in the project agreement, the custom web system source deliverables and domain configurations belong to the client.'
+                : 'Setelah penyelesaian proyek sesuai kesepakatan, hak penggunaan sistem web custom dan akses pengelolaan domain menjadi milik penuh pihak klien.'}
             </p>
           </section>
 
-          <section className="space-y-3">
-            <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
-              3. User Content & Ownership
+          <section className="space-y-3 border-t border-zinc-200 pt-6">
+            <h2 className="font-display text-lg font-semibold text-zinc-900">
+              {isEn ? '3. Inquiries & Support' : '3. Pertanyaan & Dukungan'}
             </h2>
-            <p>
-              You retain all rights and intellectual property ownership over the notes, tasks, checklists, media files, and messages you create or upload in Ersona. We claim no ownership over your data.
-            </p>
-            <p>
-              You agree not to upload any content that is illegal, defamatory, infringes upon copyright, or violates applicable laws.
-            </p>
-          </section>
-
-          <section className="space-y-3">
-            <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
-              4. Service Availability & Modifications
-            </h2>
-            <p>
-              Ersona provides services on an &quot;as is&quot; and &quot;as available&quot; basis. While we strive for 99.9% uptime and implement continuous backups and offline caching via PWA technology, we reserve the right to modify, suspend, or update features to improve service reliability and user experience.
-            </p>
-          </section>
-
-          <section className="space-y-3">
-            <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
-              5. Contact & Inquiries
-            </h2>
-            <p>
-              For questions or clarifications regarding these Terms, please contact:
-            </p>
-            <div className="p-4 rounded-xl bg-white dark:bg-[#1a1a1a] border border-neutral-200 dark:border-neutral-800 text-xs space-y-1.5">
-              <p className="font-semibold text-neutral-900 dark:text-neutral-100">Ersona Support</p>
-              <p className="flex items-center space-x-2">
-                <Mail className="w-3.5 h-3.5 text-neutral-500" />
-                <span>Email: </span>
-                <a href="mailto:support@ersona.site" className="text-blue-600 dark:text-blue-400 hover:underline font-medium">
+            <div className="p-5 rounded-xl bg-zinc-50 border border-zinc-200 text-sm space-y-2">
+              <div className="flex items-center gap-2.5">
+                <Mail className="w-4 h-4 text-[#121512] shrink-0" aria-hidden="true" />
+                <a href="mailto:support@ersona.site" className="font-mono text-xs sm:text-sm text-zinc-900 hover:underline">
                   support@ersona.site
                 </a>
-              </p>
+              </div>
+              <div className="flex items-center gap-2.5">
+                <Phone className="w-4 h-4 text-[#121512] shrink-0" aria-hidden="true" />
+                <a href="https://wa.me/62895629460463" target="_blank" rel="noopener noreferrer" className="font-mono text-xs sm:text-sm text-zinc-900 hover:underline">
+                  0895-6294-60463 · WhatsApp
+                </a>
+              </div>
             </div>
           </section>
         </div>
       </main>
-
-      {/* Footer */}
-      <footer className="border-t border-neutral-200/80 dark:border-neutral-800 py-8 text-center text-xs text-neutral-400">
-        <p>&copy; {new Date().getFullYear()} Ersona. All rights reserved.</p>
-      </footer>
     </div>
   );
 }
